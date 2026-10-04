@@ -22,6 +22,7 @@ import androidx.core.widget.TextViewCompat;
 
 import com.fongmi.android.tv.R;
 import com.fongmi.android.tv.theme.ThemeController;
+import com.fongmi.android.tv.theme.ThemeDialogSemantics;
 import com.fongmi.android.tv.ui.helper.TouchOptimizationHelper;
 import com.fongmi.android.tv.utils.ResUtil;
 import com.fongmi.android.tv.utils.Util;
@@ -46,6 +47,7 @@ public final class LightDialog {
         // AlertController installs the message and button views during show(), so the
         // binder root is registered here and re-walked by descendant-count changes.
         ThemeController.bindDialog(dialog);
+        ThemeDialogSemantics.bindLegacyDialog(window.getDecorView());
     }
 
     static int resolveAlertWidth(int screenWidth, int screenHeight) {
@@ -134,6 +136,7 @@ public final class LightDialog {
             applyWindow(dialog, context, landFactor, portFactor, maxDp, heightPx);
             TouchOptimizationHelper.sync(dialog);
             ThemeController.bindDialog(dialog);
+            if (dialog.getWindow() != null) ThemeDialogSemantics.bindLegacyDialog(dialog.getWindow().getDecorView());
         });
         return dialog;
     }

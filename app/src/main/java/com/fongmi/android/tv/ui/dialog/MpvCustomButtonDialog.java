@@ -25,11 +25,14 @@ import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.widget.AppCompatImageButton;
+import androidx.core.content.ContextCompat;
 import androidx.fragment.app.DialogFragment;
 import androidx.fragment.app.FragmentManager;
 
 import com.fongmi.android.tv.R;
 import com.fongmi.android.tv.player.mpv.MpvConfigStore;
+import com.fongmi.android.tv.theme.ThemeController;
+import com.fongmi.android.tv.theme.ThemeDialogSemantics;
 import com.fongmi.android.tv.theme.WebHtvAlertDialogBuilder;
 import com.fongmi.android.tv.utils.Notify;
 import com.fongmi.android.tv.utils.ResUtil;
@@ -69,7 +72,7 @@ public class MpvCustomButtonDialog extends DialogFragment {
         LinearLayout heading = column(requireContext(), 0);
         TextView title = text(requireContext(), getString(R.string.mpv_config_custom_button_title), 21, true);
         TextView subtitle = text(requireContext(), getString(R.string.mpv_config_custom_button_subtitle), 12, false);
-        subtitle.setTextColor(Color.rgb(95, 99, 104));
+        subtitle.setTextColor(ThemeDialogSemantics.tokens().colorOnSurfaceVariant());
         heading.addView(title);
         heading.addView(subtitle);
         header.addView(heading, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
@@ -108,18 +111,18 @@ public class MpvCustomButtonDialog extends DialogFragment {
 
         TextView badge = text(requireContext(), slot, 12, false);
         badge.setGravity(Gravity.CENTER);
-        badge.setTextColor(Color.rgb(83, 101, 132));
+        badge.setTextColor(ThemeDialogSemantics.tokens().colorOnPrimaryContainer());
         badge.setBackground(badgeBackground(index < 4 ? 0xFFE7EEF9 : 0xFFF0EAF4));
         row.addView(badge, new LinearLayout.LayoutParams(ResUtil.dp2px(48), ResUtil.dp2px(48)));
 
         TextView name = text(requireContext(), item == null ? getString(R.string.mpv_config_custom_button_empty_slot) : item.title, 15, item != null);
-        name.setTextColor(item == null ? Color.rgb(128, 134, 139) : Color.rgb(32, 33, 36));
+        name.setTextColor(item == null ? ThemeDialogSemantics.tokens().colorOnSurfaceVariant() : ThemeDialogSemantics.tokens().colorOnSurface());
         row.addView(name, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
 
         if (item != null) {
             AppCompatImageButton delete = iconButton(R.drawable.ic_action_delete, R.string.mpv_config_delete);
-            delete.setColorFilter(Color.rgb(197, 34, 31));
-            delete.setBackgroundTintList(ColorStateList.valueOf(0xFFFFE3E0));
+            delete.setImageTintList(ContextCompat.getColorStateList(requireContext(), R.color.selector_mpv_danger_icon_tint));
+            delete.setBackgroundTintList(ColorStateList.valueOf(ThemeDialogSemantics.tokens().colorErrorContainer()));
             delete.setOnClickListener(view -> confirmDelete(item));
             row.addView(delete, new LinearLayout.LayoutParams(ResUtil.dp2px(44), ResUtil.dp2px(44)));
         }
@@ -135,7 +138,7 @@ public class MpvCustomButtonDialog extends DialogFragment {
         card.setBackgroundResource(R.drawable.selector_mpv_profile_card);
         TextView title = text(requireContext(), getString(R.string.mpv_config_custom_button_import_export), 16, true);
         TextView desc = text(requireContext(), getString(R.string.mpv_config_custom_button_import_export_desc), 12, false);
-        desc.setTextColor(Color.rgb(95, 99, 104));
+        desc.setTextColor(ThemeDialogSemantics.tokens().colorOnSurfaceVariant());
         card.addView(title);
         card.addView(desc);
         LinearLayout actions = row(requireContext());
@@ -273,6 +276,8 @@ public class MpvCustomButtonDialog extends DialogFragment {
         window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
         window.setAttributes(params);
         window.setLayout(params.width, params.height);
+        ThemeController.bindDialog(dialog);
+        ThemeDialogSemantics.bindLegacyDialog(window.getDecorView());
     }
 
     private AppCompatImageButton iconButton(int icon, int description) {
@@ -281,7 +286,7 @@ public class MpvCustomButtonDialog extends DialogFragment {
         view.setContentDescription(getString(description));
         view.setPadding(ResUtil.dp2px(10), ResUtil.dp2px(10), ResUtil.dp2px(10), ResUtil.dp2px(10));
         view.setImageResource(icon);
-        view.setColorFilter(Color.rgb(95, 99, 104));
+        view.setImageTintList(ContextCompat.getColorStateList(requireContext(), R.color.selector_mpv_icon_tint));
         return view;
     }
 
@@ -291,12 +296,8 @@ public class MpvCustomButtonDialog extends DialogFragment {
         view.setIconPadding(ResUtil.dp2px(6));
         view.setMinHeight(0);
         view.setMinWidth(0);
-        if (!primary) {
-            view.setBackgroundTintList(ColorStateList.valueOf(Color.TRANSPARENT));
-            view.setTextColor(Color.rgb(60, 64, 67));
-            view.setStrokeWidth(ResUtil.dp2px(1));
-            view.setStrokeColor(ColorStateList.valueOf(0xFFB7B9BE));
-        }
+        if (primary) ThemeDialogSemantics.primary(view);
+        else ThemeDialogSemantics.secondary(view);
         return view;
     }
 
@@ -324,7 +325,7 @@ public class MpvCustomButtonDialog extends DialogFragment {
     private static TextView text(android.content.Context context, String value, int size, boolean bold) {
         TextView view = new TextView(context);
         view.setText(value);
-        view.setTextColor(Color.rgb(32, 33, 36));
+        view.setTextColor(ThemeController.current().colorOnSurface());
         view.setTextSize(size);
         view.setTypeface(view.getTypeface(), bold ? Typeface.BOLD : Typeface.NORMAL);
         return view;
@@ -373,7 +374,7 @@ public class MpvCustomButtonDialog extends DialogFragment {
             enabled.setChecked(source == null || source.enabled);
             root.addView(enabled, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
             TextView lua = text(requireContext(), getString(R.string.mpv_config_custom_button_lua_section), 14, true);
-            lua.setTextColor(Color.rgb(60, 64, 67));
+            lua.setTextColor(ThemeController.current().colorOnSurfaceVariant());
             root.addView(lua, inputParams());
             shortCode = input(requireContext(), getString(R.string.mpv_config_custom_button_short), source == null ? "" : source.content, true);
             longCode = input(requireContext(), getString(R.string.mpv_config_custom_button_long), source == null ? "" : source.longPressContent, true);
@@ -447,6 +448,8 @@ public class MpvCustomButtonDialog extends DialogFragment {
             window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
             window.setAttributes(params);
             window.setLayout(params.width, params.height);
+            ThemeController.bindDialog(dialog);
+            ThemeDialogSemantics.bindLegacyDialog(window.getDecorView());
         }
     }
 }

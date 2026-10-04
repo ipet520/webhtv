@@ -31,7 +31,14 @@ public final class SiteDialogTheme {
 
     public static void applySiteItem(View root, TextView text, MaterialCheckBox check) {
         ThemeTokens tokens = ThemeController.current();
-        if (root != null) root.setBackground(siteItem(root.getContext(), tokens));
+        if (root != null) {
+            int left = root.getPaddingLeft();
+            int top = root.getPaddingTop();
+            int right = root.getPaddingRight();
+            int bottom = root.getPaddingBottom();
+            root.setBackground(siteItem(root.getContext(), tokens));
+            root.setPadding(left, top, right, bottom);
+        }
         if (text != null) text.setTextColor(textColors(tokens));
         if (check != null) check.setButtonTintList(checkColors(tokens));
     }

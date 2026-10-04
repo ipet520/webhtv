@@ -118,6 +118,8 @@ public class ThemeBaseWiringTest {
         String leanback = read("src/leanback/res/values/styles.xml");
         assertTrue(leanback.contains("<style name=\"Theme.Base\" parent=\"Theme.WebHTV.TV\">"));
         assertFalse(leanback, leanback.contains("<item name=\"colorPrimary\">@color/white</item>"));
+        String tvTheme = styleBody(read("src/main/res/values/webhtv_styles.xml"), "Theme.WebHTV.TV");
+        assertFalse("TV theme must not force isLightTheme=false", tvTheme.contains("isLightTheme"));
     }
 
     @Test
@@ -199,7 +201,8 @@ public class ThemeBaseWiringTest {
         for (String[] palette : palettes) {
             assertAlphaVariants(palette[0], palette[2]);
         }
-        assertAlphaVariants("src/leanback/res/values/webhtv_tokens.xml", null);
+        assertFalse("Leanback must use the shared light/night token tables",
+                exists("src/leanback/res/values/webhtv_tokens.xml"));
     }
 
     /**
@@ -236,8 +239,8 @@ public class ThemeBaseWiringTest {
      * <p>Their shared fill turns light when selected, so the text has to switch with it:
      * {@code selector_text} resolves to {@code colorOnSecondaryContainer}, and
      * {@code selector_video_text} resolves to the selected highlight, both falling back
-     * to a light default. Collapsing either to one colour reintroduces an unreadable pair
-     * on whichever state loses.
+     * to the explicit light foreground required by the fixed dark poster overlay.
+     * Collapsing either to one colour reintroduces an unreadable pair on whichever state loses.
      */
     @Test
     public void selectableWallpaperItemsKeepAStateList() throws Exception {
@@ -316,11 +319,12 @@ public class ThemeBaseWiringTest {
     public void wallpaperForegroundIsLightAndNotBinderRewritable() throws Exception {
         String light = read("src/main/res/values/webhtv_tokens.xml");
         String night = read("src/main/res/values-night/webhtv_tokens.xml");
-        String tv = read("src/leanback/res/values/webhtv_tokens.xml");
-        for (String source : new String[]{light, night, tv}) {
+        for (String source : new String[]{light, night}) {
             assertTrue("every palette must declare webhtv_on_wallpaper",
                     source.contains("<color name=\"webhtv_on_wallpaper\">#FFFFFF</color>"));
         }
+        assertFalse("Leanback must not ship a fixed dark token override",
+                exists("src/leanback/res/values/webhtv_tokens.xml"));
 
         String attrs = read("src/main/res/values/webhtv_attrs.xml");
         assertTrue("webhtvColorOnWallpaper must be declared",
@@ -376,5 +380,10 @@ public class ThemeBaseWiringTest {
     private static String read(String path) throws Exception {
         Path root = Files.exists(Path.of("src")) ? Path.of("") : Path.of("app");
         return Files.readString(root.resolve(path), StandardCharsets.UTF_8);
+    }
+
+    private static boolean exists(String path) {
+        Path root = Files.exists(Path.of("src")) ? Path.of("") : Path.of("app");
+        return Files.exists(root.resolve(path));
     }
 }

@@ -1,8 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- These rows intentionally sit on the fixed dark poster/overlay surface. -->
+    <item android:color="@color/white_60" android:state_enabled="false" />
+    <item android:color="@color/white" android:state_pressed="true" />
+    <item android:color="@color/white" android:state_focused="true" />
     <item android:color="@color/yellow_500" android:state_activated="true" />
     <item android:color="@color/yellow_500" android:state_checked="true" />
+    <!-- EpisodeAdapter uses selected as the marquee switch, not persistent selection. -->
     <item android:color="@color/yellow_500" android:state_selected="true" />
-    <item android:color="@color/white" android:state_focused="true" />
     <item android:color="@color/white" />
 </selector>

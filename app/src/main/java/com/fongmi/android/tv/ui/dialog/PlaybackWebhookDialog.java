@@ -28,6 +28,8 @@ import com.fongmi.android.tv.R;
 import com.fongmi.android.tv.databinding.DialogPlaybackWebhookBinding;
 import com.fongmi.android.tv.playback.PlaybackWebhookStore;
 import com.fongmi.android.tv.playback.WebhookConfig;
+import com.fongmi.android.tv.theme.ThemeDialogSemantics;
+import com.fongmi.android.tv.theme.ThemeTokens;
 import com.fongmi.android.tv.theme.WebHtvAlertDialogBuilder;
 import com.fongmi.android.tv.ui.custom.CustomTextListener;
 import com.fongmi.android.tv.utils.Notify;
@@ -529,7 +531,8 @@ public class PlaybackWebhookDialog extends BaseAlertDialog {
         button.setMinimumHeight(dp(36));
         button.setPadding(dp(6), 0, dp(6), 0);
         ColorStateList bg = ContextCompat.getColorStateList(requireContext(), tonal ? R.color.dialog_tonal_button_bg : R.color.dialog_outlined_button_bg);
-        ColorStateList fg = danger ? ColorStateList.valueOf(Color.parseColor("#B3261E")) : ContextCompat.getColorStateList(requireContext(), tonal ? R.color.dialog_tonal_button_text : R.color.dialog_outlined_button_text);
+        ThemeTokens tokens = ThemeDialogSemantics.tokens();
+        ColorStateList fg = danger ? ColorStateList.valueOf(tokens.colorError()) : ContextCompat.getColorStateList(requireContext(), tonal ? R.color.dialog_tonal_button_text : R.color.dialog_outlined_button_text);
         button.setBackgroundTintList(bg);
         button.setTextColor(fg);
         if (!tonal) {
@@ -554,7 +557,7 @@ public class PlaybackWebhookDialog extends BaseAlertDialog {
     private MaterialTextView text(String value, int sp, int color, boolean bold) {
         MaterialTextView view = new MaterialTextView(requireContext());
         view.setText(value);
-        view.setTextColor(color);
+        view.setTextColor(ThemeDialogSemantics.textColor(color));
         view.setTextSize(sp);
         view.setSingleLine(false);
         if (bold) view.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
@@ -575,9 +578,10 @@ public class PlaybackWebhookDialog extends BaseAlertDialog {
     }
 
     private GradientDrawable rowBackground(WebhookConfig config) {
+        ThemeTokens tokens = ThemeDialogSemantics.tokens();
         GradientDrawable drawable = new GradientDrawable();
-        drawable.setColor(Color.parseColor(config.suspended ? "#FFF7F7" : "#F5F6F7"));
-        drawable.setStroke(dp(1), Color.parseColor(config.isUsable() ? "#DADCE0" : "#E2E5E8"));
+        drawable.setColor(config.suspended ? tokens.colorErrorContainer() : tokens.colorSurfaceContainerHigh());
+        drawable.setStroke(dp(1), config.isUsable() ? tokens.colorOutlineVariant() : tokens.colorOutline());
         drawable.setCornerRadius(dp(6));
         return drawable;
     }

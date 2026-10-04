@@ -1,24 +1,31 @@
 <?xml version="1.0" encoding="utf-8"?>
 <selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_enabled="false">
+        <shape android:shape="rectangle">
+            <solid android:color="?attr/colorSurfaceContainerLow" />
+            <corners android:radius="10dp" />
+            <stroke android:width="1dp" android:color="?attr/colorOutlineVariant" />
+        </shape>
+    </item>
     <item android:state_focused="true">
         <shape android:shape="rectangle">
-            <solid android:color="#F1F6FF" />
+            <solid android:color="?attr/colorPrimaryContainer" />
             <corners android:radius="10dp" />
-            <stroke android:width="2dp" android:color="#1A73E8" />
+            <stroke android:width="2dp" android:color="@color/webhtv_color_focus" />
         </shape>
     </item>
     <item android:state_pressed="true">
         <shape android:shape="rectangle">
-            <solid android:color="#E8F0FE" />
+            <solid android:color="?attr/colorPrimaryContainer" />
             <corners android:radius="10dp" />
-            <stroke android:width="1dp" android:color="#AECBFA" />
+            <stroke android:width="1dp" android:color="@color/webhtv_color_focus" />
         </shape>
     </item>
     <item>
         <shape android:shape="rectangle">
-            <solid android:color="#ECEFF1" />
+            <solid android:color="?attr/colorSurfaceContainerLow" />
             <corners android:radius="10dp" />
-            <stroke android:width="1dp" android:color="#D5D9DE" />
+            <stroke android:width="1dp" android:color="?attr/colorOutlineVariant" />
         </shape>
     </item>
 </selector>

@@ -29,6 +29,9 @@ import androidx.fragment.app.FragmentActivity;
 import androidx.fragment.app.FragmentManager;
 
 import com.fongmi.android.tv.R;
+import com.fongmi.android.tv.theme.ThemeController;
+import com.fongmi.android.tv.theme.ThemeDialogSemantics;
+import com.fongmi.android.tv.theme.ThemeTokens;
 import com.fongmi.android.tv.ui.helper.TmdbSeasonResolver;
 import com.fongmi.android.tv.utils.ResUtil;
 import com.fongmi.android.tv.utils.Util;
@@ -259,6 +262,8 @@ public final class ChoiceDialog extends DialogFragment {
         window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
         window.setAttributes(params);
         window.setLayout(params.width, params.height);
+        ThemeController.bindDialog(dialog);
+        ThemeDialogSemantics.bindLegacyDialog(window.getDecorView());
         window.getDecorView().post(() -> {
             adaptListHeight(window);
             if (Util.isLeanback()) window.getDecorView().post(this::focusSelectedItem);
@@ -391,7 +396,7 @@ public final class ChoiceDialog extends DialogFragment {
 
         MaterialTextView titleView = new MaterialTextView(requireContext());
         titleView.setText(title);
-        titleView.setTextColor(Color.parseColor("#202124"));
+        titleView.setTextColor(ThemeDialogSemantics.tokens().colorOnSurface());
         titleView.setTextSize(18);
         titleView.setGravity(Gravity.CENTER_VERTICAL);
         titleView.setSingleLine(false);
@@ -406,7 +411,7 @@ public final class ChoiceDialog extends DialogFragment {
     private void addMessage(LinearLayout root) {
         MaterialTextView messageView = new MaterialTextView(requireContext());
         messageView.setText(message);
-        messageView.setTextColor(Color.parseColor("#5F6368"));
+        messageView.setTextColor(ThemeDialogSemantics.tokens().colorOnSurfaceVariant());
         messageView.setTextSize(14);
         messageView.setLineSpacing(dp(2), 1f);
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
@@ -480,17 +485,18 @@ public final class ChoiceDialog extends DialogFragment {
     }
 
     private void styleItem(MaterialButton button, int position) {
+        ThemeTokens tokens = ThemeDialogSemantics.tokens();
         if (!itemEnabled(position)) {
-            button.setTextColor(ColorStateList.valueOf(Color.parseColor("#9AA0A6")));
-            button.setBackgroundTintList(ColorStateList.valueOf(Color.parseColor("#F1F3F4")));
-            button.setStrokeColor(ColorStateList.valueOf(Color.parseColor("#E0E0E0")));
+            button.setTextColor(ColorStateList.valueOf(tokens.colorOnSurfaceVariant()));
+            button.setBackgroundTintList(ColorStateList.valueOf(tokens.colorSurfaceContainerHighest()));
+            button.setStrokeColor(ColorStateList.valueOf(tokens.colorOutlineVariant()));
             return;
         }
         boolean on = itemSelected(position);
         boolean focused = button.isFocused();
-        int text = focused ? Color.WHITE : on ? Color.parseColor("#174EA6") : Color.parseColor("#202124");
-        int bg = focused ? Color.parseColor("#1A73E8") : on ? Color.parseColor("#E8F0FE") : Color.WHITE;
-        int stroke = focused ? Color.parseColor("#174EA6") : on ? Color.parseColor("#8AB4F8") : Color.parseColor("#DADCE0");
+        int text = focused ? tokens.colorOnPrimary() : on ? tokens.colorOnPrimaryContainer() : tokens.colorOnSurface();
+        int bg = focused ? tokens.colorPrimary() : on ? tokens.colorPrimaryContainer() : tokens.colorSurfaceContainerHigh();
+        int stroke = focused ? tokens.colorFocus() : on ? tokens.colorPrimary() : tokens.colorOutlineVariant();
         button.setTextColor(ColorStateList.valueOf(text));
         button.setBackgroundTintList(ColorStateList.valueOf(bg));
         button.setStrokeColor(ColorStateList.valueOf(stroke));

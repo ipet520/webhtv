@@ -18,6 +18,7 @@ import androidx.fragment.app.FragmentActivity;
 
 import com.fongmi.android.tv.R;
 import com.fongmi.android.tv.databinding.DialogExitConfirmBinding;
+import com.fongmi.android.tv.theme.ThemeController;
 import com.fongmi.android.tv.utils.ResUtil;
 
 public final class ExitConfirmDialog extends DialogFragment {
@@ -88,6 +89,7 @@ public final class ExitConfirmDialog extends DialogFragment {
         window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
         window.setAttributes(params);
         window.setLayout(width, WindowManager.LayoutParams.WRAP_CONTENT);
+        ThemeController.bindDialog(dialog);
     }
 
     public interface Listener {

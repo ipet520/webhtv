@@ -84,7 +84,8 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/update_channel_stable"
-                        android:textColor="?attr/colorOnSurface"
+                        android:duplicateParentState="true"
+                        android:textColor="@color/selector_update_version_text"
                         android:textSize="16sp"
                         android:textStyle="bold" />
 
@@ -99,7 +100,7 @@
                         android:paddingTop="4dp"
                         android:paddingEnd="8dp"
                         android:paddingBottom="4dp"
-                        android:textColor="?attr/colorPrimary"
+                        android:textColor="?attr/colorOnPrimaryContainer"
                         android:textSize="12sp"
                         tools:text="可更新" />
 
@@ -182,7 +183,8 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/update_channel_beta"
-                        android:textColor="?attr/colorOnSurface"
+                        android:duplicateParentState="true"
+                        android:textColor="@color/selector_update_version_text"
                         android:textSize="16sp"
                         android:textStyle="bold" />
 
@@ -197,7 +199,7 @@
                         android:paddingTop="4dp"
                         android:paddingEnd="8dp"
                         android:paddingBottom="4dp"
-                        android:textColor="?attr/colorPrimary"
+                        android:textColor="?attr/colorOnPrimaryContainer"
                         android:textSize="12sp"
                         tools:text="可更新" />
 

@@ -7,7 +7,7 @@
     android:layout_height="wrap_content"
     android:layout_marginBottom="8dp"
     android:addStatesFromChildren="true"
-    android:background="@drawable/selector_git_cloud_card"
+    android:background="@drawable/selector_settings_card"
     android:clickable="true"
     android:descendantFocusability="afterDescendants"
     android:focusable="true"

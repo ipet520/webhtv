@@ -442,38 +442,23 @@ public class ThemeBinderContractTest {
     }
 
     /**
-     * Pins the shared dark/light decision so the TV fix cannot silently re-break, and so
-     * the mobile answer is provably unchanged:
-     *
-     * <ul>
-     *   <li>mobile light/dark: the compiled table equals the canonical table, so the
-     *       result matches the pre-fix {@code mode}/{@code uiMode} answer;
-     *   <li>TV: the compiled table is dark in every configuration, so TV stays dark even
-     *       on a light-mode device or when the user explicitly picked light;
-     *   <li>unidentifiable table: the historical rule is kept instead of guessing.
-     * </ul>
+     * Pins the actual mode contract: explicit choices win over compiled-resource probes,
+     * while SYSTEM follows the current configuration.
      */
     @Test
-    public void darkPaletteDecisionKeepsMobileStableAndForcesTvOntoItsCompiledTable() {
-        // Mobile: compiled table matches the canonical one, so both branches agree and
-        // the pre-fix behaviour is preserved exactly.
+    public void darkPaletteDecisionHonorsExplicitModeForEveryFlavour() {
+        // The former assertions deliberately locked the confirmed regression: a
+        // compiled dark TV table overrode an explicit Light choice.
+        assertFalse(ThemeController.darkPaletteFor(true, ThemeMode.LIGHT, false));
+        assertFalse(ThemeController.darkPaletteFor(true, ThemeMode.LIGHT, true));
+        assertTrue(ThemeController.darkPaletteFor(false, ThemeMode.DARK, false));
+        assertTrue(ThemeController.darkPaletteFor(false, ThemeMode.DARK, true));
+
         assertFalse(ThemeController.darkPaletteFor(false, ThemeMode.SYSTEM, false));
+        assertFalse(ThemeController.darkPaletteFor(true, ThemeMode.SYSTEM, false));
+        assertTrue(ThemeController.darkPaletteFor(false, ThemeMode.SYSTEM, true));
         assertTrue(ThemeController.darkPaletteFor(true, ThemeMode.SYSTEM, true));
-        assertTrue(ThemeController.darkPaletteFor(true, ThemeMode.DARK, false));
 
-        // TV: the compiled table wins over a light system or an explicit light choice.
-        assertTrue(ThemeController.darkPaletteFor(true, ThemeMode.SYSTEM, false));
-        assertTrue(ThemeController.darkPaletteFor(true, ThemeMode.LIGHT, false));
-        assertTrue(ThemeController.darkPaletteFor(true, ThemeMode.LIGHT, true));
-
-        // Unidentifiable table: keep the historical rule rather than guessing.
-        assertFalse(ThemeController.darkPaletteFor(null, ThemeMode.SYSTEM, false));
-        assertTrue(ThemeController.darkPaletteFor(null, ThemeMode.SYSTEM, true));
-        assertFalse(ThemeController.darkPaletteFor(null, ThemeMode.LIGHT, true));
-        assertTrue(ThemeController.darkPaletteFor(null, ThemeMode.DARK, false));
-
-        // The canonical tables must stay identifiable from the flavour resources; a
-        // drift here is what silently disabled every TV rewrite.
         assertNotEquals(ThemeTokens.light().colorPrimary(), ThemeTokens.dark().colorPrimary());
         assertNotEquals(ThemeTokens.light().colorSurface(), ThemeTokens.dark().colorSurface());
     }

@@ -5,7 +5,6 @@ import android.graphics.Color;
 import android.graphics.Rect;
 import android.graphics.drawable.ColorDrawable;
 import android.text.TextUtils;
-import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.View;
@@ -16,6 +15,7 @@ import android.widget.LinearLayout;
 import android.widget.PopupWindow;
 
 import androidx.core.widget.TextViewCompat;
+import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentActivity;
 import androidx.recyclerview.widget.RecyclerView;
@@ -25,6 +25,8 @@ import com.fongmi.android.tv.App;
 import com.fongmi.android.tv.R;
 import com.fongmi.android.tv.databinding.DialogMpvConfigManagerBinding;
 import com.fongmi.android.tv.player.mpv.MpvConfigStore;
+import com.fongmi.android.tv.theme.ThemeController;
+import com.fongmi.android.tv.theme.ThemeTokens;
 import com.fongmi.android.tv.theme.WebHtvAlertDialogBuilder;
 import com.fongmi.android.tv.ui.adapter.MpvConfigProfileAdapter;
 import com.fongmi.android.tv.utils.Notify;
@@ -83,10 +85,11 @@ public class MpvConfigDialog extends BaseAlertDialog implements MpvConfigProfile
     }
 
     private void setupTabs() {
+        ThemeTokens tokens = ThemeController.current();
         binding.tabs.setTabMode(TabLayout.MODE_FIXED);
         binding.tabs.setTabGravity(TabLayout.GRAVITY_FILL);
-        binding.tabs.setSelectedTabIndicatorColor(Color.parseColor("#1A73E8"));
-        binding.tabs.setTabTextColors(Color.parseColor("#5F6368"), Color.parseColor("#1A73E8"));
+        binding.tabs.setSelectedTabIndicatorColor(tokens.colorPrimary());
+        binding.tabs.setTabTextColors(tokens.colorOnSurfaceVariant(), tokens.colorPrimary());
         binding.tabs.setTabRippleColor(android.content.res.ColorStateList.valueOf(Color.TRANSPARENT));
         binding.tabs.setUnboundedRipple(false);
         for (String label : targets()) binding.tabs.addTab(binding.tabs.newTab().setText(label));
@@ -240,12 +243,10 @@ public class MpvConfigDialog extends BaseAlertDialog implements MpvConfigProfile
         item.setPadding(ResUtil.dp2px(14), 0, ResUtil.dp2px(14), 0);
         item.setCompoundDrawablePadding(ResUtil.dp2px(12));
         item.setCompoundDrawablesRelativeWithIntrinsicBounds(iconRes, 0, 0, 0);
-        int color = Color.parseColor(danger ? "#C5221F" : "#202124");
-        item.setTextColor(color);
-        TextViewCompat.setCompoundDrawableTintList(item, android.content.res.ColorStateList.valueOf(color));
-        TypedValue value = new TypedValue();
-        requireContext().getTheme().resolveAttribute(android.R.attr.selectableItemBackground, value, true);
-        item.setBackgroundResource(value.resourceId);
+        int textColor = danger ? R.color.selector_mpv_action_text_danger : R.color.selector_mpv_action_text;
+        item.setTextColor(ContextCompat.getColorStateList(requireContext(), textColor));
+        TextViewCompat.setCompoundDrawableTintList(item, ContextCompat.getColorStateList(requireContext(), textColor));
+        item.setBackgroundResource(R.drawable.selector_mpv_action_item);
         item.setClickable(true);
         item.setFocusable(true);
         item.setFocusableInTouchMode(Util.isLeanback());

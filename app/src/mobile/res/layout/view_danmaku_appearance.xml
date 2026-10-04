@@ -219,10 +219,10 @@
             android:layout_height="match_parent"
             android:layout_marginEnd="8dp"
             android:layout_weight="1"
-            android:background="@drawable/selector_control_sheet_button"
+            android:background="@drawable/selector_theme_sheet_button"
             android:gravity="center"
             android:text="@string/danmaku_style_none"
-            android:textColor="@color/selector_control_sheet_text"
+            android:textColor="@color/selector_theme_sheet_text"
             android:textSize="14sp" />
 
         <com.google.android.material.textview.MaterialTextView
@@ -231,10 +231,10 @@
             android:layout_height="match_parent"
             android:layout_marginEnd="8dp"
             android:layout_weight="1"
-            android:background="@drawable/selector_control_sheet_button"
+            android:background="@drawable/selector_theme_sheet_button"
             android:gravity="center"
             android:text="@string/danmaku_style_shadow"
-            android:textColor="@color/selector_control_sheet_text"
+            android:textColor="@color/selector_theme_sheet_text"
             android:textSize="14sp" />
 
         <com.google.android.material.textview.MaterialTextView
@@ -243,10 +243,10 @@
             android:layout_height="match_parent"
             android:layout_marginEnd="8dp"
             android:layout_weight="1"
-            android:background="@drawable/selector_control_sheet_button"
+            android:background="@drawable/selector_theme_sheet_button"
             android:gravity="center"
             android:text="@string/danmaku_style_stroke"
-            android:textColor="@color/selector_control_sheet_text"
+            android:textColor="@color/selector_theme_sheet_text"
             android:textSize="14sp" />
 
         <com.google.android.material.textview.MaterialTextView
@@ -254,10 +254,10 @@
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:background="@drawable/selector_control_sheet_button"
+            android:background="@drawable/selector_theme_sheet_button"
             android:gravity="center"
             android:text="@string/danmaku_style_projection"
-            android:textColor="@color/selector_control_sheet_text"
+            android:textColor="@color/selector_theme_sheet_text"
             android:textSize="14sp" />
 
     </androidx.appcompat.widget.LinearLayoutCompat>
@@ -469,10 +469,10 @@
             android:layout_height="match_parent"
             android:layout_marginEnd="8dp"
             android:layout_weight="1"
-            android:background="@drawable/selector_control_sheet_button"
+            android:background="@drawable/selector_theme_sheet_button"
             android:gravity="center"
             android:text="@string/danmaku_color_default"
-            android:textColor="@color/selector_control_sheet_text"
+            android:textColor="@color/selector_theme_sheet_text"
             android:textSize="14sp" />
 
         <com.google.android.material.textview.MaterialTextView
@@ -481,10 +481,10 @@
             android:layout_height="match_parent"
             android:layout_marginEnd="8dp"
             android:layout_weight="1"
-            android:background="@drawable/selector_control_sheet_button"
+            android:background="@drawable/selector_theme_sheet_button"
             android:gravity="center"
             android:text="@string/danmaku_color_colorful"
-            android:textColor="@color/selector_control_sheet_text"
+            android:textColor="@color/selector_theme_sheet_text"
             android:textSize="14sp" />
 
         <com.google.android.material.textview.MaterialTextView

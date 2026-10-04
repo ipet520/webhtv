@@ -3,27 +3,27 @@
 
     <item android:state_focused="true">
         <shape android:shape="rectangle">
-            <solid android:color="#0B57D0" />
+            <solid android:color="?attr/colorPrimary" />
             <corners android:radius="10dp" />
             <stroke
                 android:width="2dp"
-                android:color="#FFFFFF" />
+                android:color="?attr/colorOnPrimary" />
         </shape>
     </item>
 
     <item android:state_pressed="true">
         <shape android:shape="rectangle">
-            <solid android:color="#0B57D0" />
+            <solid android:color="?attr/colorPrimary" />
             <corners android:radius="10dp" />
             <stroke
                 android:width="2dp"
-                android:color="#FFFFFF" />
+                android:color="?attr/colorOnPrimary" />
         </shape>
     </item>
 
     <item>
         <shape android:shape="rectangle">
-            <solid android:color="#174EA6" />
+            <solid android:color="?attr/colorPrimary" />
             <corners android:radius="10dp" />
         </shape>
     </item>

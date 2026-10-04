@@ -14,6 +14,7 @@ import androidx.fragment.app.FragmentActivity;
 import com.fongmi.android.tv.R;
 import com.fongmi.android.tv.server.Server;
 import com.fongmi.android.tv.theme.WebHtvAlertDialogBuilder;
+import com.fongmi.android.tv.theme.ThemeDialogSemantics;
 import com.fongmi.android.tv.utils.ResUtil;
 import com.fongmi.android.tv.utils.Notify;
 import com.github.catvod.crawler.SpiderDebug;
@@ -36,7 +37,7 @@ public final class DebugLogDialog {
         String message = activity.getString(R.string.debug_log_dialog_message, lanUrl, localUrl);
         MaterialTextView content = new MaterialTextView(activity);
         content.setText(message);
-        content.setTextColor(Color.parseColor("#5F6368"));
+        content.setTextColor(ThemeDialogSemantics.tokens().colorOnSurfaceVariant());
         content.setTextSize(14);
         content.setLineSpacing(ResUtil.dp2px(2), 1f);
         android.widget.LinearLayout panel = new android.widget.LinearLayout(activity); panel.setOrientation(android.widget.LinearLayout.VERTICAL);
@@ -44,7 +45,7 @@ public final class DebugLogDialog {
         for (com.github.catvod.crawler.diagnostics.DiagnosticCategories.Category category : com.github.catvod.crawler.diagnostics.DiagnosticCategories.Category.values()) {
             androidx.appcompat.widget.SwitchCompat toggle = new androidx.appcompat.widget.SwitchCompat(activity);
             toggle.setText(category.title);
-            toggle.setTextColor(Color.parseColor("#202124"));
+            toggle.setTextColor(ThemeDialogSemantics.tokens().colorOnSurface());
             toggle.setPadding(0, ResUtil.dp2px(8), 0, ResUtil.dp2px(8));
             toggle.setFocusable(true);
             toggle.setChecked(com.github.catvod.crawler.diagnostics.DiagnosticCategories.accepts(com.github.catvod.crawler.DebugLogStore.categories(), category));

@@ -2,7 +2,6 @@ package com.fongmi.android.tv.ui.dialog;
 
 import android.app.Dialog;
 import android.content.res.ColorStateList;
-import android.graphics.Color;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
@@ -11,6 +10,8 @@ import android.widget.LinearLayout;
 import androidx.fragment.app.FragmentActivity;
 
 import com.fongmi.android.tv.R;
+import com.fongmi.android.tv.theme.ThemeController;
+import com.fongmi.android.tv.theme.ThemeTokens;
 import com.fongmi.android.tv.utils.KeyUtil;
 import com.fongmi.android.tv.utils.ResUtil;
 import com.google.android.material.slider.Slider;
@@ -36,7 +37,8 @@ public final class SliderNumberDialog {
 
         MaterialTextView valueView = new MaterialTextView(activity);
         valueView.setText(formatValue(current, valueSuffix));
-        valueView.setTextColor(Color.parseColor("#202124"));
+        ThemeTokens tokens = ThemeController.current();
+        valueView.setTextColor(tokens.colorOnSurface());
         valueView.setTextSize(28);
         valueView.setGravity(Gravity.CENTER);
 
@@ -49,8 +51,8 @@ public final class SliderNumberDialog {
         slider.setValue(current);
         slider.setFocusable(true);
         slider.setFocusableInTouchMode(true);
-        ColorStateList active = ColorStateList.valueOf(Color.parseColor("#3D5AFE"));
-        ColorStateList inactive = ColorStateList.valueOf(Color.parseColor("#D0D5DD"));
+        ColorStateList active = ColorStateList.valueOf(tokens.colorPrimary());
+        ColorStateList inactive = ColorStateList.valueOf(tokens.colorOutlineVariant());
         slider.setTrackActiveTintList(active);
         slider.setTrackInactiveTintList(inactive);
         slider.setThumbTintList(active);
@@ -65,7 +67,7 @@ public final class SliderNumberDialog {
         if (hintRes != 0) {
             MaterialTextView hintView = new MaterialTextView(activity);
             hintView.setText(hintRes);
-            hintView.setTextColor(Color.parseColor("#5F6368"));
+            hintView.setTextColor(tokens.colorOnSurfaceVariant());
             hintView.setTextSize(14);
             hintView.setGravity(Gravity.CENTER);
             LinearLayout.LayoutParams hintParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);

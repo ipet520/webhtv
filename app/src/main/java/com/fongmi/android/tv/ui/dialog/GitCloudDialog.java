@@ -63,6 +63,8 @@ import com.fongmi.android.tv.gitcloud.provider.GitCloudProvider;
 import com.fongmi.android.tv.gitcloud.provider.GitCloudProviders;
 import com.fongmi.android.tv.gitcloud.secure.GitCloudTokenStore;
 import com.fongmi.android.tv.theme.WebHtvAlertDialogBuilder;
+import com.fongmi.android.tv.theme.ThemeDialogSemantics;
+import com.fongmi.android.tv.theme.ThemeTokens;
 import com.fongmi.android.tv.ui.custom.SafeScrollEditText;
 import com.fongmi.android.tv.ui.custom.SettingClipboardOverlay;
 import com.fongmi.android.tv.utils.AppBackup;
@@ -187,6 +189,7 @@ public class GitCloudDialog extends BaseAlertDialog {
         window.setGravity(Gravity.TOP | Gravity.CENTER_HORIZONTAL);
         window.setAttributes(params);
         window.setLayout(params.width, params.height);
+        ThemeDialogSemantics.bindLegacyDialog(binding.getRoot());
         if (clipboardOverlay == null) clipboardOverlay = SettingClipboardOverlay.attach(this, binding.getRoot());
         getDialog().setOnKeyListener((dialog, keyCode, event) -> {
             if (keyCode != KeyEvent.KEYCODE_BACK || repo == null) return false;
@@ -949,6 +952,7 @@ public class GitCloudDialog extends BaseAlertDialog {
         ImageView icon = treeIcon(R.drawable.ic_folder, Color.parseColor("#F9AB00"));
         line.addView(icon, new LinearLayoutCompat.LayoutParams(dp(22), dp(22)));
         MaterialTextView name = text(repo == null ? "全部文件" : repo.name, 15, Color.BLACK, true);
+        name.setTextColor(ContextCompat.getColorStateList(requireContext(), R.color.selector_git_cloud_inline_text));
         name.setPadding(dp(8), 0, 0, 0);
         makeFocusable(name);
         name.setTag(treeFocusTag(FOCUS_TREE_INFO, ""));
@@ -985,15 +989,20 @@ public class GitCloudDialog extends BaseAlertDialog {
         MaterialCheckBox check = checkbox(file);
         check.setTag(treeFocusTag(FOCUS_TREE_CHECK, file.path));
         line.addView(check, new LinearLayoutCompat.LayoutParams(dp(30), dp(30)));
-        ImageView icon = treeIcon(file.directory ? R.drawable.ic_folder : R.drawable.ic_file, file.directory ? Color.parseColor("#F9AB00") : Color.parseColor("#5F6368"));
+        ImageView icon = treeIcon(file.directory ? R.drawable.ic_folder : R.drawable.ic_file, file.directory ? Color.parseColor("#F9AB00") : ThemeDialogSemantics.tokens().colorOnSurfaceVariant());
         line.addView(icon, new LinearLayoutCompat.LayoutParams(dp(22), dp(22)));
         LinearLayoutCompat info = new LinearLayoutCompat(requireContext());
         info.setOrientation(LinearLayoutCompat.VERTICAL);
         MaterialTextView name = text(file.name, 14, Color.BLACK, true);
         MaterialTextView meta = text(file.directory ? file.path : file.path + " · " + size(file.size), 11, Color.parseColor("#5F6368"), false);
+        name.setTextColor(ContextCompat.getColorStateList(requireContext(), R.color.selector_git_cloud_tree_text));
+        meta.setTextColor(ContextCompat.getColorStateList(requireContext(), R.color.selector_git_cloud_tree_text));
+        name.setDuplicateParentStateEnabled(true);
+        meta.setDuplicateParentStateEnabled(true);
         info.addView(name);
         info.addView(meta);
         info.setPadding(dp(8), 0, 0, 0);
+        info.setDuplicateParentStateEnabled(true);
         info.setBackground(ContextCompat.getDrawable(requireContext(), R.drawable.selector_git_cloud_inline_focus));
         info.setTag(treeFocusTag(FOCUS_TREE_INFO, file.path));
         makeFocusable(info);
@@ -2157,8 +2166,9 @@ public class GitCloudDialog extends BaseAlertDialog {
         TextInputEditText edit = "内容".contentEquals(hint) ? new SafeScrollEditText(layout.getContext()) : new TextInputEditText(layout.getContext());
         edit.setSingleLine(!"内容".contentEquals(hint));
         edit.setTextSize(14);
-        edit.setTextColor(Color.parseColor("#202124"));
-        edit.setHintTextColor(Color.parseColor("#5F6368"));
+        ThemeTokens tokens = ThemeDialogSemantics.tokens();
+        edit.setTextColor(tokens.colorOnSurface());
+        edit.setHintTextColor(tokens.colorOnSurfaceVariant());
         edit.setSelectAllOnFocus(false);
         edit.setImportantForAutofill(View.IMPORTANT_FOR_AUTOFILL_NO);
         if (password) edit.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
@@ -2204,10 +2214,11 @@ public class GitCloudDialog extends BaseAlertDialog {
     }
 
     private LinearLayoutCompat card() {
+        ThemeTokens tokens = ThemeDialogSemantics.tokens();
         LinearLayoutCompat view = new LinearLayoutCompat(requireContext());
         view.setOrientation(LinearLayoutCompat.VERTICAL);
         view.setPadding(dp(10), dp(9), dp(10), dp(9));
-        view.setBackground(round(Color.parseColor("#F8F9FA"), 8, Color.parseColor("#DADCE0")));
+        view.setBackground(round(tokens.colorSurfaceContainerHigh(), 8, tokens.colorOutlineVariant()));
         LinearLayoutCompat.LayoutParams params = new LinearLayoutCompat.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         params.topMargin = dp(8);
         view.setLayoutParams(params);
@@ -2218,7 +2229,7 @@ public class GitCloudDialog extends BaseAlertDialog {
         MaterialTextView view = new MaterialTextView(requireContext());
         view.setText(value);
         view.setTextSize(sp);
-        view.setTextColor(color);
+        view.setTextColor(ThemeDialogSemantics.textColor(color));
         view.setSingleLine(false);
         if (bold) view.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
         return view;
@@ -2238,10 +2249,11 @@ public class GitCloudDialog extends BaseAlertDialog {
     }
 
     private MaterialTextView pill(String value) {
-        MaterialTextView view = text(value, 11, Color.parseColor("#1967D2"), true);
+        ThemeTokens tokens = ThemeDialogSemantics.tokens();
+        MaterialTextView view = text(value, 11, tokens.colorOnPrimaryContainer(), true);
         view.setGravity(Gravity.CENTER);
         view.setPadding(dp(8), dp(3), dp(8), dp(3));
-        view.setBackground(round(Color.parseColor("#E8F0FE"), 16, Color.TRANSPARENT));
+        view.setBackground(round(tokens.colorPrimaryContainer(), 16, Color.TRANSPARENT));
         return view;
     }
 
@@ -2280,7 +2292,7 @@ public class GitCloudDialog extends BaseAlertDialog {
         button.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
         button.setSingleLine(true);
         button.setEllipsize(TextUtils.TruncateAt.END);
-        button.setTextColor(Color.parseColor("#1967D2"));
+        button.setTextColor(ContextCompat.getColorStateList(requireContext(), R.color.selector_git_cloud_link_text));
         button.setBackground(ContextCompat.getDrawable(requireContext(), R.drawable.selector_git_cloud_inline_focus));
         button.setMinHeight(dp(28));
         button.setMinimumHeight(dp(28));
@@ -2334,7 +2346,7 @@ public class GitCloudDialog extends BaseAlertDialog {
         ImageButton button = new ImageButton(requireContext());
         button.setImageResource(expanded ? R.drawable.ic_detail_minus : R.drawable.ic_detail_plus);
         button.setBackground(ContextCompat.getDrawable(requireContext(), R.drawable.selector_git_cloud_inline_focus));
-        button.setColorFilter(Color.parseColor("#174EA6"));
+        button.setImageTintList(ContextCompat.getColorStateList(requireContext(), R.color.selector_git_cloud_inline_icon_tint));
         button.setPadding(dp(6), dp(6), dp(6), dp(6));
         makeFocusable(button);
         return button;
@@ -2421,7 +2433,7 @@ public class GitCloudDialog extends BaseAlertDialog {
     private ImageView treeIcon(int icon, int color) {
         ImageView view = new ImageView(requireContext());
         view.setImageResource(icon);
-        view.setColorFilter(color);
+        view.setImageTintList(ColorStateList.valueOf(color));
         return view;
     }
 
@@ -2441,6 +2453,7 @@ public class GitCloudDialog extends BaseAlertDialog {
     }
 
     private ColorStateList segmentBackground() {
+        ThemeTokens tokens = ThemeDialogSemantics.tokens();
         return new ColorStateList(new int[][]{
                 new int[]{android.R.attr.state_checked},
                 new int[]{-android.R.attr.state_enabled},
@@ -2448,37 +2461,39 @@ public class GitCloudDialog extends BaseAlertDialog {
                 new int[]{android.R.attr.state_pressed},
                 new int[]{}
         }, new int[]{
-                Color.parseColor("#0B57D0"),
-                Color.parseColor("#F1F3F4"),
-                Color.parseColor("#E8F0FE"),
-                Color.parseColor("#E8F0FE"),
-                Color.WHITE
+                tokens.colorPrimary(),
+                tokens.colorSurfaceContainerLow(),
+                tokens.colorPrimaryContainer(),
+                tokens.colorPrimaryContainer(),
+                tokens.colorSurfaceContainerHigh()
         });
     }
 
     private ColorStateList segmentText() {
+        ThemeTokens tokens = ThemeDialogSemantics.tokens();
         return new ColorStateList(new int[][]{
                 new int[]{android.R.attr.state_checked},
                 new int[]{-android.R.attr.state_enabled},
                 new int[]{}
         }, new int[]{
-                Color.WHITE,
-                Color.parseColor("#9AA0A6"),
-                Color.parseColor("#202124")
+                tokens.colorOnPrimary(),
+                tokens.colorOnSurfaceVariant(),
+                tokens.colorOnSurface()
         });
     }
 
     private ColorStateList segmentStroke() {
+        ThemeTokens tokens = ThemeDialogSemantics.tokens();
         return new ColorStateList(new int[][]{
                 new int[]{android.R.attr.state_checked},
                 new int[]{android.R.attr.state_focused},
                 new int[]{android.R.attr.state_pressed},
                 new int[]{}
         }, new int[]{
-                Color.parseColor("#0B57D0"),
-                Color.parseColor("#0B57D0"),
-                Color.parseColor("#0B57D0"),
-                Color.parseColor("#C8CDD2")
+                tokens.colorFocus(),
+                tokens.colorFocus(),
+                tokens.colorFocus(),
+                tokens.colorOutlineVariant()
         });
     }
 
@@ -2487,7 +2502,7 @@ public class GitCloudDialog extends BaseAlertDialog {
         button.setTextSize(20);
         button.setMinWidth(0);
         button.setBackgroundTintList(ContextCompat.getColorStateList(requireContext(), R.color.dialog_outlined_button_bg));
-        button.setTextColor(Color.parseColor("#5F6368"));
+        button.setTextColor(ThemeDialogSemantics.tokens().colorOnSurfaceVariant());
         return button;
     }
 

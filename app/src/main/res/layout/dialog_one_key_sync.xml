@@ -176,7 +176,7 @@
                         android:gravity="center"
                         android:includeFontPadding="false"
                         android:text="@string/sync_push"
-                        android:textColor="?attr/colorPrimary"
+                        android:textColor="?attr/colorOnPrimaryContainer"
                         android:textSize="14sp"
                         android:textStyle="bold"
                         app:drawableTopCompat="@drawable/ic_sync_arrow_right_blue" />

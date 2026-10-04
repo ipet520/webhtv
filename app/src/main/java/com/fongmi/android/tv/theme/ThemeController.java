@@ -134,11 +134,10 @@ public final class ThemeController {
     }
 
     private static ThemeTokens resolveWith(ThemeProfile profile) {
-        // Both the base palette and the profile's light/dark slot selection follow the
-        // compiled table, so the active tokens stay comparable with inflated colours on
-        // every flavour (see resolvedDark()).
+        // Explicit mode is the source of truth for the active palette. The compiled
+        // table remains the baseline used to rebind already-inflated views.
         boolean systemDark = resolvedDark();
-        ThemeMode themeMode = ThemeMode.SYSTEM;
+        ThemeMode themeMode = currentThemeMode();
         int themeColor = com.fongmi.android.tv.setting.Setting.getThemeColor();
         if (themeColor == -1) {
             return ThemeResolver.resolve(themeMode, ThemeSeed.NONE, 0, 0, profile, null, systemDark);
@@ -182,8 +181,9 @@ public final class ThemeController {
      * probe vs default = 0 changed pixels on TV while the identical probe changed
      * ~49k pixels on mobile, and switching the device to dark made TV respond).
      *
-     * <p>The compiled table is therefore read from resources whenever it can be
-     * identified, and only an unidentifiable palette falls back to the uiMode rule.
+     * <p>The compiled table is retained as compatibility information for the binder,
+     * but it must not override an explicit user mode. A TV light choice therefore
+     * selects the light semantic palette even if an older TV override was dark.
      */
     private static boolean resolvedDark() {
         boolean systemDark = (Resources.getSystem().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
@@ -193,15 +193,16 @@ public final class ThemeController {
     /**
      * The dark/light decision shared by the baseline and the active palette.
      *
-     * <p>When the compiled table is identifiable it is authoritative: it is literally
-     * what inflation resolved, so it must win even over an explicit appearance mode.
-     * The TV flavour needs that - its {@code values/} holds the dark table, so a
-     * light-mode device (or a user who picked light) still renders dark views. Only an
-     * unidentifiable palette falls back to the historical mode/uiMode rule.
+     * <p>An explicit light/dark choice is authoritative. SYSTEM follows the current
+     * configuration night bit. The compiled-table probe remains only compatibility
+     * information for the binder.
+     * It cannot silently defeat the user's mode choice.
+     * Already-inflated resources are still described by the probe for binder matching.
      */
     static boolean darkPaletteFor(Boolean compiledDark, ThemeMode mode, boolean systemDark) {
-        if (compiledDark != null) return compiledDark;
-        return mode == ThemeMode.DARK || (mode != ThemeMode.LIGHT && systemDark);
+        if (mode == ThemeMode.LIGHT) return false;
+        if (mode == ThemeMode.DARK) return true;
+        return systemDark;
     }
 
     /**

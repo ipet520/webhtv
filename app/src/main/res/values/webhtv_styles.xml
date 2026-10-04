@@ -52,6 +52,10 @@
         <item name="colorOnSurface_80">@color/webhtv_on_surface_80</item>
         <item name="colorOnSurface_90">@color/webhtv_on_surface_90</item>
         <item name="webhtvColorOnWallpaper">@color/webhtv_on_wallpaper</item>
+        <item name="webhtvColorPlayerControl">@color/webhtv_color_player_control</item>
+        <item name="webhtvColorPlayerControlMuted">@color/webhtv_color_player_control_muted</item>
+        <item name="webhtvColorPlayerControlActive">@color/webhtv_color_player_control_active</item>
+        <item name="webhtvColorPlayerScrim">@color/webhtv_color_player_scrim</item>
         <item name="android:colorBackground">@color/webhtv_color_surface</item>
         <item name="android:windowBackground">?attr/colorSurface</item>
         <item name="android:navigationBarColor">@color/webhtv_color_surface</item>
@@ -62,7 +66,7 @@
     <style name="Theme.WebHTV.Mobile" parent="Theme.WebHTV" />
 
     <style name="Theme.WebHTV.TV" parent="Theme.WebHTV">
-        <item name="isLightTheme">false</item>
+        <!-- TV follows the same explicit Light/Dark contract as Mobile. -->
     </style>
 
     <style name="Theme.WebHTV.Dialog" parent="Theme.Material3.DayNight.Dialog.Alert">
@@ -92,6 +96,10 @@
         <item name="colorOutlineVariant">@color/webhtv_color_outline_variant</item>
         <item name="colorControlNormal">@color/webhtv_color_on_surface_variant</item>
         <item name="colorControlActivated">@color/webhtv_color_primary</item>
+        <item name="webhtvColorPlayerControl">@color/webhtv_color_player_control</item>
+        <item name="webhtvColorPlayerControlMuted">@color/webhtv_color_player_control_muted</item>
+        <item name="webhtvColorPlayerControlActive">@color/webhtv_color_player_control_active</item>
+        <item name="webhtvColorPlayerScrim">@color/webhtv_color_player_scrim</item>
     </style>
 
     <style name="ThemeOverlay.WebHTV.Dialog" parent="ThemeOverlay.Material3.MaterialAlertDialog">
@@ -114,12 +122,39 @@
         <item name="colorOutlineVariant">@color/webhtv_color_outline_variant</item>
         <item name="colorControlNormal">@color/webhtv_color_on_surface_variant</item>
         <item name="colorControlActivated">@color/webhtv_color_primary</item>
+        <item name="webhtvColorPlayerControl">@color/webhtv_color_player_control</item>
+        <item name="webhtvColorPlayerControlMuted">@color/webhtv_color_player_control_muted</item>
+        <item name="webhtvColorPlayerControlActive">@color/webhtv_color_player_control_active</item>
+        <item name="webhtvColorPlayerScrim">@color/webhtv_color_player_scrim</item>
         <item name="android:colorBackground">@color/webhtv_color_surface_container_high</item>
         <item name="android:textColorPrimary">@color/webhtv_color_on_surface</item>
         <item name="android:textColorSecondary">@color/webhtv_color_on_surface_variant</item>
         <item name="android:textColorHint">@color/webhtv_color_on_surface_variant</item>
         <item name="android:textCursorDrawable">@drawable/shape_cursor_dialog</item>
         <item name="alertDialogStyle">@style/MaterialAlertDialog.WebHTV.Rounded</item>
+    </style>
+
+    <!-- The danmaku panel is an intentional dark glass surface.  Keep that
+         art direction, but give every child a matching component palette so
+         Light mode cannot inject dark onSurface text into the glass. -->
+    <style name="ThemeOverlay.WebHTV.DanmakuPanel" parent="ThemeOverlay.WebHTV.Dialog">
+        <item name="colorSurfaceContainerLow">@color/black_60</item>
+        <item name="colorSurfaceContainer">@color/black_50</item>
+        <item name="colorSurfaceContainerHigh">@color/black_40</item>
+        <item name="colorSurfaceContainerHighest">@color/black_30</item>
+        <item name="colorOnSurface">@color/white</item>
+        <item name="colorOnSurfaceVariant">@color/white_80</item>
+        <item name="colorPrimary">@color/tv_item_focus_ring</item>
+        <item name="colorOnPrimary">@color/black</item>
+        <item name="colorPrimaryContainer">@color/black_20</item>
+        <item name="colorOnPrimaryContainer">@color/white</item>
+        <item name="colorSecondaryContainer">@color/black_20</item>
+        <item name="colorOnSecondaryContainer">@color/white</item>
+        <item name="colorOutline">@color/white_50</item>
+        <item name="colorOutlineVariant">@color/white_30</item>
+        <item name="android:textColorPrimary">@color/white</item>
+        <item name="android:textColorSecondary">@color/white_80</item>
+        <item name="android:textColorHint">@color/white_60</item>
     </style>
 
     <style name="Widget.WebHTV.Label">

@@ -40,6 +40,9 @@ import com.fongmi.android.tv.player.diagnostic.PanEndpoint;
 import com.fongmi.android.tv.player.diagnostic.PanEndpointParser;
 import com.fongmi.android.tv.player.diagnostic.PanNetworkDiagnosticRunner;
 import com.fongmi.android.tv.theme.WebHtvAlertDialogBuilder;
+import com.fongmi.android.tv.theme.ThemeController;
+import com.fongmi.android.tv.theme.ThemeDialogSemantics;
+import com.fongmi.android.tv.theme.ThemeTokens;
 import com.fongmi.android.tv.utils.Notify;
 import com.fongmi.android.tv.utils.ResUtil;
 import com.fongmi.android.tv.utils.Util;
@@ -158,6 +161,8 @@ public final class PanNetworkDiagnosticDialog extends DialogFragment implements 
         window.setAttributes(params);
         window.setLayout(width, WindowManager.LayoutParams.WRAP_CONTENT);
         window.getDecorView().setPadding(0, 0, 0, 0);
+        ThemeController.bindDialog(getDialog());
+        ThemeDialogSemantics.bindLegacyDialog(window.getDecorView());
     }
 
     private void addHeader() {
@@ -233,7 +238,8 @@ public final class PanNetworkDiagnosticDialog extends DialogFragment implements 
 
         estimate = text("", Util.isLeanback() ? 12 : 13, TEXT, false);
         estimate.setPadding(dp(14), dp(Util.isLeanback() ? 9 : 12), dp(14), dp(Util.isLeanback() ? 9 : 12));
-        estimate.setBackground(round(SURFACE, 10, 1, BORDER));
+        ThemeTokens estimateTokens = ThemeDialogSemantics.tokens();
+        estimate.setBackground(round(estimateTokens.colorSurfaceContainerHigh(), 10, 1, estimateTokens.colorOutlineVariant()));
         content.addView(estimate, matchWrap(10, 0));
         updateEstimate();
 
@@ -251,6 +257,7 @@ public final class PanNetworkDiagnosticDialog extends DialogFragment implements 
             startButton.requestFocus();
         }, Util.isLeanback() ? 80 : 550);
         scrollToTop();
+        ThemeDialogSemantics.bindLegacyDialog(content);
     }
 
     private void addThreadSelector(@Nullable ViewGroup tabParent) {
@@ -334,17 +341,18 @@ public final class PanNetworkDiagnosticDialog extends DialogFragment implements 
     }
 
     private EditText numberInput(String value, String description) {
+        ThemeTokens tokens = ThemeDialogSemantics.tokens();
         EditText input = new EditText(requireContext());
         input.setText(value);
         input.setTextSize(16);
-        input.setTextColor(TEXT);
-        input.setHintTextColor(Color.rgb(128, 134, 139));
+        input.setTextColor(tokens.colorOnSurface());
+        input.setHintTextColor(tokens.colorOnSurfaceVariant());
         input.setGravity(Gravity.CENTER);
         input.setSingleLine(true);
         input.setSelectAllOnFocus(true);
         input.setInputType(InputType.TYPE_CLASS_NUMBER);
         input.setFilters(new InputFilter[]{new InputFilter.LengthFilter(3)});
-        input.setBackground(round(Color.WHITE, 8, 1, BORDER));
+        input.setBackground(round(tokens.colorSurfaceContainerHighest(), 8, 1, tokens.colorOutline()));
         input.setContentDescription(description);
         input.setFocusable(true);
         input.setFocusableInTouchMode(true);
@@ -352,6 +360,7 @@ public final class PanNetworkDiagnosticDialog extends DialogFragment implements 
     }
 
     private void addThreadChip(int value, boolean checked) {
+        ThemeTokens tokens = ThemeDialogSemantics.tokens();
         Chip chip = new Chip(requireContext());
         chip.setText(String.valueOf(value));
         chip.setCheckable(true);
@@ -360,9 +369,9 @@ public final class PanNetworkDiagnosticDialog extends DialogFragment implements 
         chip.setMinHeight(dp(Util.isLeanback() ? 40 : 48));
         chip.setMinimumHeight(dp(Util.isLeanback() ? 40 : 48));
         chip.setTextSize(Util.isLeanback() ? 13 : 14);
-        chip.setTextColor(new ColorStateList(new int[][]{new int[]{android.R.attr.state_checked}, new int[]{}}, new int[]{Color.WHITE, BLUE_DARK}));
-        chip.setChipBackgroundColor(new ColorStateList(new int[][]{new int[]{android.R.attr.state_checked}, new int[]{}}, new int[]{BLUE, Color.WHITE}));
-        chip.setChipStrokeColor(ColorStateList.valueOf(Color.rgb(138, 180, 248)));
+        chip.setTextColor(new ColorStateList(new int[][]{new int[]{-android.R.attr.state_enabled}, new int[]{android.R.attr.state_checked}, new int[]{}}, new int[]{tokens.colorOnSurfaceVariant(), tokens.colorOnPrimary(), tokens.colorOnSurface()}));
+        chip.setChipBackgroundColor(new ColorStateList(new int[][]{new int[]{-android.R.attr.state_enabled}, new int[]{android.R.attr.state_checked}, new int[]{}}, new int[]{tokens.colorSurfaceContainerHighest(), tokens.colorPrimary(), tokens.colorSurfaceContainerHigh()}));
+        chip.setChipStrokeColor(new ColorStateList(new int[][]{new int[]{android.R.attr.state_checked}, new int[]{}}, new int[]{tokens.colorFocus(), tokens.colorOutlineVariant()}));
         chip.setChipStrokeWidth(dp(1));
         chip.setContentDescription(value + "线程");
         chip.setOnCheckedChangeListener((button, isChecked) -> {
@@ -404,14 +413,15 @@ public final class PanNetworkDiagnosticDialog extends DialogFragment implements 
     }
 
     private void addSummaryCard() {
+        ThemeTokens tokens = ThemeDialogSemantics.tokens();
         LinearLayout card = vertical(Util.isLeanback() ? 3 : 7);
         card.setPadding(dp(13), dp(Util.isLeanback() ? 8 : 10), dp(13), dp(Util.isLeanback() ? 8 : 10));
-        card.setBackground(round(Color.rgb(232, 240, 254), 12, 0, Color.TRANSPARENT));
+        card.setBackground(round(tokens.colorPrimaryContainer(), 12, 0, Color.TRANSPARENT));
         if (endpoint == null) {
             card.addView(text("未识别到可诊断的 HTTP 播放地址", 15, WARNING, true));
             card.addView(text("请在网盘、HTTP直链或 M3U8 等资源正在播放时打开。", 13, SECONDARY, false));
         } else {
-            card.addView(text(endpoint.provider().label() + " · " + player.getPlayerText(), 16, BLUE_DARK, true));
+            card.addView(text(endpoint.provider().label() + " · " + player.getPlayerText(), 16, tokens.colorOnPrimaryContainer(), true));
             String route = endpoint.hasDirectUpstream() ? endpoint.playbackHost() + " → " + endpoint.upstreamHost() : endpoint.playbackHost() + "（直链）";
             if (Util.isLeanback()) {
                 card.addView(text("链路 " + route + "    ·    资源需求 " + requiredText() + "    ·    Go线程 " + configuredThreadsText(), 13, SECONDARY, false));
@@ -468,19 +478,20 @@ public final class PanNetworkDiagnosticDialog extends DialogFragment implements 
     }
 
     private void showRunning() {
+        ThemeTokens tokens = ThemeDialogSemantics.tokens();
         hideResultFooter();
         content.removeAllViews();
-        stage = text("准备诊断…", 16, TEXT, true);
+        stage = text("准备诊断…", 16, tokens.colorOnSurface(), true);
         content.addView(stage, matchWrap(2, 0));
         progress = new LinearProgressIndicator(requireContext());
         progress.setIndeterminate(false);
         progress.setMax(1000);
         progress.setProgress(0);
         progress.setTrackThickness(dp(7));
-        progress.setIndicatorColor(BLUE);
-        progress.setTrackColor(Color.rgb(220, 227, 239));
+        progress.setIndicatorColor(tokens.colorPrimary());
+        progress.setTrackColor(tokens.colorSurfaceContainerHighest());
         content.addView(progress, matchHeight(13, 0, 22));
-        liveSpeed = text("0.00 Mbps", 30, BLUE_DARK, true);
+        liveSpeed = text("0.00 Mbps", 30, tokens.colorPrimary(), true);
         liveSpeed.setGravity(Gravity.CENTER);
         content.addView(liveSpeed, matchWrap(18, 0));
         liveMeta = text("正在建立真实请求…", 13, SECONDARY, false);
@@ -551,9 +562,10 @@ public final class PanNetworkDiagnosticDialog extends DialogFragment implements 
         content.removeAllViews();
         LinearLayout card = vertical(8);
         card.setPadding(dp(16), dp(16), dp(16), dp(16));
-        card.setBackground(round(Color.rgb(253, 235, 236), 12, 1, Color.rgb(242, 184, 181)));
-        card.addView(text("诊断已停止", 18, Color.rgb(197, 34, 31), true));
-        card.addView(text(message, 14, TEXT, false));
+        ThemeTokens tokens = ThemeDialogSemantics.tokens();
+        card.setBackground(round(tokens.colorErrorContainer(), 12, 1, tokens.colorError()));
+        card.addView(text("诊断已停止", 18, tokens.colorOnErrorContainer(), true));
+        card.addView(text(message, 14, tokens.colorOnErrorContainer(), false));
         content.addView(card, matchWrap(4, 0));
         MaterialButton retry = button("返回设置", true, v -> showConfig());
         content.addView(retry, matchHeight(18, 0, 50));
@@ -564,7 +576,8 @@ public final class PanNetworkDiagnosticDialog extends DialogFragment implements 
     private void showResult(PanNetworkDiagnosticRunner.Report report) {
         content.removeAllViews();
         PanDiagnosticVerdict.Result verdict = report.verdict();
-        int color = verdict.cause() == PanDiagnosticVerdict.Cause.SUFFICIENT ? SUCCESS : verdict.cause() == PanDiagnosticVerdict.Cause.INCONCLUSIVE ? WARNING : Color.rgb(197, 34, 31);
+        ThemeTokens tokens = ThemeDialogSemantics.tokens();
+        int color = verdict.cause() == PanDiagnosticVerdict.Cause.SUFFICIENT ? tokens.colorSuccess() : verdict.cause() == PanDiagnosticVerdict.Cause.INCONCLUSIVE ? tokens.colorWarning() : tokens.colorError();
         LinearLayout verdictCard = vertical(4);
         verdictCard.setPadding(dp(13), dp(10), dp(13), dp(10));
         verdictCard.setBackground(round(withAlpha(color, 22), 12, 1, withAlpha(color, 75)));
@@ -909,16 +922,10 @@ public final class PanNetworkDiagnosticDialog extends DialogFragment implements 
         button.setCornerRadius(dp(9));
         button.setFocusable(true);
         button.setFocusableInTouchMode(Util.isLeanback());
-        button.setTextColor(ColorStateList.valueOf(primary ? Color.WHITE : BLUE_DARK));
-        button.setBackgroundTintList(ColorStateList.valueOf(primary ? BLUE : Color.WHITE));
-        button.setStrokeColor(ColorStateList.valueOf(primary ? BLUE : Color.rgb(138, 180, 248)));
-        button.setStrokeWidth(dp(1));
+        if (primary) ThemeDialogSemantics.primary(button);
+        else ThemeDialogSemantics.secondary(button);
         button.setOnFocusChangeListener((v, focused) -> {
             v.animate().scaleX(focused ? 1.035f : 1f).scaleY(focused ? 1.035f : 1f).setDuration(100).start();
-            if (!primary) {
-                button.setTextColor(ColorStateList.valueOf(focused ? Color.WHITE : BLUE_DARK));
-                button.setBackgroundTintList(ColorStateList.valueOf(focused ? BLUE : Color.WHITE));
-            }
         });
         button.setOnClickListener(listener);
         return button;
@@ -941,7 +948,7 @@ public final class PanNetworkDiagnosticDialog extends DialogFragment implements 
         TextView view = new TextView(requireContext());
         view.setText(value);
         view.setTextSize(size);
-        view.setTextColor(color);
+        view.setTextColor(ThemeDialogSemantics.textColor(color));
         view.setTypeface(Typeface.DEFAULT, bold ? Typeface.BOLD : Typeface.NORMAL);
         view.setLineSpacing(dp(2), 1f);
         return view;
@@ -956,9 +963,10 @@ public final class PanNetworkDiagnosticDialog extends DialogFragment implements 
     }
 
     private void styleTabs(TabLayout tabs) {
-        tabs.setSelectedTabIndicatorColor(BLUE);
-        tabs.setTabTextColors(SECONDARY, BLUE);
-        if (Util.isLeanback()) tabs.setBackground(round(SURFACE, 9, 1, BORDER));
+        ThemeTokens tokens = ThemeDialogSemantics.tokens();
+        tabs.setSelectedTabIndicatorColor(tokens.colorPrimary());
+        tabs.setTabTextColors(tokens.colorOnSurfaceVariant(), tokens.colorPrimary());
+        if (Util.isLeanback()) tabs.setBackground(round(tokens.colorSurfaceContainerHigh(), 9, 1, tokens.colorOutlineVariant()));
     }
 
     private LinearLayout.LayoutParams matchWrap(int top, int bottom) {

@@ -61,6 +61,9 @@ import com.fongmi.android.tv.bean.SyncOptions;
 import com.fongmi.android.tv.server.Server;
 import com.fongmi.android.tv.setting.Setting;
 import com.fongmi.android.tv.theme.WebHtvAlertDialogBuilder;
+import com.fongmi.android.tv.theme.ThemeDialogSemantics;
+import com.fongmi.android.tv.theme.ThemeTokens;
+import com.fongmi.android.tv.theme.ThemeController;
 import com.fongmi.android.tv.utils.Notify;
 import com.fongmi.android.tv.utils.PermissionUtil;
 import com.fongmi.android.tv.utils.QRCode;
@@ -300,6 +303,8 @@ public final class RemoteTrustDialog {
     private static AlertDialog showModal(AlertDialog dialog) {
         dialog.setCanceledOnTouchOutside(false);
         dialog.show();
+        ThemeController.bindDialog(dialog);
+        ThemeDialogSemantics.bindLegacyDialog(dialog.getWindow() == null ? null : dialog.getWindow().getDecorView());
         return dialog;
     }
 
@@ -377,21 +382,22 @@ public final class RemoteTrustDialog {
     }
 
     private static void applyStatusStyle(Context context, MaterialButton button, RemoteProfile profile, String state) {
-        int bg = Color.parseColor("#F1F3F4");
-        int fg = Color.parseColor("#5F6368");
-        int stroke = Color.parseColor("#DADCE0");
+        ThemeTokens tokens = ThemeDialogSemantics.tokens();
+        int bg = tokens.colorSurfaceContainerHigh();
+        int fg = tokens.colorOnSurfaceVariant();
+        int stroke = tokens.colorOutlineVariant();
         if (profile != null && profile.enabled && TextUtils.equals(state, context.getString(R.string.remote_trust_service_ok))) {
-            bg = Color.parseColor("#E6F4EA");
-            fg = Color.parseColor("#137333");
-            stroke = Color.parseColor("#CEEAD6");
+            bg = tokens.colorSuccessContainer();
+            fg = tokens.colorOnSuccessContainer();
+            stroke = tokens.colorSuccess();
         } else if (profile != null && profile.enabled && TextUtils.equals(state, context.getString(R.string.remote_trust_service_error))) {
-            bg = Color.parseColor("#FCE8E6");
-            fg = Color.parseColor("#B3261E");
-            stroke = Color.parseColor("#F2B8B5");
+            bg = tokens.colorErrorContainer();
+            fg = tokens.colorOnErrorContainer();
+            stroke = tokens.colorError();
         } else if (profile != null && profile.enabled) {
-            bg = Color.parseColor("#E8F0FE");
-            fg = Color.parseColor("#174EA6");
-            stroke = Color.parseColor("#D2E3FC");
+            bg = tokens.colorPrimaryContainer();
+            fg = tokens.colorOnPrimaryContainer();
+            stroke = tokens.colorPrimary();
         }
         button.setBackgroundTintList(ColorStateList.valueOf(bg));
         button.setTextColor(fg);
@@ -1232,8 +1238,8 @@ public final class RemoteTrustDialog {
         state.add.setTextSize(12);
         state.edit.setTextSize(12);
         state.delete.setTextSize(12);
-        state.delete.setTextColor(Color.parseColor("#B3261E"));
-        state.delete.setStrokeColor(ColorStateList.valueOf(Color.parseColor("#F2B8B5")));
+        state.delete.setTextColor(ThemeDialogSemantics.tokens().colorError());
+        state.delete.setStrokeColor(ColorStateList.valueOf(ThemeDialogSemantics.tokens().colorError()));
         state.actionsRow.addView(state.home, weight());
         state.actionsRow.addView(state.add, leftWeight(activity, 6));
         state.actionsRow.addView(state.edit, leftWeight(activity, 6));
@@ -3076,12 +3082,13 @@ public final class RemoteTrustDialog {
         MaterialTextView view = new MaterialTextView(context);
         view.setText(value);
         view.setTextSize(sp);
-        view.setTextColor(Color.parseColor(color));
+        view.setTextColor(ThemeDialogSemantics.textColor(Color.parseColor(color)));
         if (bold) view.setTypeface(view.getTypeface(), Typeface.BOLD);
         return view;
     }
 
     private static TextInputEditText input(Context context, int inputType, boolean singleLine) {
+        ThemeTokens tokens = ThemeDialogSemantics.tokens();
         TextInputEditText input = new TextInputEditText(context);
         input.setInputType(inputType);
         input.setSingleLine(singleLine);
@@ -3089,18 +3096,19 @@ public final class RemoteTrustDialog {
         input.setMinHeight(dp(context, 46));
         input.setImportantForAutofill(View.IMPORTANT_FOR_AUTOFILL_NO);
         input.setSelectAllOnFocus(false);
-        input.setTextColor(Color.BLACK);
-        input.setHintTextColor(Color.parseColor("#666666"));
+        input.setTextColor(tokens.colorOnSurface());
+        input.setHintTextColor(tokens.colorOnSurfaceVariant());
         return input;
     }
 
     private static TextInputLayout inputLayout(Context context, int hint, TextInputEditText input) {
+        ThemeTokens tokens = ThemeDialogSemantics.tokens();
         TextInputLayout layout = new TextInputLayout(context);
         layout.setHint(context.getString(hint));
         layout.setBoxBackgroundMode(TextInputLayout.BOX_BACKGROUND_OUTLINE);
-        layout.setBoxBackgroundColor(Color.WHITE);
-        layout.setBoxStrokeColor(ContextCompat.getColor(context, R.color.dialog_outlined_button_stroke));
-        layout.setHintTextColor(ColorStateList.valueOf(Color.parseColor("#5F6368")));
+        layout.setBoxBackgroundColor(tokens.colorSurfaceContainerHighest());
+        layout.setBoxStrokeColor(tokens.colorOutline());
+        layout.setHintTextColor(ColorStateList.valueOf(tokens.colorOnSurfaceVariant()));
         layout.setBoxCornerRadii(dp(context, 8), dp(context, 8), dp(context, 8), dp(context, 8));
         layout.addView(input, matchWrap());
         return layout;
@@ -3141,8 +3149,9 @@ public final class RemoteTrustDialog {
 
     private static MaterialButton dangerAction(Binding binding, Context context, int resId) {
         MaterialButton button = outlineAction(binding, context, resId);
-        button.setTextColor(Color.parseColor("#B3261E"));
-        button.setStrokeColor(ColorStateList.valueOf(Color.parseColor("#F2B8B5")));
+        ThemeTokens tokens = ThemeDialogSemantics.tokens();
+        button.setTextColor(tokens.colorError());
+        button.setStrokeColor(ColorStateList.valueOf(tokens.colorError()));
         return button;
     }
 
@@ -3205,7 +3214,7 @@ public final class RemoteTrustDialog {
         MaterialButton button = button(context, "×");
         button.setTextSize(20);
         button.setBackgroundTintList(ContextCompat.getColorStateList(context, R.color.dialog_outlined_button_bg));
-        button.setTextColor(Color.parseColor("#5F6368"));
+        button.setTextColor(ThemeDialogSemantics.tokens().colorOnSurfaceVariant());
         return button;
     }
 
@@ -3230,9 +3239,10 @@ public final class RemoteTrustDialog {
     }
 
     private static void applyDeviceStyle(Context context, MaterialButton button, boolean online) {
-        button.setBackgroundTintList(ColorStateList.valueOf(Color.parseColor(online ? "#E6F4EA" : "#FCE8E6")));
-        button.setTextColor(Color.parseColor(online ? "#137333" : "#B3261E"));
-        button.setStrokeColor(ColorStateList.valueOf(Color.parseColor(online ? "#CEEAD6" : "#F2B8B5")));
+        ThemeTokens tokens = ThemeDialogSemantics.tokens();
+        button.setBackgroundTintList(ColorStateList.valueOf(online ? tokens.colorSuccessContainer() : tokens.colorErrorContainer()));
+        button.setTextColor(online ? tokens.colorOnSuccessContainer() : tokens.colorOnErrorContainer());
+        button.setStrokeColor(ColorStateList.valueOf(online ? tokens.colorSuccess() : tokens.colorError()));
     }
 
     private static MaterialButton iconButton(Context context, int icon, String label) {
@@ -3251,7 +3261,7 @@ public final class RemoteTrustDialog {
     private static MaterialButton listButton(Context context, String text) {
         MaterialButton button = outline(context, text);
         button.setTextAlignment(View.TEXT_ALIGNMENT_TEXT_START);
-        button.setTextColor(Color.parseColor("#202124"));
+        button.setTextColor(ThemeDialogSemantics.tokens().colorOnSurface());
         button.setMinHeight(dp(context, 56));
         button.setMaxLines(3);
         return button;
@@ -3265,7 +3275,8 @@ public final class RemoteTrustDialog {
         button.setIconGravity(MaterialButton.ICON_GRAVITY_TEXT_START);
         button.setIconPadding(dp(context, 8));
         button.setIconSize(dp(context, 18));
-        button.setIconTint(ColorStateList.valueOf(Color.parseColor(online ? "#137333" : "#B3261E")));
+        ThemeTokens tokens = ThemeDialogSemantics.tokens();
+        button.setIconTint(ColorStateList.valueOf(online ? tokens.colorSuccess() : tokens.colorError()));
         return button;
     }
 
@@ -3274,17 +3285,18 @@ public final class RemoteTrustDialog {
     }
 
     private static View divider(Context context) {
+        ThemeTokens tokens = ThemeDialogSemantics.tokens();
         View view = new View(context);
-        view.setBackgroundColor(Color.parseColor("#E8EAED"));
+        view.setBackgroundColor(tokens.colorOutlineVariant());
         view.setMinimumHeight(dp(context, 1));
         return view;
     }
 
     private static GradientDrawable background(Context context, String color, int stroke, int radius) {
         GradientDrawable drawable = new GradientDrawable();
-        drawable.setColor(Color.parseColor(color));
+        drawable.setColor(ThemeDialogSemantics.surfaceColor(Color.parseColor(color)));
         drawable.setCornerRadius(dp(context, radius));
-        if (stroke != Color.TRANSPARENT) drawable.setStroke(dp(context, 1), stroke);
+        if (stroke != Color.TRANSPARENT) drawable.setStroke(dp(context, 1), ThemeDialogSemantics.outlineColor(stroke));
         return drawable;
     }
 
@@ -3295,30 +3307,36 @@ public final class RemoteTrustDialog {
     }
 
     private static ColorStateList segmentBackground() {
+        ThemeTokens tokens = ThemeDialogSemantics.tokens();
         return new ColorStateList(new int[][]{
-                new int[]{android.R.attr.state_checked},
                 new int[]{-android.R.attr.state_enabled},
                 new int[]{android.R.attr.state_focused},
                 new int[]{android.R.attr.state_pressed},
+                new int[]{android.R.attr.state_checked},
                 new int[]{}
         }, new int[]{
-                Color.parseColor("#0B57D0"),
-                Color.parseColor("#F1F3F4"),
-                Color.parseColor("#E8F0FE"),
-                Color.parseColor("#E8F0FE"),
-                Color.WHITE
+                tokens.colorSurfaceContainerHighest(),
+                tokens.colorPrimaryContainer(),
+                tokens.colorPrimaryContainer(),
+                tokens.colorPrimary(),
+                tokens.colorSurfaceContainerHigh()
         });
     }
 
     private static ColorStateList segmentText() {
+        ThemeTokens tokens = ThemeDialogSemantics.tokens();
         return new ColorStateList(new int[][]{
-                new int[]{android.R.attr.state_checked},
                 new int[]{-android.R.attr.state_enabled},
+                new int[]{android.R.attr.state_focused},
+                new int[]{android.R.attr.state_pressed},
+                new int[]{android.R.attr.state_checked},
                 new int[]{}
         }, new int[]{
-                Color.WHITE,
-                Color.parseColor("#9AA0A6"),
-                Color.parseColor("#202124")
+                tokens.colorOnSurfaceVariant(),
+                tokens.colorOnPrimary(),
+                tokens.colorOnPrimary(),
+                tokens.colorOnPrimary(),
+                tokens.colorOnSurface()
         });
     }
 

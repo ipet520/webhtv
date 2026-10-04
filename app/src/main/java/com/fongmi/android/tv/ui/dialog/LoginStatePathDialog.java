@@ -30,6 +30,8 @@ import com.fongmi.android.tv.R;
 import com.fongmi.android.tv.databinding.AdapterLoginStateTreeBinding;
 import com.fongmi.android.tv.databinding.DialogLoginStatePathBinding;
 import com.fongmi.android.tv.theme.WebHtvAlertDialogBuilder;
+import com.fongmi.android.tv.theme.ThemeDialogSemantics;
+import com.fongmi.android.tv.theme.ThemeTokens;
 import com.fongmi.android.tv.ui.custom.SpaceItemDecoration;
 import com.fongmi.android.tv.ui.custom.SafeScrollEditText;
 import com.fongmi.android.tv.utils.FileUtil;
@@ -448,7 +450,7 @@ public class LoginStatePathDialog extends BaseAlertDialog {
         container.setPadding(ResUtil.dp2px(20), ResUtil.dp2px(8), ResUtil.dp2px(20), 0);
         TextView label = new TextView(requireContext());
         label.setText(preview.getPath());
-        label.setTextColor(Color.parseColor("#5F6368"));
+        label.setTextColor(ThemeDialogSemantics.tokens().colorOnSurfaceVariant());
         label.setTextSize(12);
         label.setSingleLine(true);
         label.setEllipsize(TextUtils.TruncateAt.MIDDLE);
@@ -456,7 +458,7 @@ public class LoginStatePathDialog extends BaseAlertDialog {
         if (preview.isTruncated() || !preview.isEditable()) {
             TextView meta = new TextView(requireContext());
             meta.setText(preview.isTruncated() ? R.string.login_state_preview_truncated : R.string.login_state_preview_readonly);
-            meta.setTextColor(Color.parseColor("#8A4B00"));
+            meta.setTextColor(ThemeDialogSemantics.tokens().colorWarning());
             meta.setTextSize(12);
             meta.setPadding(0, ResUtil.dp2px(6), 0, 0);
             container.addView(meta, new LinearLayoutCompat.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
@@ -509,11 +511,7 @@ public class LoginStatePathDialog extends BaseAlertDialog {
     }
 
     private GradientDrawable editorBackground() {
-        GradientDrawable drawable = new GradientDrawable();
-        drawable.setColor(Color.parseColor("#F8FAFD"));
-        drawable.setCornerRadius(ResUtil.dp2px(8));
-        drawable.setStroke(1, Color.parseColor("#DADCE0"));
-        return drawable;
+        return ThemeDialogSemantics.input(requireContext(), false);
     }
 
     private void save(Dialog dialog, String path, String content) {
@@ -577,15 +575,17 @@ public class LoginStatePathDialog extends BaseAlertDialog {
 
     private int stateColor(Row row) {
         String path = row.item.getPath();
-        if (isMissing(path)) return Color.parseColor("#B3261E");
-        if (isPending(path) || (row.item.isDir() && hasPendingChild(path))) return Color.parseColor("#B06000");
-        return Color.parseColor("#174EA6");
+        ThemeTokens tokens = ThemeDialogSemantics.tokens();
+        if (isMissing(path)) return tokens.colorError();
+        if (isPending(path) || (row.item.isDir() && hasPendingChild(path))) return tokens.colorWarning();
+        return tokens.colorPrimary();
     }
 
     private int nameColor(Row row) {
-        if (isPending(row.item.getPath()) || (row.item.isDir() && hasPendingChild(row.item.getPath()))) return Color.parseColor("#8A4B00");
-        if (isMissing(row.item.getPath())) return Color.parseColor("#B3261E");
-        return Color.parseColor("#202124");
+        ThemeTokens tokens = ThemeDialogSemantics.tokens();
+        if (isPending(row.item.getPath()) || (row.item.isDir() && hasPendingChild(row.item.getPath()))) return tokens.colorWarning();
+        if (isMissing(row.item.getPath())) return tokens.colorError();
+        return tokens.colorOnSurface();
     }
 
     private int iconFor(LoginStateSync.TreeItem item) {
@@ -756,7 +756,7 @@ public class LoginStatePathDialog extends BaseAlertDialog {
         @Override
         public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
             TextView text = new TextView(parent.getContext());
-            text.setTextColor(Color.parseColor("#202124"));
+            text.setTextColor(ThemeDialogSemantics.tokens().colorOnSurface());
             text.setTextSize(12);
             text.setTypeface(Typeface.MONOSPACE);
             text.setLineSpacing(0, 1.08f);

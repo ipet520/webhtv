@@ -6,17 +6,17 @@
         android:top="2dp">
         <shape android:shape="rectangle">
             <corners android:radius="8dp" />
-            <solid android:color="#6B6F9F" />
+            <solid android:color="?attr/colorPrimaryContainer" />
         </shape>
     </item>
 
     <item android:bottom="2dp">
         <shape android:shape="rectangle">
             <corners android:radius="8dp" />
-            <solid android:color="#E6E6EA" />
+            <solid android:color="?attr/colorPrimary" />
             <stroke
                 android:width="2dp"
-                android:color="#F2FFFFFF" />
+                android:color="?attr/colorOnPrimary" />
             <padding
                 android:bottom="8dp"
                 android:left="14dp"

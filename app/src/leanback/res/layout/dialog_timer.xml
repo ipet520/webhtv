@@ -20,7 +20,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/play_timer"
-            android:textColor="?attr/colorOnSurfaceVariant"
+             android:textColor="?attr/webhtvColorPlayerControlMuted"
             android:textSize="16sp" />
 
     </androidx.appcompat.widget.LinearLayoutCompat>
@@ -98,7 +98,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="24dp"
             android:layout_marginBottom="24dp"
-            android:textColor="?attr/colorOnSurface"
+             android:textColor="?attr/webhtvColorPlayerControl"
             android:textSize="48sp"
             tools:text="5:00" />
 
@@ -110,7 +110,7 @@
             android:layout_marginBottom="8dp"
             android:singleLine="true"
             android:text="@string/timer_delay"
-            android:textColor="?attr/colorOnSurface"
+             android:textColor="?attr/webhtvColorPlayerControl"
             app:backgroundTint="@color/selector_dialog_glass_button_tint"
             app:rippleColor="?attr/colorOnSurfaceVariant" />
 
@@ -122,7 +122,7 @@
             android:layout_marginBottom="24dp"
             android:singleLine="true"
             android:text="@string/timer_cancel"
-            android:textColor="?attr/colorOnSurface"
+             android:textColor="?attr/webhtvColorPlayerControl"
             app:strokeColor="?attr/colorOutline" />
 
     </androidx.appcompat.widget.LinearLayoutCompat>

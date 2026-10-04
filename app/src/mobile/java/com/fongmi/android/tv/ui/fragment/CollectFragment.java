@@ -43,6 +43,7 @@ import com.fongmi.android.tv.model.SearchProgress;
 import com.fongmi.android.tv.model.SiteViewModel;
 import com.fongmi.android.tv.setting.Setting;
 import com.fongmi.android.tv.theme.ThemeController;
+import com.fongmi.android.tv.theme.ThemeDialogSemantics;
 import com.fongmi.android.tv.setting.SiteGroupOrderStore;
 import com.fongmi.android.tv.setting.SiteHealthStore;
 import com.fongmi.android.tv.ui.activity.FolderActivity;
@@ -639,10 +640,7 @@ public class CollectFragment extends BaseFragment implements MenuProvider, Colle
     }
 
     private GradientDrawable getGroupPopupBackground() {
-        GradientDrawable drawable = new GradientDrawable();
-        drawable.setColor(Color.WHITE);
-        drawable.setCornerRadius(ResUtil.dp2px(6));
-        return drawable;
+        return ThemeDialogSemantics.popup(requireContext(), 6);
     }
 
     private int getGroupPopupWidth() {
@@ -667,10 +665,10 @@ public class CollectFragment extends BaseFragment implements MenuProvider, Colle
         view.setSingleLine(true);
         view.setGravity(Gravity.CENTER_VERTICAL);
         view.setIncludeFontPadding(false);
-        view.setTextColor(ThemeController.current().colorOnSurface());
+        view.setTextColor(ContextCompat.getColorStateList(requireContext(), R.color.selector_theme_sheet_text));
         view.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
         view.setPadding(ResUtil.dp2px(18), 0, ResUtil.dp2px(18), 0);
-        view.setBackgroundResource(getSelectableItemBackground());
+        view.setBackgroundResource(R.drawable.selector_theme_sheet_button);
         view.setOnClickListener(v -> {
             if (groupPopup != null) groupPopup.dismiss();
             onGroupFilterSelected(itemId);

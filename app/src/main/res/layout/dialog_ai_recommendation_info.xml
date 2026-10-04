@@ -38,7 +38,7 @@
             android:maxWidth="150dp"
             android:paddingStart="9dp"
             android:paddingEnd="9dp"
-            android:textColor="?attr/colorPrimary"
+            android:textColor="?attr/colorOnPrimaryContainer"
             android:textSize="10sp"
             android:textStyle="bold"
             tools:text="智能推荐" />

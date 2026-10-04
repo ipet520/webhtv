@@ -85,8 +85,12 @@ public class ThemeControllerContractTest {
         String video = read("src/leanback/java/com/fongmi/android/tv/ui/presenter/TmdbVideoPresenter.java");
         assertTrue(video.contains("selector_tmdb_media_focus"));
         String dialog = read("src/mobile/java/com/fongmi/android/tv/ui/dialog/AppearanceDialog.java");
-        assertTrue(dialog.contains("ThemeController.current().colorOnSurface()"));
-        assertTrue(dialog.contains("ThemeController.current().colorOnSurfaceVariant()"));
+        // The row now resolves fill and foreground from one ThemeTokens snapshot,
+        // then applies the readable semantic pairing instead of relying on a fixed-light card.
+        assertTrue(dialog.contains("ThemeTokens tokens = ThemeController.current();"));
+        assertTrue(dialog.contains("ThemeEditorUi.readable(tokens.colorOnSurface(), fill)"));
+        assertTrue(dialog.contains("ThemeEditorUi.readable(tokens.colorOnSurfaceVariant(), fill)"));
+        assertFalse(dialog.contains("selector_git_cloud_card"));
     }
 
     @Test

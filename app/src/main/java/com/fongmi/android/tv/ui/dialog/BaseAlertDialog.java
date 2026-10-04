@@ -11,6 +11,7 @@ import androidx.viewbinding.ViewBinding;
 
 import com.fongmi.android.tv.R;
 import com.fongmi.android.tv.theme.ThemeController;
+import com.fongmi.android.tv.theme.ThemeDialogSemantics;
 import com.fongmi.android.tv.theme.WebHtvAlertDialogBuilder;
 import com.fongmi.android.tv.utils.ResUtil;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
@@ -38,6 +39,13 @@ public abstract class BaseAlertDialog extends DialogFragment {
 
     protected MaterialAlertDialogBuilder builder() {
         return new WebHtvAlertDialogBuilder(requireActivity(), R.style.MaterialAlertDialog_WebHTV_Rounded);
+    }
+
+    @Override
+    public void onStart() {
+        super.onStart();
+        if (getDialog() == null || getDialog().getWindow() == null) return;
+        ThemeDialogSemantics.bindLegacyDialog(getDialog().getWindow().getDecorView());
     }
 
     protected void initView() {

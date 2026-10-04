@@ -19,8 +19,10 @@ import com.fongmi.android.tv.event.RefreshEvent;
 import com.fongmi.android.tv.setting.PlayerSetting;
 import com.fongmi.android.tv.setting.Setting;
 import com.fongmi.android.tv.theme.ThemeController;
+import com.fongmi.android.tv.theme.ThemeEditorUi;
 import com.fongmi.android.tv.theme.ThemeProfile;
 import com.fongmi.android.tv.theme.ThemeProfileStore;
+import com.fongmi.android.tv.theme.ThemeTokens;
 import com.fongmi.android.tv.utils.ResUtil;
 import com.google.android.material.textview.MaterialTextView;
 
@@ -63,7 +65,10 @@ public final class AppearanceDialog extends DialogFragment {
         LinearLayout row = new LinearLayout(requireContext());
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setBackgroundResource(R.drawable.selector_git_cloud_card);
+        ThemeTokens tokens = ThemeController.current();
+        int fill = tokens.colorSurfaceContainerHigh();
+        row.setBackground(ThemeEditorUi.interactive(requireContext(), fill,
+                tokens.colorOutline(), tokens.colorFocus(), false));
         row.setClickable(true);
         row.setFocusable(true);
         row.setPadding(dp(16), 0, dp(16), 0);
@@ -71,14 +76,14 @@ public final class AppearanceDialog extends DialogFragment {
 
         MaterialTextView title = new MaterialTextView(requireContext());
         title.setText(titleRes);
-        title.setTextColor(ThemeController.current().colorOnSurface());
+        title.setTextColor(ThemeEditorUi.readable(tokens.colorOnSurface(), fill));
         title.setTextSize(15);
         title.setSingleLine(true);
         row.addView(title, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
 
         MaterialTextView summary = new MaterialTextView(requireContext());
         summary.setText(value);
-        summary.setTextColor(ThemeController.current().colorOnSurfaceVariant());
+        summary.setTextColor(ThemeEditorUi.readable(tokens.colorOnSurfaceVariant(), fill));
         summary.setTextSize(14);
         summary.setGravity(Gravity.END);
         summary.setSingleLine(true);

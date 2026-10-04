@@ -24,6 +24,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.LinearLayoutCompat;
+import androidx.core.content.ContextCompat;
 import androidx.core.view.MenuProvider;
 import androidx.fragment.app.FragmentManager;
 import androidx.fragment.app.FragmentTransaction;
@@ -40,6 +41,7 @@ import com.fongmi.android.tv.databinding.FragmentSearchBinding;
 import com.fongmi.android.tv.impl.Callback;
 import com.fongmi.android.tv.setting.Setting;
 import com.fongmi.android.tv.theme.ThemeController;
+import com.fongmi.android.tv.theme.ThemeDialogSemantics;
 import com.fongmi.android.tv.setting.SiteGroupOrderStore;
 import com.fongmi.android.tv.ui.adapter.HotWordAdapter;
 import com.fongmi.android.tv.ui.adapter.RecordAdapter;
@@ -346,10 +348,7 @@ public class SearchFragment extends BaseFragment implements MenuProvider, WordAd
     }
 
     private GradientDrawable getScopePopupBackground() {
-        GradientDrawable drawable = new GradientDrawable();
-        drawable.setColor(Color.WHITE);
-        drawable.setCornerRadius(ResUtil.dp2px(6));
-        return drawable;
+        return ThemeDialogSemantics.popup(requireContext(), 6);
     }
 
     private int getScopePopupWidth(List<String> groups) {
@@ -374,10 +373,10 @@ public class SearchFragment extends BaseFragment implements MenuProvider, WordAd
         view.setSingleLine(true);
         view.setGravity(Gravity.CENTER_VERTICAL);
         view.setIncludeFontPadding(false);
-        view.setTextColor(ThemeController.current().colorOnSurface());
+        view.setTextColor(ContextCompat.getColorStateList(requireContext(), R.color.selector_theme_sheet_text));
         view.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
         view.setPadding(ResUtil.dp2px(18), 0, ResUtil.dp2px(18), 0);
-        view.setBackgroundResource(getSelectableItemBackground());
+        view.setBackgroundResource(R.drawable.selector_theme_sheet_button);
         view.setOnClickListener(v -> {
             if (scopePopup != null) scopePopup.dismiss();
             onScopeSelected(itemId, groups);

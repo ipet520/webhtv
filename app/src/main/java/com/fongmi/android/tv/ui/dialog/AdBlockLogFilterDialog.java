@@ -21,6 +21,8 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.fongmi.android.tv.R;
 import com.fongmi.android.tv.bean.AdBlockLog;
 import com.fongmi.android.tv.bean.AdBlockLogFilter;
+import com.fongmi.android.tv.theme.ThemeController;
+import com.fongmi.android.tv.theme.ThemeDialogSemantics;
 import com.fongmi.android.tv.theme.WebHtvAlertDialogBuilder;
 import com.google.android.material.button.MaterialButton;
 
@@ -128,7 +130,9 @@ public final class AdBlockLogFilterDialog {
                 .setNegativeButton(R.string.ad_log_filter_cancel, null)
                 .setPositiveButton(R.string.ad_log_filter_apply, null)
                 .create();
-        dialog.setOnShowListener(ignored -> {
+         dialog.setOnShowListener(ignored -> {
+            ThemeController.bindDialog(dialog);
+            ThemeDialogSemantics.bindLegacyDialog(root);
             dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
                 if (listener != null) listener.onApply(adapter.selectedValues());
                 dialog.dismiss();

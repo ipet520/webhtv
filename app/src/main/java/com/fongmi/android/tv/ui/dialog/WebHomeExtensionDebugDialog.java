@@ -26,6 +26,8 @@ import com.fongmi.android.tv.bean.Site;
 import com.fongmi.android.tv.databinding.DialogWebHomeExtensionDebugBinding;
 import com.fongmi.android.tv.setting.Setting;
 import com.fongmi.android.tv.theme.WebHtvAlertDialogBuilder;
+import com.fongmi.android.tv.theme.ThemeDialogSemantics;
+import com.fongmi.android.tv.theme.ThemeTokens;
 import com.fongmi.android.tv.utils.Notify;
 import com.fongmi.android.tv.utils.ResUtil;
 import com.fongmi.android.tv.web.HomeWebController;
@@ -99,6 +101,7 @@ public class WebHomeExtensionDebugDialog extends BaseAlertDialog implements Home
         ViewGroup.LayoutParams rootParams = binding.root.getLayoutParams();
         rootParams.height = params.height;
         binding.root.setLayoutParams(rootParams);
+        ThemeDialogSemantics.bindLegacyDialog(binding.getRoot());
     }
 
     @Override
@@ -358,6 +361,7 @@ public class WebHomeExtensionDebugDialog extends BaseAlertDialog implements Home
             for (NetworkEntry entry : visible) binding.networkRows.addView(networkRow(entry, entry.id == selectedNetworkId));
         }
         refreshNetworkDetail();
+        ThemeDialogSemantics.bindLegacyDialog(binding.getRoot());
     }
 
     private void refreshElements() {
@@ -751,11 +755,12 @@ public class WebHomeExtensionDebugDialog extends BaseAlertDialog implements Home
     }
 
     private View networkRow(NetworkEntry entry, boolean selected) {
+        ThemeTokens tokens = ThemeDialogSemantics.tokens();
         LinearLayoutCompat row = new LinearLayoutCompat(requireContext());
         row.setOrientation(LinearLayoutCompat.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
         row.setPadding(dp(8), dp(6), dp(8), dp(6));
-        row.setBackgroundColor(entry == null ? Color.parseColor("#F5F6F7") : selected ? Color.parseColor("#DCEBFF") : entry.isError() ? Color.parseColor("#FFF1F1") : Color.WHITE);
+        row.setBackgroundColor(entry == null ? tokens.colorSurfaceContainerHighest() : selected ? tokens.colorPrimaryContainer() : entry.isError() ? tokens.colorErrorContainer() : tokens.colorSurfaceContainerHigh());
         row.addView(networkCell(entry == null ? "#" : String.valueOf(entry.id), 46, color(entry), entry == null));
         row.addView(networkCell(entry == null ? "Time" : entry.time, 104, color(entry), entry == null));
         row.addView(networkCell(entry == null ? "Type" : entry.displayKind(), 82, color(entry), entry == null));
@@ -782,7 +787,8 @@ public class WebHomeExtensionDebugDialog extends BaseAlertDialog implements Home
     }
 
     private MaterialTextView networkUrlCell(String value, boolean header) {
-        MaterialTextView view = networkText(value, 12, header ? Color.BLACK : Color.parseColor("#174EA6"), header);
+        ThemeTokens tokens = ThemeDialogSemantics.tokens();
+        MaterialTextView view = networkText(value, 12, header ? tokens.colorOnSurface() : tokens.colorPrimary(), header);
         LinearLayoutCompat.LayoutParams params = new LinearLayoutCompat.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         view.setMinWidth(dp(620));
         view.setLayoutParams(params);
@@ -792,7 +798,7 @@ public class WebHomeExtensionDebugDialog extends BaseAlertDialog implements Home
     private MaterialTextView networkText(String value, int sp, int color, boolean bold) {
         MaterialTextView view = new MaterialTextView(requireContext());
         view.setText(value);
-        view.setTextColor(color);
+        view.setTextColor(ThemeDialogSemantics.textColor(color));
         view.setTextSize(sp);
         view.setTypeface(Typeface.MONOSPACE, bold ? Typeface.BOLD : Typeface.NORMAL);
         view.setSingleLine(true);
@@ -801,16 +807,18 @@ public class WebHomeExtensionDebugDialog extends BaseAlertDialog implements Home
     }
 
     private int color(NetworkEntry entry) {
-        if (entry == null) return Color.BLACK;
-        if (entry.isError()) return Color.parseColor("#B3261E");
-        if (entry.isPending()) return Color.parseColor("#5F6368");
-        return Color.parseColor("#202124");
+        ThemeTokens tokens = ThemeDialogSemantics.tokens();
+        if (entry == null) return tokens.colorOnSurface();
+        if (entry.isError()) return tokens.colorError();
+        if (entry.isPending()) return tokens.colorOnSurfaceVariant();
+        return tokens.colorOnSurface();
     }
 
     private int statusColor(NetworkEntry entry) {
-        if (entry == null) return Color.BLACK;
-        if (entry.isError()) return Color.parseColor("#B3261E");
-        if (entry.status >= 200 && entry.status < 400) return Color.parseColor("#137333");
+        ThemeTokens tokens = ThemeDialogSemantics.tokens();
+        if (entry == null) return tokens.colorOnSurface();
+        if (entry.isError()) return tokens.colorError();
+        if (entry.status >= 200 && entry.status < 400) return tokens.colorSuccess();
         return color(entry);
     }
 

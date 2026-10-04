@@ -65,6 +65,9 @@ public class TmdbHeaderView {
     private static final int COLOR_NATIVE_BACKGROUND = 0xFF0F141A;
     private static final int COLOR_CINEMA_BACKGROUND = 0xFF0F141A;
     private static final int COLOR_PROFILE_BACKGROUND = 0xFFEAF5F1;
+    private static final int COLOR_PROFILE_FOREGROUND = 0xFF12202D;
+    private static final int COLOR_PROFILE_SECONDARY = 0xCC12202D;
+    private static final int COLOR_PROFILE_MUTED = 0x9912202D;
     private static final int COLOR_FUSION_BACKDROP_TEXT = 0xFFFFFFFF;
     private static final int COLOR_FUSION_BACKDROP_TEXT_SECONDARY = 0xE6FFFFFF;
     private static final int COLOR_FUSION_BACKDROP_WATERMARK = 0x99FFFFFF;
@@ -1583,13 +1586,17 @@ public class TmdbHeaderView {
         boolean dark = style == Setting.DETAIL_STYLE_NATIVE || (cinema && !light);
         setCinemaRows(cinema, cinema, light);
         int background = cinema ? TmdbCinemaTheme.palette(light).background() : dark ? COLOR_NATIVE_BACKGROUND : COLOR_PROFILE_BACKGROUND;
-        int primary = dark ? 0xFFFFFFFF : 0xFF15222B;
-        int secondary = dark ? 0xFFC8D2DC : 0xFF40555E;
-        int watermark = dark ? 0xFF6B7785 : 0xFF7E938A;
+        TmdbCinemaTheme.Palette cinemaPalette = cinema ? TmdbCinemaTheme.palette(light) : null;
+        int primary = cinema ? cinemaPalette.primary()
+                : style == Setting.DETAIL_STYLE_PROFILE ? COLOR_PROFILE_FOREGROUND : COLOR_FUSION_BACKDROP_TEXT;
+        int secondary = cinema ? cinemaPalette.secondary()
+                : style == Setting.DETAIL_STYLE_PROFILE ? COLOR_PROFILE_SECONDARY : COLOR_FUSION_BACKDROP_TEXT_SECONDARY;
+        int watermark = cinema ? cinemaPalette.muted()
+                : style == Setting.DETAIL_STYLE_PROFILE ? COLOR_PROFILE_MUTED : COLOR_FUSION_BACKDROP_WATERMARK;
         headerRoot.setBackgroundColor(background);
         setTextColor(R.id.tmdbOverview, secondary);
-        setTextColor(R.id.tmdbMeta, dark ? 0xFFC8D2DC : 0xFFE4F3EE);
-        setTextColor(R.id.tmdbGenres, dark ? 0xFF9AA7B4 : 0xFFD5EAE3);
+        setTextColor(R.id.tmdbMeta, secondary);
+        setTextColor(R.id.tmdbGenres, secondary);
         setTextColor(R.id.tmdbCastLabel, primary);
         setTextColor(R.id.tmdbCrewLabel, primary);
         setTextColor(R.id.tmdbPhotosLabel, primary);
@@ -2085,9 +2092,7 @@ public class TmdbHeaderView {
             return;
         }
         if (style == Setting.DETAIL_STYLE_NATIVE) {
-            button.setTextColor(ContextCompat.getColor(activity, R.color.tmdb_action_button_text));
-            button.setStrokeColor(ColorStateList.valueOf(ContextCompat.getColor(activity, R.color.tmdb_action_button_stroke)));
-            button.setBackgroundTintList(ColorStateList.valueOf(ContextCompat.getColor(activity, R.color.tmdb_action_button_bg)));
+            applySemanticActionButton(button);
             return;
         }
         boolean cinema = style == Setting.DETAIL_STYLE_CINEMA;
@@ -2098,9 +2103,19 @@ public class TmdbHeaderView {
             button.setBackgroundTintList(ColorStateList.valueOf(palette.card()));
             return;
         }
-        button.setTextColor(cinema ? 0xFFE9F0F5 : 0xFF16372F);
-        button.setStrokeColor(ColorStateList.valueOf(cinema ? 0x66FFFFFF : 0x663C7D6B));
-        button.setBackgroundTintList(ColorStateList.valueOf(cinema ? 0x26FFFFFF : 0xD9FFFFFF));
+        if (!cinema) {
+            applySemanticActionButton(button);
+            return;
+        }
+        button.setTextColor(0xFFE9F0F5);
+        button.setStrokeColor(ColorStateList.valueOf(0x66FFFFFF));
+        button.setBackgroundTintList(ColorStateList.valueOf(0x26FFFFFF));
+    }
+
+    private void applySemanticActionButton(MaterialButton button) {
+        button.setTextColor(ContextCompat.getColorStateList(activity, R.color.tmdb_action_button_text));
+        button.setStrokeColor(ContextCompat.getColorStateList(activity, R.color.tmdb_action_button_stroke));
+        button.setBackgroundTintList(ContextCompat.getColorStateList(activity, R.color.tmdb_action_button_bg));
     }
 
     /**

@@ -23,6 +23,7 @@ import com.fongmi.android.tv.setting.Setting;
 import com.fongmi.android.tv.utils.Notify;
 import com.fongmi.android.tv.utils.ResUtil;
 import com.fongmi.android.tv.utils.Util;
+import com.fongmi.android.tv.theme.ThemeDialogSemantics;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.textview.MaterialTextView;
 
@@ -65,7 +66,7 @@ public final class CspWarmupDialog {
 
         MaterialTextView title = new MaterialTextView(context);
         title.setText(R.string.setting_csp_warmup);
-        title.setTextColor(Color.parseColor("#202124"));
+        title.setTextColor(ThemeDialogSemantics.tokens().colorOnSurface());
         title.setTextSize(18);
         title.setGravity(Gravity.CENTER_VERTICAL);
         LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1);

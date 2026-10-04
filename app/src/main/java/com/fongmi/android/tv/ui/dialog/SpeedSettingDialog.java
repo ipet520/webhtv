@@ -9,6 +9,8 @@ import android.widget.FrameLayout;
 import androidx.fragment.app.FragmentActivity;
 
 import com.fongmi.android.tv.R;
+import com.fongmi.android.tv.theme.ThemeController;
+import com.fongmi.android.tv.theme.ThemeTokens;
 import com.fongmi.android.tv.utils.KeyUtil;
 import com.fongmi.android.tv.utils.ResUtil;
 import com.google.android.material.slider.Slider;
@@ -36,12 +38,14 @@ public final class SpeedSettingDialog {
         slider.setLabelFormatter(value -> format(value));
         slider.setFocusable(true);
         slider.setFocusableInTouchMode(true);
-        ColorStateList active = ColorStateList.valueOf(Color.parseColor("#1A73E8"));
-        ColorStateList inactive = ColorStateList.valueOf(Color.parseColor("#D0D5DD"));
+        ThemeTokens tokens = ThemeController.current();
+        ColorStateList active = ColorStateList.valueOf(tokens.colorPrimary());
+        ColorStateList inactive = ColorStateList.valueOf(tokens.colorOutlineVariant());
         slider.setTrackActiveTintList(active);
         slider.setTrackInactiveTintList(inactive);
         slider.setThumbTintList(active);
-        slider.setHaloTintList(ColorStateList.valueOf(Color.parseColor("#1F1A73E8")));
+        int primary = tokens.colorPrimary();
+        slider.setHaloTintList(ColorStateList.valueOf(Color.argb(31, Color.red(primary), Color.green(primary), Color.blue(primary))));
         slider.setValue(snap(currentValue, minValue, maxValue, stepSize));
 
         FrameLayout container = new FrameLayout(activity);

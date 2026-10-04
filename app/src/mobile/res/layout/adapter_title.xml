@@ -7,6 +7,6 @@
     android:background="@drawable/selector_player_child_sheet_button"
     android:ellipsize="marquee"
     android:singleLine="true"
-    android:textColor="@color/selector_control_sheet_text"
+    android:textColor="@color/selector_player_child_sheet_text"
     android:textSize="14sp"
     tools:text="第一章" />

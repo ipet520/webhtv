@@ -21,9 +21,10 @@
         android:layout_height="wrap_content"
         android:layout_weight="1"
         android:ellipsize="marquee"
+        android:duplicateParentState="true"
         android:gravity="center"
         android:singleLine="true"
-        android:textColor="?attr/colorOnSurface"
+        android:textColor="@color/site_item_text"
         android:textSize="18sp" />
 
 </androidx.appcompat.widget.LinearLayoutCompat>

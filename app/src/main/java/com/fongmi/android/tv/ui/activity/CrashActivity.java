@@ -1,11 +1,11 @@
 package com.fongmi.android.tv.ui.activity;
 
 import android.os.Bundle;
-import androidx.appcompat.app.AlertDialog;
 import androidx.viewbinding.ViewBinding;
 
 import com.fongmi.android.tv.R;
 import com.fongmi.android.tv.databinding.ActivityCrashBinding;
+import com.fongmi.android.tv.theme.WebHtvAlertDialogBuilder;
 import com.fongmi.android.tv.ui.base.BaseActivity;
 import com.fongmi.android.tv.utils.AppVersion;
 import com.fongmi.android.tv.utils.CrashRestartMode;
@@ -48,7 +48,7 @@ public class CrashActivity extends BaseActivity {
     }
 
     private void showError() {
-        new AlertDialog.Builder(this)
+        new WebHtvAlertDialogBuilder(this)
                 .setTitle(R.string.crash_details_title)
                 .setMessage(getString(R.string.crash_details_message,
                         AppVersion.fullName(),

@@ -37,6 +37,8 @@ import com.fongmi.android.tv.api.config.VodConfig;
 import com.fongmi.android.tv.bean.Site;
 import com.fongmi.android.tv.databinding.DialogWebHomeExtensionBinding;
 import com.fongmi.android.tv.setting.Setting;
+import com.fongmi.android.tv.theme.ThemeDialogSemantics;
+import com.fongmi.android.tv.theme.ThemeTokens;
 import com.fongmi.android.tv.theme.WebHtvAlertDialogBuilder;
 import com.fongmi.android.tv.ui.custom.SettingClipboardOverlay;
 import com.fongmi.android.tv.utils.FileChooser;
@@ -301,6 +303,7 @@ public class WebHomeExtensionDialog extends BaseAlertDialog {
                 focusTarget.requestFocus();
             });
         }
+        ThemeDialogSemantics.bindLegacyDialog(binding.getRoot());
     }
 
     private void showList() {
@@ -851,7 +854,8 @@ public class WebHomeExtensionDialog extends BaseAlertDialog {
         button.setMinimumHeight(dp(36));
         button.setPadding(dp(6), 0, dp(6), 0);
         ColorStateList bg = ContextCompat.getColorStateList(requireContext(), tonal ? R.color.dialog_tonal_button_bg : R.color.dialog_outlined_button_bg);
-        ColorStateList fg = danger ? ColorStateList.valueOf(Color.parseColor("#B3261E")) : ContextCompat.getColorStateList(requireContext(), tonal ? R.color.dialog_tonal_button_text : R.color.dialog_outlined_button_text);
+        ThemeTokens tokens = ThemeDialogSemantics.tokens();
+        ColorStateList fg = danger ? ColorStateList.valueOf(tokens.colorError()) : ContextCompat.getColorStateList(requireContext(), tonal ? R.color.dialog_tonal_button_text : R.color.dialog_outlined_button_text);
         button.setBackgroundTintList(bg);
         button.setTextColor(fg);
         if (!tonal) {
@@ -995,8 +999,9 @@ public class WebHomeExtensionDialog extends BaseAlertDialog {
         TextInputEditText input = new TextInputEditText(requireContext());
         input.setSelectAllOnFocus(false);
         input.setSingleLine(!multiline);
-        input.setTextColor(Color.BLACK);
-        input.setHintTextColor(Color.parseColor("#666666"));
+        ThemeTokens tokens = ThemeDialogSemantics.tokens();
+        input.setTextColor(tokens.colorOnSurface());
+        input.setHintTextColor(tokens.colorOnSurfaceVariant());
         input.setInputType(multiline ? InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS : InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
         input.setGravity(multiline ? Gravity.START | Gravity.TOP : Gravity.CENTER_VERTICAL);
         return input;
@@ -1006,9 +1011,10 @@ public class WebHomeExtensionDialog extends BaseAlertDialog {
         TextInputLayout layout = new TextInputLayout(requireContext());
         layout.setHint(hint);
         layout.setBoxBackgroundMode(TextInputLayout.BOX_BACKGROUND_OUTLINE);
-        layout.setBoxBackgroundColor(Color.WHITE);
-        layout.setBoxStrokeColor(ResUtil.getColor(R.color.dialog_outlined_button_stroke));
-        layout.setHintTextColor(ColorStateList.valueOf(Color.parseColor("#5F6368")));
+        ThemeTokens tokens = ThemeDialogSemantics.tokens();
+        layout.setBoxBackgroundColor(tokens.colorSurfaceContainerHighest());
+        layout.setBoxStrokeColor(tokens.colorOutline());
+        layout.setHintTextColor(ColorStateList.valueOf(tokens.colorOnSurfaceVariant()));
         layout.addView(input, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         return layout;
     }
@@ -1097,7 +1103,7 @@ public class WebHomeExtensionDialog extends BaseAlertDialog {
     private MaterialTextView text(String value, int sp, int color, boolean bold) {
         MaterialTextView view = new MaterialTextView(requireContext());
         view.setText(value);
-        view.setTextColor(color);
+        view.setTextColor(ThemeDialogSemantics.textColor(color));
         view.setTextSize(sp);
         view.setSingleLine(false);
         if (bold) view.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
@@ -1106,26 +1112,30 @@ public class WebHomeExtensionDialog extends BaseAlertDialog {
 
     private Drawable rowBackground(boolean disabled) {
         StateListDrawable drawable = new StateListDrawable();
-        drawable.addState(new int[]{android.R.attr.state_focused}, rowShape("#E8F0FE", "#1A73E8", 2, 8));
-        drawable.addState(new int[]{android.R.attr.state_pressed}, rowShape("#E8F0FE", "#1A73E8", 2, 8));
-        drawable.addState(new int[]{}, rowShape(disabled ? "#ECEFF1" : "#F5F6F7", disabled ? "#D5D9DE" : "#F5F6F7", disabled ? 1 : 0, 6));
+        ThemeTokens tokens = ThemeDialogSemantics.tokens();
+        drawable.addState(new int[]{-android.R.attr.state_enabled}, rowShape(tokens.colorSurfaceContainerHighest(), tokens.colorOutlineVariant(), 1, 6));
+        drawable.addState(new int[]{android.R.attr.state_focused}, rowShape(tokens.colorPrimaryContainer(), tokens.colorFocus(), 2, 8));
+        drawable.addState(new int[]{android.R.attr.state_pressed}, rowShape(tokens.colorPrimaryContainer(), tokens.colorFocus(), 2, 8));
+        drawable.addState(new int[]{}, rowShape(disabled ? tokens.colorSurfaceContainerHighest() : tokens.colorSurfaceContainerHigh(), tokens.colorOutlineVariant(), 1, 6));
         return drawable;
     }
 
-    private GradientDrawable rowShape(String color, String stroke, int strokeDp, int radiusDp) {
+    private GradientDrawable rowShape(int color, int stroke, int strokeDp, int radiusDp) {
         GradientDrawable drawable = new GradientDrawable();
-        drawable.setColor(Color.parseColor(color));
-        if (strokeDp > 0) drawable.setStroke(dp(strokeDp), Color.parseColor(stroke));
+        drawable.setColor(color);
+        if (strokeDp > 0) drawable.setStroke(dp(strokeDp), stroke);
         drawable.setCornerRadius(dp(radiusDp));
         return drawable;
     }
 
     private int titleColor(boolean enabled) {
-        return Color.parseColor(enabled ? "#202124" : "#8A8D91");
+        ThemeTokens tokens = ThemeDialogSemantics.tokens();
+        return enabled ? tokens.colorOnSurface() : tokens.colorOnSurfaceVariant();
     }
 
     private int detailColor(boolean disabled) {
-        return Color.parseColor(disabled ? "#9AA0A6" : "#5F6368");
+        ThemeTokens tokens = ThemeDialogSemantics.tokens();
+        return tokens.colorOnSurfaceVariant();
     }
 
     private String statusText(WebHomeExtensionRegistry.Item item) {
@@ -1142,11 +1152,12 @@ public class WebHomeExtensionDialog extends BaseAlertDialog {
     }
 
     private int statusColor(String status) {
+        ThemeTokens tokens = ThemeDialogSemantics.tokens();
         return switch (status) {
-            case "ready", "injected", "matched" -> Color.parseColor("#137333");
-            case "skipped" -> Color.parseColor("#B3261E");
-            case "disabled", "unmatched" -> Color.parseColor("#6F7378");
-            default -> Color.parseColor("#5F6368");
+            case "ready", "injected", "matched" -> tokens.colorSuccess();
+            case "skipped" -> tokens.colorError();
+            case "disabled", "unmatched" -> tokens.colorOnSurfaceVariant();
+            default -> tokens.colorOnSurfaceVariant();
         };
     }
 
