@@ -276,7 +276,7 @@ public class LiveActivity extends PlaybackActivity implements CustomKeyDown.List
         mHides = new ArrayList<>();
         mR1 = this::hideControl;
         mR2 = this::setTraffic;
-        mBufferingTimeout = this::startFlow;
+        mBufferingTimeout = this::onBufferingTimeout;
         mR3 = this::hideInfo;
         mEndRetry = this::checkNext;
         mPiP = new PiP();
@@ -1334,13 +1334,9 @@ public class LiveActivity extends PlaybackActivity implements CustomKeyDown.List
     }
 
     private void handleSameReloadUrl(String msg) {
-        if (mChannel != null && !mChannel.isOnly()) {
-            // 同 URL 重载失败等价于该线路播放失败：走带绕圈保护的自动换线，
-            // 不重置本轮回退状态，避免 reload 路径重新开启死循环。
-            advanceLineForFallback();
-        } else {
-            onError(msg);
-        }
+        if (advanceLineForFallback()) return;
+        App.removeCallbacks(mBufferingTimeout);
+        showError(msg);
     }
 
     private void checkControl() {
@@ -1493,11 +1489,15 @@ public class LiveActivity extends PlaybackActivity implements CustomKeyDown.List
         player().resetTrack();
         player().reset();
         player().stop();
-        if (!mFailedThisSession && !isLineFallbackExhausted()) {
+        if (!mFailedThisSession) {
             mFailedThisSession = true;
             showError(msg);
             startFlow();
         }
+    }
+
+    private void onBufferingTimeout() {
+        if (!startFlow()) showError(ResUtil.getString(R.string.error_play_url));
     }
 
     @Override
@@ -1667,12 +1667,12 @@ public class LiveActivity extends PlaybackActivity implements CustomKeyDown.List
         player().setMetadata(buildMetadata());
     }
 
-    private void startFlow() {
+    private boolean startFlow() {
         LiveSourceFallbackPolicy.Action action = LiveSourceFallbackPolicy.decideLineFailure(
                 LiveSetting.isChange(),
                 mChannel != null,
                 mChannel != null && !mChannel.isOnly());
-        if (action == LiveSourceFallbackPolicy.Action.NEXT_LINE) advanceLineForFallback();
+        return action == LiveSourceFallbackPolicy.Action.NEXT_LINE && advanceLineForFallback();
     }
 
     /**
@@ -1691,16 +1691,18 @@ public class LiveActivity extends PlaybackActivity implements CustomKeyDown.List
      * 播放失败自动换线：从失败起点开始轮换，绕回起点即本轮所有线路都已试过，置位
      * exhausted 停止后续回退；否则刷新线路信息并重新拉流。
      */
-    private void advanceLineForFallback() {
-        if (mChannel == null || mChannel.isOnly()) return;
+    private boolean advanceLineForFallback() {
+        if (isLineFallbackExhausted()) return false;
+        if (mChannel == null || mChannel.isOnly()) return false;
         if (mLineFallbackAnchor < 0) mLineFallbackAnchor = mChannel.getIndex();
         mChannel.switchLine(true);
         if (mChannel.getIndex() == mLineFallbackAnchor) {
             mLineFallbackExhausted = true;
-            return;
+            return false;
         }
         showInfo();
         fetch();
+        return true;
     }
 
     /**
