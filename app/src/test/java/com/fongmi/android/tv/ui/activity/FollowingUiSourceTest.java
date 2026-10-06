@@ -288,6 +288,7 @@ public class FollowingUiSourceTest {
         assertTrue(detail.contains("FollowingPlaybackBridge.findAsync"));
         assertTrue(detail.contains("FollowingPlaybackBridge.resolveTmdbAsync"));
         assertTrue(detail.contains("followingSnapshot()"));
+        assertTrue(detail.contains("return item != null && !item.isDeleted();"));
         assertTrue(detail.contains("item.enabled = true"));
         assertFalse(detail.contains("FollowingStore.findByTmdb"));
         assertFalse(detail.contains("FollowingStore.findBySource"));

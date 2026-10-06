@@ -11676,7 +11676,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         setFollowingButtonsEnabled(false);
         resolveFollowing(tmdb, identityKey, siteKey, vodId, season, existing -> {
             if (isFinishing() || isDestroyed()) return;
-            if (existing != null) {
+            if (isFollowed(existing)) {
                 followingActionPending = false;
                 setFollowingButtonsEnabled(true);
                 FollowingActivity.start(this, existing.identityKey);
@@ -11789,6 +11789,10 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         else FollowingPlaybackBridge.resolveTmdbAsync(tmdb, season, VodConfig.getCid(), siteKey, vodId, followingSnapshot(), callback);
     }
 
+    private boolean isFollowed(Following item) {
+        return item != null && !item.isDeleted();
+    }
+
     private void updateFollowingState() {
         boolean enabled = FollowingSettings.isEnabled();
         boolean eligible = enabled && (followingTmdbItem() != null || (vod != null && !vod.getFlags().isEmpty()));
@@ -11805,7 +11809,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         applyFollowingButtonState(true, false);
         resolveFollowing(tmdb, identityKey, getKeyText(), getIdText(), season, item -> {
             if (generation != followingUiGeneration || isFinishing() || isDestroyed()) return;
-            applyFollowingButtonState(true, item != null);
+            applyFollowingButtonState(true, isFollowed(item));
         });
     }
 
