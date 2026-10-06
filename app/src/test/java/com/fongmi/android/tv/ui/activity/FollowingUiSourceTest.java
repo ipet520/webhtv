@@ -272,6 +272,8 @@ public class FollowingUiSourceTest {
     @Test
     public void detailAndPlaybackScreensWireFollowingActionsOffTheMainThread() throws Exception {
         String detail = read("app/src/main/java/com/fongmi/android/tv/ui/activity/TmdbDetailActivity.java");
+        // 多行源码断言先归一化换行，兼容 Windows CRLF 检出。
+        String detailLf = detail.replace("\r\n", "\n");
         String store = read("app/src/main/java/com/fongmi/android/tv/following/FollowingStore.java");
         String header = read("app/src/main/res/layout/view_tmdb_header.xml");
         String mobile = read("app/src/mobile/res/layout/activity_video.xml")
@@ -282,6 +284,7 @@ public class FollowingUiSourceTest {
         String mobileActivity = read("app/src/mobile/java/com/fongmi/android/tv/ui/activity/VideoActivity.java");
         String leanbackActivity = read("app/src/leanback/java/com/fongmi/android/tv/ui/activity/VideoActivity.java");
         String followingActivity = read("app/src/main/java/com/fongmi/android/tv/ui/activity/FollowingActivity.java");
+        String followingActivityLf = followingActivity.replace("\r\n", "\n");
         String followingAdapter = read("app/src/main/java/com/fongmi/android/tv/ui/adapter/FollowingAdapter.java");
         String strings = read("app/src/main/res/values-zh-rCN/strings.xml");
 
@@ -303,9 +306,27 @@ public class FollowingUiSourceTest {
         assertTrue(followingInitiallyGone(read("app/src/main/res/layout/view_tmdb_header.xml")));
         assertTrue(mobileActivity.contains("onFollowing()"));
         assertTrue(leanbackActivity.contains("onFollowing()"));
+        // 播放页的追更按钮是就地开关：已追更时再次点击必须立刻取消，绝不跳转追更页打断播放。
+        for (String playback : List.of(mobileActivity, leanbackActivity)) {
+            assertTrue(playback.contains("private void cancelFollowing(String identityKey)"));
+            assertTrue(playback.contains("FollowingPlaybackBridge.deleteAsync(identityKey"));
+            assertTrue(playback.contains("FollowingScheduler.cancelNext(this, identityKey)"));
+            assertTrue(playback.contains("Notify.show(R.string.following_canceled)"));
+            assertFalse(playback.contains("FollowingActivity.start(this, existing.identityKey)"));
+        }
+        assertTrue(strings.contains("<string name=\"following_canceled\">已取消追更</string>"));
+        // 详情页与播放页同源：点「已追更」必须就地取消并立即生效，绝不跳转追更页。
+        assertFalse(detail.contains("FollowingActivity.start"));
+        assertFalse(detail.contains("isInlineFollowingPlaybackSurface"));
+        assertTrue(detailLf.contains("if (isFollowed(existing)) {\n                // 详情页与播放页统一为就地开关：再次点击「已追更」立即取消，绝不跳转追更页。\n                cancelFollowing(identityKey);"));
+        assertTrue(detail.contains("private void cancelFollowing(String identityKey)"));
+        assertTrue(detail.contains("FollowingScheduler.cancelNext(this, identityKey)"));
+        assertTrue(detail.contains("FollowingPlaybackBridge.deleteAsync(identityKey"));
+        assertTrue(detail.contains("Notify.show(R.string.following_canceled)"));
+        assertTrue(detailLf.contains("updateFollowingState();\n            FollowingPlaybackBridge.refreshUnreadCountAsync(null);\n            Notify.show(R.string.following_canceled);"));
         assertTrue(followingActivity.contains("FollowingPlaybackBridge.deleteAsync"));
         assertFalse(followingActivity.contains("FollowingStore.delete(item.identityKey)"));
-        assertTrue(followingActivity.contains("Task.execute(() -> {\n            List<Following> items = FollowingStore.list();"));
+        assertTrue(followingActivityLf.contains("Task.execute(() -> {\n            List<Following> items = FollowingStore.list();"));
         assertFalse(followingActivity.contains("VISIBLE_READ_DELAY_MS"));
         assertFalse(followingActivity.contains("markVisibleReadNow()"));
         assertTrue(followingAdapter.contains("item.hasUpdate && item.unwatchedCount > 0"));
