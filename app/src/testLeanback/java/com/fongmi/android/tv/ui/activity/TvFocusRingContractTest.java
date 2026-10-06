@@ -46,7 +46,6 @@ public class TvFocusRingContractTest {
 
     private static final String TOKENS_LIGHT = "app/src/main/res/values/webhtv_tokens.xml";
     private static final String TOKENS_NIGHT = "app/src/main/res/values-night/webhtv_tokens.xml";
-    private static final String TOKENS_LEANBACK = "app/src/leanback/res/values/webhtv_tokens.xml";
 
     // ------------------------------------------------------------ R3 主题控制
 
@@ -76,8 +75,9 @@ public class TvFocusRingContractTest {
      * 若环仍取 `on_secondary_container`，环与填充只有 1.33:1，焦点依旧看不见；
      * 同理 `?attr/colorErrorContainer` 填充配 `on_error` 只有 1.40:1。
      *
-     * <p>逐对计算对比度，取 light / night / leanback 三套生效 token 各验一遍，
-     * 避免以后换色板或换环色时静默退化到“环贴在近似色上”。门槛取 WCAG 2.2
+     * <p>逐对计算对比度，取 light / night 两套公共 token 各验一遍；Leanback 没有
+     * 覆盖这组颜色的 flavor 资源，直接继承公共 token。避免以后换色板或换环色时
+     * 静默退化到“环贴在近似色上”。门槛取 WCAG 2.2
      * SC 1.4.11 非文本对比度的 3:1。
      */
     @Test
@@ -90,7 +90,7 @@ public class TvFocusRingContractTest {
                 {"error container 填充", "webhtv_color_error_container", "focus_ring_on_error_container"},
         };
         String colors = read(COLORS);
-        for (String tokens : new String[]{TOKENS_LIGHT, TOKENS_NIGHT, TOKENS_LEANBACK}) {
+        for (String tokens : new String[]{TOKENS_LIGHT, TOKENS_NIGHT}) {
             for (String[] pair : pairs) {
                 String fill = tokenHex(read(tokens), pair[1]);
                 String alias = aliasTarget(colors, pair[2]);

@@ -338,7 +338,9 @@ public class NativeEnhancedPlaybackStyleFocusTest {
 
     private static String read(String path) throws Exception {
         Path direct = Path.of(path);
-        if (Files.exists(direct)) return Files.readString(direct, StandardCharsets.UTF_8);
-        return Files.readString(Path.of("..").resolve(path), StandardCharsets.UTF_8);
+        String source = Files.exists(direct)
+                ? Files.readString(direct, StandardCharsets.UTF_8)
+                : Files.readString(Path.of("..").resolve(path), StandardCharsets.UTF_8);
+        return source.replace("\r\n", "\n");
     }
 }

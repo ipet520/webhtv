@@ -320,7 +320,7 @@ public class FollowingUiSourceTest {
     private static String read(String relative) throws Exception {
         Path path = Path.of(relative);
         if (!Files.exists(path) && relative.startsWith("app/")) path = Path.of(relative.substring(4));
-        return Files.readString(path, StandardCharsets.UTF_8);
+        return Files.readString(path, StandardCharsets.UTF_8).replace("\r\n", "\n");
     }
 
     private static boolean followingInitiallyGone(String xml) {
