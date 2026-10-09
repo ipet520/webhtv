@@ -2116,6 +2116,7 @@ public class TmdbHeaderView {
         button.setTextColor(ContextCompat.getColorStateList(activity, R.color.tmdb_action_button_text));
         button.setStrokeColor(ContextCompat.getColorStateList(activity, R.color.tmdb_action_button_stroke));
         button.setBackgroundTintList(ContextCompat.getColorStateList(activity, R.color.tmdb_action_button_bg));
+        com.fongmi.android.tv.theme.ThemeController.bindThemeBinding(button, R.string.theme_binding_tmdb_action_button_stroke);
     }
 
     /**

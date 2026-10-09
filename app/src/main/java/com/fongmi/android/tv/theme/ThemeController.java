@@ -7,6 +7,7 @@ import android.content.res.Resources;
 import android.app.Dialog;
 import android.os.Build;
 import android.view.View;
+import android.widget.PopupWindow;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.app.AppCompatDelegate;
@@ -315,10 +316,35 @@ public final class ThemeController {
         ThemeBinder.bind(root, baseline, current);
     }
 
+    /** Applies explicit, view-local semantic metadata and binds that view through the sole active palette. */
+    public static void bindThemeBinding(View view, String metadata) {
+        if (view == null) return;
+        ThemeBinder.markSemanticBinding(view, metadata);
+        bindTheme(view);
+    }
+
+    public static void bindThemeBinding(View view, int metadataResource) {
+        if (view == null || metadataResource == 0) return;
+        bindThemeBinding(view, view.getResources().getString(metadataResource));
+    }
+
+    /** Adapts only the Focus stroke of a known selector while preserving its existing state list. */
+    public static void bindFocusStroke(View view, float widthDp) {
+        if (view == null) return;
+        ThemeBinder.markFocusStroke(view, widthDp);
+        bindTheme(view);
+    }
+
     /** Same controlled channel for a dialog or bottom-sheet window. */
     public static void bindDialog(Dialog dialog) {
         if (dialog == null || dialog.getWindow() == null) return;
-        bindTheme(dialog.getWindow().getDecorView());
+        ThemeBinder.bindDialog(dialog, baseline, current);
+    }
+
+    /** Binds the independent content tree owned by a PopupWindow. */
+    public static void bindPopupWindow(PopupWindow popup) {
+        if (popup == null) return;
+        ThemeBinder.bindPopupWindow(popup, baseline, current);
     }
 
     /**

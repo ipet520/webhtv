@@ -349,6 +349,7 @@ public class SearchFragment extends BaseFragment implements MenuProvider, WordAd
         scopePopup.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
         scopePopup.setOutsideTouchable(true);
         scopePopup.setElevation(ResUtil.dp2px(6));
+        com.fongmi.android.tv.theme.ThemeController.bindPopupWindow(scopePopup);
         scopePopup.showAsDropDown(anchor, anchor.getWidth() - width, 0);
     }
 
@@ -395,6 +396,7 @@ public class SearchFragment extends BaseFragment implements MenuProvider, WordAd
         int itemPadding = ResUtil.dp2px(SCOPE_POPUP_ITEM_HORIZONTAL_PADDING);
         view.setPadding(itemPadding, 0, itemPadding, 0);
         view.setBackgroundResource(R.drawable.selector_theme_sheet_button);
+        com.fongmi.android.tv.theme.ThemeController.bindThemeBinding(view, R.string.theme_binding_theme_sheet_button);
         view.setOnClickListener(v -> {
             if (scopePopup != null) scopePopup.dismiss();
             onScopeSelected(itemId, groups);

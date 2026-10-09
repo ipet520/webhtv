@@ -96,6 +96,7 @@
                 android:includeFontPadding="false"
                 android:text="&#8722;"
                 android:textColor="@color/selector_dialog_step_text"
+                android:tag="@string/theme_binding_dialog_step_button"
                 android:textSize="22sp" />
 
             <com.google.android.material.textview.MaterialTextView
@@ -122,6 +123,7 @@
                 android:includeFontPadding="false"
                 android:text="+"
                 android:textColor="@color/selector_dialog_step_text"
+                android:tag="@string/theme_binding_dialog_step_button"
                 android:textSize="22sp" />
 
         </androidx.appcompat.widget.LinearLayoutCompat>

@@ -11,6 +11,7 @@
     android:paddingStart="16dp"
     android:paddingTop="10dp"
     android:paddingEnd="16dp"
+    android:tag="@string/theme_binding_ad_stats_item"
     android:paddingBottom="10dp">
 
     <com.google.android.material.textview.MaterialTextView

@@ -418,6 +418,7 @@ public class CollectActivity extends BaseActivity implements CollectAdapter.OnCl
             mGroupPopup = null;
             anchor.requestFocus();
         });
+        com.fongmi.android.tv.theme.ThemeController.bindPopupWindow(mGroupPopup);
         mGroupPopup.showAsDropDown(anchor, anchor.getWidth() - mGroupPopup.getWidth(), ResUtil.dp2px(8), Gravity.NO_GRAVITY);
     }
 
@@ -457,6 +458,7 @@ public class CollectActivity extends BaseActivity implements CollectAdapter.OnCl
         view.setIncludeFontPadding(false);
         view.setFocusable(true);
         view.setBackgroundResource(R.drawable.selector_search_scope_item);
+        com.fongmi.android.tv.theme.ThemeController.bindThemeBinding(view, R.string.theme_binding_search_scope_item);
         int padding = ResUtil.dp2px(GROUP_POPUP_ITEM_HORIZONTAL_PADDING_DP);
         view.setPadding(padding, 0, padding, 0);
         view.setSelected(Objects.equals(mFilterGroup, group));

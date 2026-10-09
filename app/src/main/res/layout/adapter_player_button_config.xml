@@ -12,6 +12,7 @@
     android:gravity="center_vertical"
     android:orientation="horizontal"
     android:paddingStart="12dp"
+    android:tag="@string/theme_binding_settings_card"
     android:paddingEnd="8dp">
 
     <com.google.android.material.textview.MaterialTextView
@@ -35,6 +36,7 @@
         android:padding="8dp"
         android:scaleType="center"
         android:src="@drawable/ic_player_button_visible"
+        android:tag="@string/theme_binding_dialog_switch"
         app:tint="@color/dialog_tonal_button_text" />
 
     <com.google.android.material.button.MaterialButton

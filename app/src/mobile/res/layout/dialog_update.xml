@@ -71,6 +71,7 @@
                 android:clickable="true"
                 android:focusable="true"
                 android:orientation="vertical"
+                android:tag="@string/theme_binding_update_version_item"
                 android:padding="14dp">
 
                 <androidx.appcompat.widget.LinearLayoutCompat
@@ -170,6 +171,7 @@
                 android:clickable="true"
                 android:focusable="true"
                 android:orientation="vertical"
+                android:tag="@string/theme_binding_update_version_item"
                 android:padding="14dp">
 
                 <androidx.appcompat.widget.LinearLayoutCompat

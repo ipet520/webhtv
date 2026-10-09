@@ -18,15 +18,20 @@ import java.util.Set;
 public final class ThemeColorIndex {
 
     private final Map<Integer, Set<ThemeRole>> rolesByColor;
+    private final Map<Integer, Set<ThemeRole>> rolesByRgb;
     private final Map<ThemeRole, Integer> baselineByRole;
 
-    private ThemeColorIndex(Map<Integer, Set<ThemeRole>> rolesByColor, Map<ThemeRole, Integer> baselineByRole) {
+    private ThemeColorIndex(Map<Integer, Set<ThemeRole>> rolesByColor,
+                            Map<Integer, Set<ThemeRole>> rolesByRgb,
+                            Map<ThemeRole, Integer> baselineByRole) {
         this.rolesByColor = rolesByColor;
+        this.rolesByRgb = rolesByRgb;
         this.baselineByRole = baselineByRole;
     }
 
     public static ThemeColorIndex of(ThemeTokens baseline) {
         Map<Integer, Set<ThemeRole>> byColor = new LinkedHashMap<>();
+        Map<Integer, Set<ThemeRole>> byRgb = new LinkedHashMap<>();
         Map<ThemeRole, Integer> byRole = new EnumMap<>(ThemeRole.class);
         if (baseline != null) {
             for (ThemeRole role : ThemeRole.values()) {
@@ -34,11 +39,15 @@ public final class ThemeColorIndex {
                 if (color == 0) continue;
                 byRole.put(role, color);
                 byColor.computeIfAbsent(color, ignored -> new LinkedHashSet<>()).add(role);
+                byRgb.computeIfAbsent(color & 0x00FFFFFF, ignored -> new LinkedHashSet<>()).add(role);
             }
         }
         Map<Integer, Set<ThemeRole>> frozen = new LinkedHashMap<>();
         byColor.forEach((color, roles) -> frozen.put(color, Collections.unmodifiableSet(roles)));
-        return new ThemeColorIndex(Collections.unmodifiableMap(frozen), Collections.unmodifiableMap(byRole));
+        Map<Integer, Set<ThemeRole>> frozenRgb = new LinkedHashMap<>();
+        byRgb.forEach((rgb, roles) -> frozenRgb.put(rgb, Collections.unmodifiableSet(roles)));
+        return new ThemeColorIndex(Collections.unmodifiableMap(frozen),
+                Collections.unmodifiableMap(frozenRgb), Collections.unmodifiableMap(byRole));
     }
 
     public boolean isEmpty() {
@@ -68,15 +77,36 @@ public final class ThemeColorIndex {
      * the correct role cannot be determined and the view keeps its static color.
      */
     public Integer replacementFor(int color, ThemeTokens active) {
-        Set<ThemeRole> roles = rolesFor(color);
-        if (roles.isEmpty() || active == null) return null;
+        if (active == null) return null;
+        Set<ThemeRole> roles = rolesByColor.get(color);
+        if (roles == null) roles = rolesByRgb.get(color & 0x00FFFFFF);
+        if (roles == null || roles.isEmpty()) return null;
         Integer candidate = null;
         for (ThemeRole role : roles) {
-            int resolved = role.colorOf(active);
-            if (candidate == null) candidate = resolved;
-            else if (candidate != resolved) return null;
+            Integer resolved = resolvedReplacement(color, baselineByRole.get(role), role.colorOf(active));
+            int effective = resolved == null ? color : resolved;
+            if (candidate == null) candidate = effective;
+            else if (candidate != effective) return null;
         }
         return candidate == null || candidate == color ? null : candidate;
+    }
+
+    /** Replaces a color when its semantic role is explicit, preserving selector alpha. */
+    public Integer replacementForRole(int color, ThemeRole role, ThemeTokens active) {
+        if (role == null || active == null) return null;
+        return resolvedReplacement(color, baselineByRole.get(role), role.colorOf(active));
+    }
+
+    private static Integer resolvedReplacement(int source, Integer baseline, int active) {
+        if (baseline == null || baseline == 0) return null;
+        int baselineAlpha = (baseline >>> 24) & 0xFF;
+        if (baselineAlpha == 0) return null;
+        int sourceAlpha = (source >>> 24) & 0xFF;
+        int activeAlpha = (active >>> 24) & 0xFF;
+        int replacementAlpha = Math.max(0, Math.min(255,
+                Math.round(sourceAlpha * (activeAlpha / (float) baselineAlpha))));
+        int replacement = (active & 0x00FFFFFF) | (replacementAlpha << 24);
+        return replacement == source ? null : replacement;
     }
 
     /** Baseline value of a role, used for explicit role tags. */

@@ -71,6 +71,7 @@ public final class AboutDialog {
         binding.githubProxy.setOnClickListener(v -> showGithubProxy(activity));
         dialog.setCanceledOnTouchOutside(false);
         dialog.show();
+        com.fongmi.android.tv.theme.ThemeController.bindDialog(dialog);
         configureWindow(activity, dialog, binding);
         binding.confirm.requestFocus();
     }

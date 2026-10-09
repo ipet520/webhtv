@@ -37,6 +37,7 @@
             android:nextFocusDown="@id/stableItem"
             android:padding="10dp"
             android:src="@drawable/ic_dialog_close"
+            android:tag="@string/theme_binding_dialog_step_button"
             app:tint="@color/selector_dialog_step_icon_tint" />
 
     </androidx.appcompat.widget.LinearLayoutCompat>
@@ -76,6 +77,7 @@
                 android:focusableInTouchMode="true"
                 android:nextFocusDown="@id/stableConfirm"
                 android:orientation="vertical"
+                android:tag="@string/theme_binding_update_version_item"
                 android:padding="16dp">
 
                 <androidx.appcompat.widget.LinearLayoutCompat
@@ -181,6 +183,7 @@
                 android:focusableInTouchMode="true"
                 android:nextFocusDown="@id/cancel"
                 android:orientation="vertical"
+                android:tag="@string/theme_binding_update_version_item"
                 android:padding="16dp">
 
                 <androidx.appcompat.widget.LinearLayoutCompat

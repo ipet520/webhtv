@@ -352,6 +352,7 @@ public class SearchActivity extends BaseActivity implements WordAdapter.OnClickL
         popup.setOutsideTouchable(true);
         popup.setElevation(ResUtil.dp2px(12));
         popup.setOnDismissListener(anchor::requestFocus);
+        com.fongmi.android.tv.theme.ThemeController.bindPopupWindow(popup);
         popup.showAsDropDown(anchor, anchor.getWidth() - popupWidth, ResUtil.dp2px(8), Gravity.NO_GRAVITY);
     }
 
@@ -385,6 +386,7 @@ public class SearchActivity extends BaseActivity implements WordAdapter.OnClickL
         view.setFocusable(true);
         view.setSelected(selected);
         view.setBackgroundResource(R.drawable.selector_search_scope_item);
+        com.fongmi.android.tv.theme.ThemeController.bindThemeBinding(view, R.string.theme_binding_search_scope_item);
         int padding = ResUtil.dp2px(SCOPE_POPUP_ITEM_HORIZONTAL_PADDING_DP);
         view.setPadding(padding, 0, padding, 0);
         view.setOnClickListener(v -> action.run());

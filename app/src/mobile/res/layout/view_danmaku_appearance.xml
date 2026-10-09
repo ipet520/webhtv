@@ -223,6 +223,7 @@
             android:gravity="center"
             android:text="@string/danmaku_style_none"
             android:textColor="@color/selector_theme_sheet_text"
+            android:tag="@string/theme_binding_theme_sheet_button"
             android:textSize="14sp" />
 
         <com.google.android.material.textview.MaterialTextView
@@ -235,6 +236,7 @@
             android:gravity="center"
             android:text="@string/danmaku_style_shadow"
             android:textColor="@color/selector_theme_sheet_text"
+            android:tag="@string/theme_binding_theme_sheet_button"
             android:textSize="14sp" />
 
         <com.google.android.material.textview.MaterialTextView
@@ -247,6 +249,7 @@
             android:gravity="center"
             android:text="@string/danmaku_style_stroke"
             android:textColor="@color/selector_theme_sheet_text"
+            android:tag="@string/theme_binding_theme_sheet_button"
             android:textSize="14sp" />
 
         <com.google.android.material.textview.MaterialTextView
@@ -258,6 +261,7 @@
             android:gravity="center"
             android:text="@string/danmaku_style_projection"
             android:textColor="@color/selector_theme_sheet_text"
+            android:tag="@string/theme_binding_theme_sheet_button"
             android:textSize="14sp" />
 
     </androidx.appcompat.widget.LinearLayoutCompat>
@@ -473,6 +477,7 @@
             android:gravity="center"
             android:text="@string/danmaku_color_default"
             android:textColor="@color/selector_theme_sheet_text"
+            android:tag="@string/theme_binding_theme_sheet_button"
             android:textSize="14sp" />
 
         <com.google.android.material.textview.MaterialTextView
@@ -485,6 +490,7 @@
             android:gravity="center"
             android:text="@string/danmaku_color_colorful"
             android:textColor="@color/selector_theme_sheet_text"
+            android:tag="@string/theme_binding_theme_sheet_button"
             android:textSize="14sp" />
 
         <com.google.android.material.textview.MaterialTextView

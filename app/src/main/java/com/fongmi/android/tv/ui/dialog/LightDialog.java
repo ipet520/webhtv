@@ -53,7 +53,6 @@ public final class LightDialog {
         // binder root is registered here and re-walked by descendant-count changes.
         ThemeController.bindDialog(dialog);
         ThemeDialogSemantics.bindLegacyDialog(window.getDecorView());
-        ThemeController.bindWindowBackground(background);
     }
 
     /**

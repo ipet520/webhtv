@@ -64,6 +64,7 @@
         android:focusable="true"
         android:focusableInTouchMode="true"
         android:gravity="center"
+        android:tag="@string/theme_binding_dialog_switch"
         android:paddingHorizontal="8dp" />
 
     <androidx.appcompat.widget.AppCompatImageView
@@ -77,6 +78,7 @@
         android:focusableInTouchMode="true"
         android:padding="12dp"
         android:src="@drawable/ic_setting_delete"
+        android:tag="@string/theme_binding_dialog_switch"
         app:tint="@color/dialog_outlined_button_text" />
 
 </androidx.appcompat.widget.LinearLayoutCompat>

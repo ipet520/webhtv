@@ -110,10 +110,28 @@ public class ThemeBinderContractTest {
         // the app on API 28; the signature must stay reflection-free.
         assertFalse("no Java-16 record reflection on the runtime path",
                 source.contains("getRecordComponents()") || source.contains("getDeclaredConstructor("));
-        assertTrue(source.contains("tokens.hashCode()"));
+        assertTrue(source.contains("baseline.hashCode()") && source.contains("active.hashCode()"));
         assertTrue(source.contains("WeakHashMap"));
     }
 
+    @Test
+    public void alphaAdjustedArgbInferenceRemainsAmbiguousButExplicitRolesResolveIt() {
+        ThemeTokens baseline = ThemeTokens.light();
+        ThemeColorIndex index = ThemeColorIndex.of(baseline);
+        ThemeProfile profile = ThemeProfile.defaultProfile();
+        profile.light.primary = "#123456";
+        profile.light.focus = "#654321";
+        ThemeTokens active = ThemeResolver.resolve(
+                ThemeMode.LIGHT, ThemeSeed.NONE, 0, 0, profile, null, false);
+        int translucentPrimary = 0x660B57D0;
+
+        assertNull("shared Primary/Focus ARGB must not be guessed after a custom split",
+                index.replacementFor(translucentPrimary, active));
+        assertEquals(Integer.valueOf(0x66123456),
+                index.replacementForRole(translucentPrimary, ThemeRole.PRIMARY, active));
+        assertEquals(Integer.valueOf(0x66654321),
+                index.replacementForRole(translucentPrimary, ThemeRole.FOCUS, active));
+    }
     @Test
     public void everyActivityBindsTheThemeTreeTwice() throws Exception {
         for (String flavour : new String[]{"mobile", "leanback"}) {
@@ -290,7 +308,7 @@ public class ThemeBinderContractTest {
         String binder = read("src/main/java/com/fongmi/android/tv/theme/ThemeBinder.java");
         assertTrue(binder.contains("public static boolean bindWindowBackground(Drawable drawable, ThemeTokens baseline, ThemeTokens active)"));
         assertTrue("must reuse the shared drawable pass",
-                binder.contains("bindDrawable(drawable, null, ThemeColorIndex.of(baseline), active)"));
+                binder.contains("bindDrawable(copy, null, EMPTY_SPEC, ThemeColorIndex.of(baseline), active"));
 
         String controller = read("src/main/java/com/fongmi/android/tv/theme/ThemeController.java");
         assertTrue(controller.contains("public static void bindWindowBackground(Drawable background)"));
@@ -298,7 +316,7 @@ public class ThemeBinderContractTest {
         String builder = read("src/main/java/com/fongmi/android/tv/theme/WebHtvAlertDialogBuilder.java");
         // The panel is the builder's own background field, which is the exact instance
         // handed to Window.setBackgroundDrawable by MaterialAlertDialogBuilder.
-        assertTrue(builder.contains("ThemeController.bindWindowBackground(getBackground())"));
+        assertTrue("dialog binding owns and snapshots the separate window shell", builder.contains("ThemeController.bindDialog(dialog)"));
         assertTrue(builder.contains("ThemeController.bindDialog(dialog)"));
     }
 
@@ -344,9 +362,9 @@ public class ThemeBinderContractTest {
         String source = read("src/main/java/com/fongmi/android/tv/theme/ThemeBinder.java");
         assertTrue(source.contains("instanceof MaterialButton button"));
         assertTrue(source.contains("view.getBackgroundTintList()"));
-        assertTrue(source.contains("view.setBackgroundTintList(tint)"));
-        assertTrue(source.contains("view.setStrokeColor(stroke)"));
-        assertTrue(source.contains("view.setIconTint(icon)"));
+        assertTrue(source.contains("view::setBackgroundTintList"));
+        assertTrue(source.contains("view::setStrokeColor"));
+        assertTrue(source.contains("view::setIconTint"));
         // The visible contract behind this: native pages fill their primary
         // buttons through app:backgroundTint, not through a GradientDrawable.
         String following = read("src/main/res/layout/activity_following.xml");
@@ -359,7 +377,7 @@ public class ThemeBinderContractTest {
         assertEquals("both LightDialog entry points must bind",
                 2, light.split("ThemeController\\.bindDialog\\(dialog\\)", -1).length - 1);
         assertTrue("LightDialog must bind the window shell as well as the view tree",
-                light.contains("ThemeController.bindWindowBackground(background)"));
+                light.contains("ThemeController.bindDialog(dialog)"));
         assertTrue("custom LightDialog shells must use the active semantic surface",
                 light.contains("ThemeController.current().colorSurfaceContainerHigh()"));
         // dialogOpacity has exactly one owner: ThemeBinder.bindWindowBackground. Pre-multiplying

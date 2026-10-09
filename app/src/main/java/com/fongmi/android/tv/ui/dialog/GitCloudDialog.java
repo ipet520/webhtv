@@ -649,6 +649,7 @@ public class GitCloudDialog extends BaseAlertDialog {
         root.setFocusableInTouchMode(false);
         root.setDescendantFocusability(ViewGroup.FOCUS_AFTER_DESCENDANTS);
         root.setBackground(ContextCompat.getDrawable(requireContext(), R.drawable.selector_git_cloud_card));
+        com.fongmi.android.tv.theme.ThemeController.bindThemeBinding(root, R.string.theme_binding_git_cloud_card);
         LinearLayoutCompat top = row();
         top.addView(repoTitle(item), new LinearLayoutCompat.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
         if (GitRepoStore.contains(item)) top.addView(pill("已收藏"));
@@ -957,6 +958,7 @@ public class GitCloudDialog extends BaseAlertDialog {
         makeFocusable(name);
         name.setTag(treeFocusTag(FOCUS_TREE_INFO, ""));
         name.setBackground(ContextCompat.getDrawable(requireContext(), R.drawable.selector_git_cloud_inline_focus));
+        com.fongmi.android.tv.theme.ThemeController.bindThemeBinding(name, R.string.theme_binding_git_cloud_inline_focus);
         name.setOnClickListener(view -> toggleTree("", treeFocusTag(FOCUS_TREE_INFO, "")));
         line.addView(name, new LinearLayoutCompat.LayoutParams(0, dp(32), 1));
         line.setOnClickListener(view -> toggleTree("", treeFocusTag(FOCUS_TREE_INFO, "")));
@@ -1004,6 +1006,7 @@ public class GitCloudDialog extends BaseAlertDialog {
         info.setPadding(dp(8), 0, 0, 0);
         info.setDuplicateParentStateEnabled(true);
         info.setBackground(ContextCompat.getDrawable(requireContext(), R.drawable.selector_git_cloud_inline_focus));
+        com.fongmi.android.tv.theme.ThemeController.bindThemeBinding(info, R.string.theme_binding_git_cloud_inline_focus);
         info.setTag(treeFocusTag(FOCUS_TREE_INFO, file.path));
         makeFocusable(info);
         info.setOnClickListener(view -> {
@@ -2294,6 +2297,7 @@ public class GitCloudDialog extends BaseAlertDialog {
         button.setEllipsize(TextUtils.TruncateAt.END);
         button.setTextColor(ContextCompat.getColorStateList(requireContext(), R.color.selector_git_cloud_link_text));
         button.setBackground(ContextCompat.getDrawable(requireContext(), R.drawable.selector_git_cloud_inline_focus));
+        com.fongmi.android.tv.theme.ThemeController.bindThemeBinding(button, R.string.theme_binding_git_cloud_inline_focus);
         button.setMinHeight(dp(28));
         button.setMinimumHeight(dp(28));
         button.setPadding(dp(2), 0, dp(2), 0);
@@ -2346,6 +2350,7 @@ public class GitCloudDialog extends BaseAlertDialog {
         ImageButton button = new ImageButton(requireContext());
         button.setImageResource(expanded ? R.drawable.ic_detail_minus : R.drawable.ic_detail_plus);
         button.setBackground(ContextCompat.getDrawable(requireContext(), R.drawable.selector_git_cloud_inline_focus));
+        com.fongmi.android.tv.theme.ThemeController.bindThemeBinding(button, R.string.theme_binding_git_cloud_inline_focus);
         button.setImageTintList(ContextCompat.getColorStateList(requireContext(), R.color.selector_git_cloud_inline_icon_tint));
         button.setPadding(dp(6), dp(6), dp(6), dp(6));
         makeFocusable(button);
@@ -2358,6 +2363,7 @@ public class GitCloudDialog extends BaseAlertDialog {
         view.setPadding(dp(4 + depth * 18), dp(5), dp(6), dp(5));
         view.setSelected(selected);
         view.setBackground(ContextCompat.getDrawable(requireContext(), R.drawable.selector_git_cloud_tree_item));
+        com.fongmi.android.tv.theme.ThemeController.bindThemeBinding(view, R.string.theme_binding_git_cloud_tree_item);
         view.setFocusable(false);
         view.setFocusableInTouchMode(false);
         view.setDescendantFocusability(ViewGroup.FOCUS_AFTER_DESCENDANTS);
@@ -2373,6 +2379,7 @@ public class GitCloudDialog extends BaseAlertDialog {
         check.setChecked(selectedFiles.containsKey(file.path));
         check.setPadding(0, 0, 0, 0);
         check.setBackground(ContextCompat.getDrawable(requireContext(), R.drawable.selector_git_cloud_inline_focus));
+        com.fongmi.android.tv.theme.ThemeController.bindThemeBinding(check, R.string.theme_binding_git_cloud_inline_focus);
         makeFocusable(check);
         check.setOnClickListener(view -> {
             pendingTreeFocusTag = treeFocusTag(FOCUS_TREE_CHECK, file.path);

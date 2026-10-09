@@ -637,6 +637,7 @@ public class CollectFragment extends BaseFragment implements MenuProvider, Colle
         groupPopup.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
         groupPopup.setOutsideTouchable(true);
         groupPopup.setElevation(ResUtil.dp2px(6));
+        com.fongmi.android.tv.theme.ThemeController.bindPopupWindow(groupPopup);
         groupPopup.showAsDropDown(anchor, anchor.getWidth() - width, 0);
     }
 
@@ -681,6 +682,7 @@ public class CollectFragment extends BaseFragment implements MenuProvider, Colle
         view.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
         view.setPadding(ResUtil.dp2px(18), 0, ResUtil.dp2px(18), 0);
         view.setBackgroundResource(R.drawable.selector_theme_sheet_button);
+        com.fongmi.android.tv.theme.ThemeController.bindThemeBinding(view, R.string.theme_binding_theme_sheet_button);
         view.setOnClickListener(v -> {
             if (groupPopup != null) groupPopup.dismiss();
             onGroupFilterSelected(itemId);

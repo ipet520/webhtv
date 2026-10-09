@@ -34,6 +34,7 @@
             android:contentDescription="@string/lut_close"
             android:padding="10dp"
             android:src="@drawable/ic_dialog_close"
+            android:tag="@string/theme_binding_dialog_step_button"
             app:tint="@color/selector_dialog_step_icon_tint" />
 
     </androidx.appcompat.widget.LinearLayoutCompat>

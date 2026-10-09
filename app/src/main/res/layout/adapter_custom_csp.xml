@@ -6,6 +6,7 @@
     android:layout_marginBottom="10dp"
     android:background="@drawable/selector_custom_csp_item"
     android:orientation="vertical"
+    android:tag="@string/theme_binding_custom_csp_item"
     android:padding="12dp">
 
     <androidx.appcompat.widget.LinearLayoutCompat
@@ -67,6 +68,7 @@
             android:focusable="true"
             android:padding="8dp"
             android:src="@drawable/ic_subtitle_up"
+            android:tag="@string/theme_binding_dialog_switch"
             app:tint="?attr/colorOnSurfaceVariant" />
 
         <androidx.appcompat.widget.AppCompatImageButton
@@ -79,6 +81,7 @@
             android:focusable="true"
             android:padding="8dp"
             android:src="@drawable/ic_subtitle_down"
+            android:tag="@string/theme_binding_dialog_switch"
             app:tint="?attr/colorOnSurfaceVariant" />
 
         <androidx.appcompat.widget.AppCompatImageButton
@@ -91,6 +94,7 @@
             android:focusable="true"
             android:padding="8dp"
             android:src="@drawable/ic_setting_delete"
+            android:tag="@string/theme_binding_dialog_switch"
             app:tint="?attr/colorOnSurfaceVariant" />
 
     </androidx.appcompat.widget.LinearLayoutCompat>

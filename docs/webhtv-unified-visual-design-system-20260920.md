@@ -13,6 +13,12 @@
 - 未验证项：播放器长时/字幕/音轨/倍速回归与管理页、reader、WebHome 三页面浏览器视觉逐项人工验收仍需完成；高级主题编辑器按计划继续延后，需独立审批。
 - 下一步唯一动作：Layer 1、Layer 2A–2D 的代码与自动化门禁均已落地（Layer 2D 见 `docs/THEME-CUSTOMIZATION-LAYERS-20260921.md` 第 4.11 节）；Layer 2 的设备功能矩阵仍未执行，需在可进入原生“外观”页的环境中补做后才能宣称全局主题自定义完成。
 
+### Active task: Native UI theme propagation (2026-10-09)
+
+- Task: native-ui-theme-propagation-20261009; implementation and recovery record: docs/native-ui-theme-propagation-20261009.md.
+- Scope: runtime ThemeTokens binding for existing native Mobile and Leanback UI; preserve the device-verified player text and settings Focus fixes.
+- Status: implementation in progress; keep the task guard active until device acceptance.
+
 ### 阶段 M（电视版统一焦点环）实施记录（2026-10-04）
 
 - 问题：焦点态只改填充色，而 `colorFocus == colorPrimary`，导致自带主题色按钮
