@@ -107,6 +107,133 @@ public class ThemeBaseWiringTest {
             "fragment_setting_subtitle.xml", "fragment_setting_tmdb.xml",
     };
 
+    /**
+     * Player bottom sheets whose own root background is a <em>dark</em> translucent
+     * indigo glass panel, never a light one.
+     *
+     * <p>{@code shape_player_child_sheet_panel}, {@code shape_dialog_glass_panel},
+     * {@code shape_dialog_control_glass_panel}, {@code shape_quick_search_panel},
+     * {@code shape_danmaku_sheet_panel} and {@code shape_danmaku_setting_panel} are all
+     * {@code #E62F315E -> #D6282955 -> #CC303463} (or {@code #E61F1F22}); composited over
+     * any frame they stay dark, so their foreground must not follow the palette.
+     *
+     * <p>These are the mobile peers of the leanback sheets. Historically leanback used the
+     * identical drawables with {@code ?attr/colorOnSurface}, which worked on TV only because
+     * the leanback table was dark in every profile ({@code webhtv_color_on_surface} =
+     * {@code #E2E2E9}). Now that TV resolves the same day/night tables as mobile, the TV
+     * sheets carry the same palette-independent constants as these mobile ones, so both
+     * flavours stay readable in both modes.
+     *
+     * <p>{@code 0af2340d4} replaced the flat light values ({@code @color/white},
+     * {@code white_70}, {@code white_90}, {@code white_50/60}) in exactly these files, and
+     * this list is that change's inverse. The fill is constant in every state, so a flat
+     * light foreground is correct and no state list is needed.
+     */
+    private static final String[] DARK_GLASS_SHEETS = {
+            "dialog_danmaku.xml", "dialog_danmaku_search.xml", "dialog_danmaku_setting.xml",
+            "dialog_episode_list.xml", "dialog_live.xml", "dialog_live_epg.xml",
+            "dialog_offset.xml", "dialog_quick_search.xml", "dialog_timer.xml",
+            "dialog_title.xml", "dialog_track.xml", "dialog_video_content.xml",
+    };
+
+    /**
+     * Palette-independent foregrounds that are correct on a dark surface in every table.
+     *
+     * <p>{@code webhtv_on_wallpaper} and {@code webhtv_color_player_control_muted} are
+     * {@code #FFFFFF} / {@code #CCFFFFFF} in both token tables (the day and night files),
+     * which is what makes them safe on a surface whose darkness does not
+     * depend on the palette. {@code webhtv_color_overlay_light} is the matching constant
+     * ripple fill. They are semantic roles, not raw values, so the sheets stay inside the
+     * token system and need no allowlist exemption of their own.
+     */
+    private static final String[] CONSTANT_LIGHT_FOREGROUNDS = {
+            "?attr/webhtvColorOnWallpaper",
+            "?attr/webhtvColorPlayerControl",
+            "?attr/webhtvColorPlayerControlMuted",
+            "@color/webhtv_color_player_control_muted",
+            "@color/webhtv_color_overlay_light",
+            "@color/selector_control_sheet_text",
+            "@color/selector_player_child_sheet_text",
+    };
+
+    /**
+     * The sheet button state list must stay palette-independent too.
+     *
+     * <p>{@code dialog_danmaku_setting} and {@code dialog_timer} paint their option buttons
+     * with {@code @color/selector_control_sheet_text} over
+     * {@code selector_player_child_sheet_button}, a dark translucent fill. The list resolves
+     * to {@code @color/white} / {@code #B3FFFFFF} plus the black selected/activated pair
+     * that matches the light selected band, so it never follows the palette. Routing it
+     * through {@code ?attr/colorOnSurface} would put near-black text on the dark sheet in
+     * day mode, exactly like the layouts above.
+     */
+    @Test
+    public void controlSheetButtonTextStaysPaletteIndependent() throws Exception {
+        String selector = withoutComments(read("src/mobile/res/color/selector_control_sheet_text.xml"));
+        assertFalse("the sheet button text must not follow the palette",
+                selector.contains("?attr/"));
+        assertTrue(selector.contains("@color/white"));
+        assertTrue(selector.contains("#B3FFFFFF"));
+        assertTrue("the selected state must stay dark on the light selected band",
+                selector.contains("#FF000000"));
+    }
+
+    /** Attributes that paint a foreground onto the sheet's own dark panel. */
+    private static final String[] SHEET_FOREGROUND_ATTRS = {
+            "android:textColor", "android:textColorHint", "app:tint",
+            "app:strokeColor", "app:rippleColor", "app:boxStrokeColor",
+    };
+
+    @Test
+    public void darkGlassSheetsUseAConstantLightForeground() throws Exception {
+        for (String name : DARK_GLASS_SHEETS) {
+            String source = withoutComments(read("src/mobile/res/layout/" + name));
+            int checked = 0;
+            for (String attr : SHEET_FOREGROUND_ATTRS) {
+                java.util.regex.Matcher matcher = java.util.regex.Pattern
+                        .compile(java.util.regex.Pattern.quote(attr) + "=\"([^\"]+)\"")
+                        .matcher(source);
+                while (matcher.find()) {
+                    String value = matcher.group(1);
+                    boolean constant = false;
+                    for (String allowed : CONSTANT_LIGHT_FOREGROUNDS) {
+                        if (value.equals(allowed)) constant = true;
+                    }
+                    if (!constant && "dialog_danmaku_setting.xml".equals(name)
+                            && "@color/selector_theme_sheet_text".equals(value)) {
+                        constant = danmakuPanelPinsSelectorRoles();
+                    }
+                    assertTrue(name + " paints " + attr + "=\"" + value
+                                    + "\" on its dark glass panel, which is not a palette-independent"
+                                    + " light foreground (allowed: " + String.join(", ", CONSTANT_LIGHT_FOREGROUNDS) + ")",
+                            constant);
+                    checked++;
+                }
+            }
+            assertTrue(name + " must paint at least one foreground on its sheet", checked > 0);
+        }
+    }
+
+    @Test
+    public void tmdbDarkChipVariantKeepsAConstantTranslucentFill() throws Exception {
+        String dark = withoutComments(read("src/mobile/res/drawable/selector_tmdb_flag_item_dark.xml"));
+        for (String surface : new String[]{
+                "webhtv_color_surface_container", "webhtv_color_success_container",
+                "webhtv_color_primary_container", "webhtv_color_outline_variant"}) {
+            assertFalse("the dark-page chip must not follow the palette surface " + surface,
+                    dark.contains("@color/" + surface));
+        }
+        for (String fill : new String[]{"#26FFFFFF", "#33FFFFFF", "#664B8F72"}) {
+            assertTrue("the dark-page chip must keep the constant translucent fill " + fill,
+                    dark.contains(fill));
+        }
+        String text = withoutComments(read("src/mobile/res/color/selector_tmdb_flag_text_dark.xml"));
+        assertTrue(text.contains("#F3F7FA"));
+        String light = withoutComments(read("src/mobile/res/drawable/selector_tmdb_flag_item.xml"));
+        assertTrue("the light-page chip keeps its semantic light surface",
+                light.contains("@color/webhtv_color_surface_container"));
+    }
+
     @Test
     public void flavourBaseThemesInheritTheWebhtvSemanticTheme() throws Exception {
         String mobile = read("src/mobile/res/values/styles.xml");
@@ -203,6 +330,8 @@ public class ThemeBaseWiringTest {
         }
         assertFalse("Leanback must use the shared light/night token tables",
                 exists("src/leanback/res/values/webhtv_tokens.xml"));
+        // leanback 不再自带 token 表：day 走 main/values，night 走 main/values-night，
+        // 所以这里不再有第三张需要单独校验的色板。
     }
 
     /**
@@ -299,7 +428,7 @@ public class ThemeBaseWiringTest {
      * The wallpaper foreground must stay light, identical in every palette, and out of
      * the binder's reach.
      *
-     * <p>It is 0xFFFFFFFF in all three tables because the wallpaper is dark in both
+     * <p>It is 0xFFFFFFFF in both tables because the wallpaper is dark in both
      * system night modes. {@code ThemeBinder} only rewrites a view colour when
      * {@code ThemeColorIndex.replacementFor} yields a different value, so the guard is:
      * for every baseline palette and every active palette, 0xFFFFFFFF must resolve to
@@ -319,6 +448,7 @@ public class ThemeBaseWiringTest {
     public void wallpaperForegroundIsLightAndNotBinderRewritable() throws Exception {
         String light = read("src/main/res/values/webhtv_tokens.xml");
         String night = read("src/main/res/values-night/webhtv_tokens.xml");
+        // TV 复用 main 的两张表（day/night），不再有第三张恒深色表。
         for (String source : new String[]{light, night}) {
             assertTrue("every palette must declare webhtv_on_wallpaper",
                     source.contains("<color name=\"webhtv_on_wallpaper\">#FFFFFF</color>"));
@@ -380,6 +510,26 @@ public class ThemeBaseWiringTest {
     private static String read(String path) throws Exception {
         Path root = Files.exists(Path.of("src")) ? Path.of("") : Path.of("app");
         return Files.readString(root.resolve(path), StandardCharsets.UTF_8);
+    }
+
+    /** Drops XML comments so file prose cannot satisfy or defeat a source assertion. */
+    private static String withoutComments(String source) {
+        return source.replaceAll("(?s)<!--.*?-->", "");
+    }
+
+    private static boolean danmakuPanelPinsSelectorRoles() throws Exception {
+        String layout = withoutComments(read("src/mobile/res/layout/dialog_danmaku_setting.xml"));
+        String selector = withoutComments(read("src/main/res/color/selector_theme_sheet_text.xml"));
+        String styles = withoutComments(read("src/main/res/values/webhtv_styles.xml"));
+        return layout.contains("android:theme=\"@style/ThemeOverlay.WebHTV.DanmakuPanel\"")
+                && selector.contains("?attr/colorOnSurface")
+                && selector.contains("?attr/colorOnSurfaceVariant")
+                && selector.contains("?attr/colorOnPrimary")
+                && selector.contains("?attr/colorOnPrimaryContainer")
+                && styles.contains("<item name=\"colorOnSurface\">@color/white</item>")
+                && styles.contains("<item name=\"colorOnSurfaceVariant\">@color/white_80</item>")
+                && styles.contains("<item name=\"colorOnPrimary\">@color/black</item>")
+                && styles.contains("<item name=\"colorOnPrimaryContainer\">@color/white</item>");
     }
 
     private static boolean exists(String path) {

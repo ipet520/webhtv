@@ -36,6 +36,7 @@ public class ThemeControllerContractTest {
         assertTrue(controller.contains("AppCompatDelegate.MODE_NIGHT_NO"));
         assertTrue(controller.contains("AppCompatDelegate.MODE_NIGHT_YES"));
         assertTrue(controller.contains("AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM"));
+        assertTrue(controller.contains("ThemeMode themeMode = currentThemeMode();"));
         assertTrue(read("src/main/java/com/fongmi/android/tv/App.java").contains("ThemeController.applyNightModeToApp();"));
         for (String flavour : new String[]{"mobile", "leanback"}) {
             String dialog = read("src/" + flavour + "/java/com/fongmi/android/tv/ui/dialog/AppearanceDialog.java");
@@ -98,6 +99,15 @@ public class ThemeControllerContractTest {
         assertFalse(dialog.contains("Color.parseColor("));
         assertFalse(dialog.contains("setBackgroundColor("));
         assertFalse(dialog.contains("selector_git_cloud_card"));
+    }
+
+    @Test
+    public void leanbackAppearanceUsesTheSharedRuntimeRowTheme() throws Exception {
+        String dialog = read("src/leanback/java/com/fongmi/android/tv/ui/dialog/AppearanceDialog.java");
+        assertTrue(dialog.contains("AppearanceRowTheme.apply(row, title, summary, ThemeController.current())"));
+        String rowTheme = read("src/main/java/com/fongmi/android/tv/theme/AppearanceRowTheme.java");
+        assertTrue(rowTheme.contains("safe.colorOnSurface()"));
+        assertTrue(rowTheme.contains("safe.colorOnSurfaceVariant()"));
     }
 
     @Test

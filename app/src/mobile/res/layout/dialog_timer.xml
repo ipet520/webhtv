@@ -112,7 +112,7 @@
             android:text="@string/timer_delay"
              android:textColor="?attr/webhtvColorPlayerControl"
             app:backgroundTint="@color/selector_dialog_glass_button_tint"
-            app:rippleColor="?attr/colorOnSurfaceVariant" />
+            app:rippleColor="@color/webhtv_color_overlay_light" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/reset"
@@ -123,7 +123,7 @@
             android:singleLine="true"
             android:text="@string/timer_cancel"
              android:textColor="?attr/webhtvColorPlayerControl"
-            app:strokeColor="?attr/colorOutline" />
+            app:strokeColor="@color/webhtv_color_player_control_muted" />
 
     </androidx.appcompat.widget.LinearLayoutCompat>
 </androidx.appcompat.widget.LinearLayoutCompat>

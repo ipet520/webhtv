@@ -40,7 +40,7 @@
                 android:focusable="true"
                 android:padding="10dp"
                 android:src="@drawable/ic_repo_github"
-                app:tint="?attr/colorOnSurfaceVariant" />
+                app:tint="?attr/webhtvColorOnWallpaper" />
 
             <androidx.appcompat.widget.AppCompatImageButton
                 android:id="@+id/cnbRepo"
@@ -52,7 +52,7 @@
                 android:focusable="true"
                 android:padding="10dp"
                 android:src="@drawable/ic_repo_cnb"
-                app:tint="?attr/colorOnSurfaceVariant" />
+                app:tint="?attr/webhtvColorOnWallpaper" />
 
         </androidx.appcompat.widget.LinearLayoutCompat>
 

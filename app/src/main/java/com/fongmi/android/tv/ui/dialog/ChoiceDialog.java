@@ -31,6 +31,7 @@ import androidx.fragment.app.FragmentManager;
 import com.fongmi.android.tv.R;
 import com.fongmi.android.tv.theme.ThemeController;
 import com.fongmi.android.tv.theme.ThemeDialogSemantics;
+import com.fongmi.android.tv.theme.ThemeEditorUi;
 import com.fongmi.android.tv.theme.ThemeTokens;
 import com.fongmi.android.tv.ui.helper.TmdbSeasonResolver;
 import com.fongmi.android.tv.utils.ResUtil;
@@ -252,6 +253,7 @@ public final class ChoiceDialog extends DialogFragment {
         Dialog dialog = new Dialog(requireContext());
         dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
         dialog.setContentView(createView(LayoutInflater.from(requireContext())));
+        ThemeController.bindDialog(dialog);
         dialog.setCanceledOnTouchOutside(true);
         return dialog;
     }
@@ -399,7 +401,8 @@ public final class ChoiceDialog extends DialogFragment {
         if (showCancel && !multi && items != null && items.length > 0 && negative == null) negative = getString(R.string.dialog_negative);
         LinearLayout root = new LinearLayout(requireContext());
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setBackgroundResource(R.drawable.shape_shell_proxy_dialog);
+        ThemeTokens tokens = ThemeController.current();
+        root.setBackground(ThemeEditorUi.shape(requireContext(), tokens.colorSurfaceContainerHigh(), 0, 0, 22));
         int vertical = dp(24);
         int horizontal = dp(actionCount() >= 3 ? 18 : 24);
         root.setPadding(horizontal, vertical, horizontal, vertical);

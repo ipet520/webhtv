@@ -128,7 +128,7 @@ public final class ThemeController {
 
     public static void refresh() {
         boolean systemDark = (Resources.getSystem().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
-        current = ThemeResolver.resolve(ThemeMode.SYSTEM, ThemeSeed.NONE, 0, 0, systemDark);
+        current = ThemeResolver.resolve(currentThemeMode(), ThemeSeed.NONE, 0, 0, systemDark);
     }
 
     /**
@@ -187,13 +187,13 @@ public final class ThemeController {
      *
      * <p>{@link #frozenPalette()} must describe the colours inflation produced, and
      * those come from the compiled {@code webhtv_color_*} resources. Resource
-     * selection is not purely a function of uiMode: the TV flavour overrides
-     * {@code values/} with the dark table and ships no light table of its own, so on
-     * a light-mode device its views are dark while a uiMode-derived baseline was
-     * light. Every binder rewrite compares against that baseline exactly, so the
-     * mismatch silently turned the whole TV theme channel into a no-op (measured:
+     * selection is not purely a function of uiMode: a flavour may override
+     * {@code values/} with a fixed table and ship no table of its own for the other
+     * mode. When that happens a uiMode-derived baseline describes colours no inflated
+     * view ever held. Every binder rewrite compares against that baseline exactly, so
+     * the mismatch silently turned the whole TV theme channel into a no-op (measured:
      * probe vs default = 0 changed pixels on TV while the identical probe changed
-     * ~49k pixels on mobile, and switching the device to dark made TV respond).
+     * ~49k pixels on mobile).
      *
      * <p>The compiled table is retained as compatibility information for the binder,
      * but it must not override an explicit user mode. A TV light choice therefore

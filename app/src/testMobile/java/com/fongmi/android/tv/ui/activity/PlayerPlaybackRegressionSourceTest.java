@@ -387,6 +387,6 @@ public class PlayerPlaybackRegressionSourceTest {
             path = workspaceRoot;
             for (String part : parts) path = path.resolve(part);
         }
-        return Files.readString(path, StandardCharsets.UTF_8);
+        return Files.readString(path, StandardCharsets.UTF_8).replace("\r\n", "\n");
     }
 }

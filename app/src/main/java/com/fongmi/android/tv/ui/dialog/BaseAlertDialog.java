@@ -38,7 +38,7 @@ public abstract class BaseAlertDialog extends DialogFragment {
     }
 
     protected MaterialAlertDialogBuilder builder() {
-        return new WebHtvAlertDialogBuilder(requireActivity(), R.style.MaterialAlertDialog_WebHTV_Rounded);
+        return new WebHtvAlertDialogBuilder(requireActivity(), R.style.ThemeOverlay_WebHTV_Dialog);
     }
 
     @Override

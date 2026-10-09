@@ -1,7 +1,6 @@
 package com.fongmi.android.tv.ui.dialog;
 
 import android.app.Dialog;
-import android.graphics.Color;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.view.Gravity;

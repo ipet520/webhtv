@@ -94,7 +94,7 @@ public class SearchResultDownFocusTest {
 
     private static String read(String path) throws Exception {
         Path direct = Path.of(path);
-        if (Files.exists(direct)) return Files.readString(direct, StandardCharsets.UTF_8);
-        return Files.readString(Path.of("..").resolve(path), StandardCharsets.UTF_8);
+        if (Files.exists(direct)) return Files.readString(direct, StandardCharsets.UTF_8).replace("\r\n", "\n");
+        return Files.readString(Path.of("..").resolve(path), StandardCharsets.UTF_8).replace("\r\n", "\n");
     }
 }

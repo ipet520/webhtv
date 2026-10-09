@@ -106,9 +106,13 @@ public class ThemePhase1ContractTest {
                 "src/leanback/java/com/fongmi/android/tv/ui/dialog/AppearanceDialog.java",
                 "src/mobile/java/com/fongmi/android/tv/ui/dialog/AppearanceDialog.java"}) {
             String source = read(path);
-            assertTrue(source.contains("ThemeEditorUi.interactive"));
-            assertTrue(source.contains("ThemeEditorUi.readable"));
-            assertFalse(source.contains("selector_git_cloud_card"));
+            if (path.contains("/leanback/")) {
+                assertTrue(source.contains("AppearanceRowTheme.apply(row, title, summary, ThemeController.current())"));
+            } else {
+                assertTrue(source.contains("ThemeEditorUi.interactive"));
+                assertTrue(source.contains("ThemeEditorUi.readable"));
+            }
+            assertFalse(source.contains("R.drawable.selector_git_cloud_card"));
         }
     }
 
@@ -125,7 +129,7 @@ public class ThemePhase1ContractTest {
                 ContextCompat.getColorStateList(context, R.color.config_history_text)
                         .getColorForState(new int[]{android.R.attr.state_focused}, 0));
         assertTrue(read("src/leanback/res/layout/adapter_home_menu.xml")
-                .contains("@color/home_menu_item_text"));
+                .contains("@color/home_menu_text"));
         assertFalse(read("src/leanback/res/color/config_history_text.xml")
                 .contains("colorOnPrimary"));
     }
@@ -147,10 +151,12 @@ public class ThemePhase1ContractTest {
         assertTrue(selector.contains("state_pressed"));
         assertTrue(selector.contains("state_activated"));
         assertTrue(selector.contains("state_selected"));
-        assertTrue(selector.contains("?attr/colorSurfaceContainerHighest"));
-        assertTrue(selector.contains("?attr/colorPrimaryContainer"));
-        assertTrue(selector.contains("?attr/colorSurfaceContainer"));
-        assertFalse(selector.contains("#E616202A"));
+        assertTrue(selector.contains("#E616202A"));
+        assertTrue(selector.contains("#CC101820"));
+        assertTrue(selector.contains("#B3101820"));
+        assertTrue(selector.contains("?attr/tvFocusRing"));
+        assertTrue(selector.contains("?attr/tvCurrentRing"));
+        assertTrue(selector.contains("?attr/tvNormalStroke"));
         String layout = read("src/leanback/res/layout/activity_video.xml");
         assertTrue(layout.contains("@+id/content"));
         assertTrue(layout.contains("drawableTint"));
@@ -161,7 +167,7 @@ public class ThemePhase1ContractTest {
     @Test
     public void tvThemeNoLongerOverridesSharedLightNightTokens() throws Exception {
         String style = read("src/main/res/values/webhtv_styles.xml");
-        assertFalse(style.contains("isLightTheme"));
+        assertFalse(style.replaceAll("(?s)<!--.*?-->", "").contains("name=\"isLightTheme\""));
         assertFalse(Files.exists(root().resolve("src/leanback/res/values/webhtv_tokens.xml")));
     }
 

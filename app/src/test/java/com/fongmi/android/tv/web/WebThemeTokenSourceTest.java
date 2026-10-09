@@ -72,6 +72,6 @@ public class WebThemeTokenSourceTest {
     private static String read(String path) throws Exception {
         Path root = Files.exists(Path.of("src")) ? Path.of("") : Path.of("app");
         String relative = path.startsWith("app/") ? path.substring("app/".length()) : path;
-        return Files.readString(root.resolve(relative), StandardCharsets.UTF_8);
+        return Files.readString(root.resolve(relative), StandardCharsets.UTF_8).replace("\r\n", "\n");
     }
 }

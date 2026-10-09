@@ -90,6 +90,7 @@ public class TvFocusRingContractTest {
                 {"error container 填充", "webhtv_color_error_container", "focus_ring_on_error_container"},
         };
         String colors = read(COLORS);
+        // TV 不再有独立的 leanback 色板，day/night 两张表就是全部生效表。
         for (String tokens : new String[]{TOKENS_LIGHT, TOKENS_NIGHT}) {
             for (String[] pair : pairs) {
                 String fill = tokenHex(read(tokens), pair[1]);

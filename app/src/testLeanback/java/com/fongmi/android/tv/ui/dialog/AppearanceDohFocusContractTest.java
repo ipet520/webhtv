@@ -14,14 +14,14 @@ public class AppearanceDohFocusContractTest {
     @Test
     public void appearanceRowsUseContainerFocusRolesWithoutFocusToken() throws Exception {
         String source = read("src/leanback/java/com/fongmi/android/tv/ui/dialog/AppearanceDialog.java");
-        String background = method(source, "private StateListDrawable dohRowBackground(");
-        String text = method(source, "private ColorStateList dohRowTextColors(");
+        String rowTheme = read("src/main/java/com/fongmi/android/tv/theme/AppearanceRowTheme.java");
 
-        assertTrue(background.contains("tokens.colorPrimaryContainer(), tokens.colorPrimary()"));
-        assertTrue(background.contains("tokens.colorSurfaceContainerHigh(), tokens.colorOutlineVariant()"));
-        assertFalse(background.contains("colorFocus"));
-        assertTrue(text.contains("tokens.colorOnPrimaryContainer(), tokens.colorOnSurface()"));
-        assertFalse(text.contains("colorFocus"));
+        assertTrue(source.contains("AppearanceRowTheme.apply(row, title, summary, ThemeController.current())"));
+        assertTrue(rowTheme.contains("safe.colorPrimaryContainer(), safe.colorPrimary()"));
+        assertTrue(rowTheme.contains("safe.colorSurfaceContainerHigh(), safe.colorOutlineVariant()"));
+        assertTrue(rowTheme.contains("safe.colorOnPrimaryContainer(), safe.colorOnSurface()"));
+        assertTrue(rowTheme.contains("safe.colorOnPrimaryContainer(), safe.colorOnSurfaceVariant()"));
+        assertFalse(rowTheme.contains("colorFocus"));
     }
 
     @Test

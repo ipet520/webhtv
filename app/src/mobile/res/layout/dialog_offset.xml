@@ -33,8 +33,8 @@
             android:text="@string/danmaku_reset"
             android:textColor="?attr/webhtvColorPlayerControl"
             app:backgroundTint="@color/selector_dialog_glass_button_tint"
-            app:rippleColor="?attr/webhtvColorPlayerControlMuted"
-            app:strokeColor="?attr/colorOutline" />
+            app:rippleColor="@color/webhtv_color_overlay_light"
+            app:strokeColor="@color/webhtv_color_player_control_muted" />
 
     </androidx.appcompat.widget.LinearLayoutCompat>
 
