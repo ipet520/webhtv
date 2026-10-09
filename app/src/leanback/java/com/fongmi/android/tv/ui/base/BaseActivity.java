@@ -27,6 +27,7 @@ import com.fongmi.android.tv.setting.Setting;
 import com.fongmi.android.tv.theme.ThemeController;
 import com.fongmi.android.tv.ui.custom.CustomWallView;
 import com.fongmi.android.tv.ui.helper.TouchOptimizationHelper;
+import com.fongmi.android.tv.ui.theme.SettingFocusTheme;
 import com.fongmi.android.tv.utils.Util;
 
 import org.greenrobot.eventbus.EventBus;
@@ -61,6 +62,7 @@ public abstract class BaseActivity extends AppCompatActivity {
         EventBus.getDefault().register(this);
         initView(savedInstanceState);
         ThemeController.bindTheme(content);
+        SettingFocusTheme.bind(getClass(), content, ThemeController.current());
         Util.hideSystemUI(this);
         setBackCallback();
         initEvent();
