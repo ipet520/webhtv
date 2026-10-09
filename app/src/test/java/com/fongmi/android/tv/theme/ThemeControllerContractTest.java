@@ -84,12 +84,19 @@ public class ThemeControllerContractTest {
         assertTrue(card.contains("STROKE_NORMAL"));
         String video = read("src/leanback/java/com/fongmi/android/tv/ui/presenter/TmdbVideoPresenter.java");
         assertTrue(video.contains("selector_tmdb_media_focus"));
+    }
+
+    @Test
+    public void mobileAppearanceUsesLegacyInteractionThemeProjection() throws Exception {
         String dialog = read("src/mobile/java/com/fongmi/android/tv/ui/dialog/AppearanceDialog.java");
-        // The row now resolves fill and foreground from one ThemeTokens snapshot,
-        // then applies the readable semantic pairing instead of relying on a fixed-light card.
-        assertTrue(dialog.contains("ThemeTokens tokens = ThemeController.current();"));
+        assertTrue(dialog.contains("ThemeTokens tokens = ThemeController.legacyInteractionTokens();"));
+        assertTrue(dialog.contains("int fill = tokens.colorSurfaceContainerHigh();"));
+        assertTrue(dialog.contains("ThemeEditorUi.interactive(requireContext(), fill,"));
+        assertTrue(dialog.contains("tokens.colorOutline(), tokens.colorFocus(), false"));
         assertTrue(dialog.contains("ThemeEditorUi.readable(tokens.colorOnSurface(), fill)"));
         assertTrue(dialog.contains("ThemeEditorUi.readable(tokens.colorOnSurfaceVariant(), fill)"));
+        assertFalse(dialog.contains("Color.parseColor("));
+        assertFalse(dialog.contains("setBackgroundColor("));
         assertFalse(dialog.contains("selector_git_cloud_card"));
     }
 

@@ -158,12 +158,6 @@ public final class ThemeResolver {
         int outline = hasOutline || hasSurface
                 ? ensureContrast(color(slots.outline, base.colorOutline()), surface, 3.0)
                 : base.colorOutline();
-        // The frozen palette deliberately ships focus == primary. Keeping that relationship
-        // matters beyond aesthetics: the binder resolves a view colour by its semantic role,
-        // and a baseline colour shared by two roles is only rewritten when both agree. If
-        // focus drifted away from primary, primary-as-text views (dialog actions) would keep
-        // their compiled colour and stay unreadable. `primary` already clears 4.5:1 on the
-        // surface, so it also clears the 3.0:1 focus requirement.
         int focus = hasFocus || hasSurface
                 ? ensureContrast(color(slots.focus, primary), surface, 3.0)
                 : base.colorFocus();

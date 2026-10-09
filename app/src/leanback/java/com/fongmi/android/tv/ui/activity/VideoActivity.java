@@ -4291,7 +4291,7 @@ private boolean runtimeSourceOnly;
         int end = Math.min(start + getEpisodeSegmentSize(episodes.size()), episodes.size());
         int selectedPosition = getSelectedEpisodePosition(episodes);
         int positionInSegment = selectedPosition >= start && selectedPosition < end ? selectedPosition - start : 0;
-        List<Episode> items = episodes.subList(start, end);
+        List<Episode> items = new ArrayList<>(episodes.subList(start, end));
         mEpisodeAdapter.addAll(items);
         mEpisodeGridAdapter.addAll(items);
         scrollToEpisode(positionInSegment);

@@ -1,7 +1,9 @@
 package com.fongmi.android.tv.ui.dialog;
 
 import android.app.Dialog;
+import android.content.res.ColorStateList;
 import android.graphics.Color;
+import android.graphics.drawable.StateListDrawable;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.view.Gravity;
@@ -20,11 +22,14 @@ import com.fongmi.android.tv.event.RefreshEvent;
 import com.fongmi.android.tv.setting.PlayerSetting;
 import com.fongmi.android.tv.setting.Setting;
 import com.fongmi.android.tv.theme.ThemeController;
+import com.fongmi.android.tv.theme.ThemeDialogSemantics;
 import com.fongmi.android.tv.theme.ThemeEditorUi;
 import com.fongmi.android.tv.theme.ThemeProfile;
 import com.fongmi.android.tv.theme.ThemeProfileStore;
 import com.fongmi.android.tv.theme.ThemeTokens;
 import com.fongmi.android.tv.utils.ResUtil;
+import com.fongmi.android.tv.utils.Util;
+import com.google.android.material.button.MaterialButton;
 import com.google.android.material.textview.MaterialTextView;
 
 public final class AppearanceDialog extends DialogFragment {
@@ -55,6 +60,45 @@ public final class AppearanceDialog extends DialogFragment {
         return LightDialog.create(requireContext(), getString(R.string.setting_appearance), createContent(), getString(R.string.dialog_close), null, null, null);
     }
 
+    @Override
+    public void onStart() {
+        super.onStart();
+        if (!Util.isLeanback()) return;
+        Dialog dialog = getDialog();
+        if (dialog == null || dialog.getWindow() == null) return;
+        MaterialButton close = findCloseButton(dialog.getWindow().getDecorView(), getString(R.string.dialog_close));
+        if (close == null) return;
+        ChoiceDialog.applyDohCancelColors(close);
+        applyDohCancelStroke(close);
+    }
+
+    private void applyDohCancelStroke(MaterialButton button) {
+        ThemeTokens tokens = ThemeDialogSemantics.tokens();
+        button.setStrokeColor(new ColorStateList(new int[][]{
+                {-android.R.attr.state_enabled},
+                {android.R.attr.state_focused},
+                {android.R.attr.state_pressed},
+                {}
+        }, new int[]{
+                tokens.colorOutlineVariant(),
+                tokens.colorPrimary(),
+                tokens.colorPrimary(),
+                tokens.colorOutline()
+        }));
+        button.setStrokeWidth(dp(1));
+    }
+
+    private MaterialButton findCloseButton(View view, CharSequence label) {
+        if (view instanceof MaterialButton button && TextUtils.equals(button.getText(), label)) return button;
+        if (view instanceof ViewGroup group) {
+            for (int i = 0; i < group.getChildCount(); i++) {
+                MaterialButton button = findCloseButton(group.getChildAt(i), label);
+                if (button != null) return button;
+            }
+        }
+        return null;
+    }
+
     private View createContent() {
         LinearLayout content = new LinearLayout(requireContext());
         content.setOrientation(LinearLayout.VERTICAL);
@@ -70,10 +114,8 @@ public final class AppearanceDialog extends DialogFragment {
         LinearLayout row = new LinearLayout(requireContext());
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
-        ThemeTokens tokens = ThemeController.current();
-        int fill = tokens.colorSurfaceContainerHigh();
-        row.setBackground(ThemeEditorUi.interactive(requireContext(), fill,
-                tokens.colorOutline(), tokens.colorFocus(), false));
+        ThemeTokens tokens = ThemeDialogSemantics.tokens();
+        row.setBackground(dohRowBackground(tokens));
         row.setClickable(true);
         row.setFocusable(true);
         row.setPadding(dp(16), 0, dp(16), 0);
@@ -81,18 +123,20 @@ public final class AppearanceDialog extends DialogFragment {
 
         MaterialTextView title = new MaterialTextView(requireContext());
         title.setText(titleRes);
-        title.setTextColor(ThemeEditorUi.readable(tokens.colorOnSurface(), fill));
+        title.setTextColor(dohRowTextColors(tokens));
         title.setTextSize(15);
         title.setSingleLine(true);
+        title.setDuplicateParentStateEnabled(true);
         row.addView(title, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
 
         MaterialTextView summary = new MaterialTextView(requireContext());
         summary.setText(value);
-        summary.setTextColor(ThemeEditorUi.readable(tokens.colorOnSurfaceVariant(), fill));
+        summary.setTextColor(dohRowTextColors(tokens));
         summary.setTextSize(14);
         summary.setGravity(Gravity.END);
         summary.setSingleLine(true);
         summary.setEllipsize(TextUtils.TruncateAt.END);
+        summary.setDuplicateParentStateEnabled(true);
         LinearLayout.LayoutParams summaryParams = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1);
         summaryParams.leftMargin = dp(12);
         row.addView(summary, summaryParams);
@@ -101,6 +145,20 @@ public final class AppearanceDialog extends DialogFragment {
         rowParams.bottomMargin = dp(8);
         content.addView(row, rowParams);
         return summary;
+    }
+
+    private StateListDrawable dohRowBackground(ThemeTokens tokens) {
+        StateListDrawable background = new StateListDrawable();
+        background.addState(new int[]{android.R.attr.state_focused}, ThemeEditorUi.shape(requireContext(), tokens.colorPrimaryContainer(), tokens.colorPrimary(), 1, 6));
+        background.addState(new int[]{}, ThemeEditorUi.shape(requireContext(), tokens.colorSurfaceContainerHigh(), tokens.colorOutlineVariant(), 1, 6));
+        return background;
+    }
+
+    private ColorStateList dohRowTextColors(ThemeTokens tokens) {
+        return new ColorStateList(new int[][]{
+                {android.R.attr.state_focused},
+                {}
+        }, new int[]{tokens.colorOnPrimaryContainer(), tokens.colorOnSurface()});
     }
 
     private void chooseUiScale(View view) {

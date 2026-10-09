@@ -7133,6 +7133,7 @@ private final Task.Scope mPersonalRecommendationTasks = new Task.Scope(Task.reco
         view.setBackground(audioSheetItemBackground(false));
         view.setSingleLine(false);
         view.setMaxLines(2);
+        view.setEllipsize(TextUtils.TruncateAt.END);
         view.setOnClickListener(v -> action.run());
         return view;
     }
@@ -7467,6 +7468,7 @@ private final Task.Scope mPersonalRecommendationTasks = new Task.Scope(Task.reco
         item.setPadding(ResUtil.dp2px(14), 0, ResUtil.dp2px(14), 0);
         item.setSingleLine(false);
         item.setMaxLines(2);
+        item.setEllipsize(TextUtils.TruncateAt.END);
         item.setLineSpacing(ResUtil.dp2px(2), 1.0f);
         item.setTextColor(selected ? SHEET_TEXT_PRIMARY : SHEET_TEXT_SECONDARY);
         item.setBackground(lyricsResultItemBackground(selected));
@@ -7486,6 +7488,7 @@ private final Task.Scope mPersonalRecommendationTasks = new Task.Scope(Task.reco
         item.setPadding(ResUtil.dp2px(14), 0, ResUtil.dp2px(14), 0);
         item.setSingleLine(false);
         item.setMaxLines(3);
+        item.setEllipsize(TextUtils.TruncateAt.END);
         item.setLineSpacing(ResUtil.dp2px(2), 1.0f);
         item.setTextColor(Color.WHITE);
         item.setBackground(lyricsResultItemBackground(false));

@@ -1547,7 +1547,7 @@ public class TmdbUIAdapter {
                     : applyEpisodeTitlesForSlices(vod, item, generation, metadataGeneration);
             if (!isCurrentEpisodeMetadataRequest(generation, metadataGeneration, selectedSeason)) return;
             SpiderDebug.log("tmdb", "episode titles async cost=%dms changed=%s season=%s title=%s", System.currentTimeMillis() - start, changed, selectedSeason, item.getTitle());
-            finishEpisodeMetadataLoad(vod, generation, metadataGeneration, selectedSeason);
+            completeEpisodeMetadataOnMainThread(vod, generation, metadataGeneration, selectedSeason);
         });
     }
 
@@ -1689,6 +1689,18 @@ public class TmdbUIAdapter {
         if (!isCurrentEpisodeMetadataRequest(generation, metadataGeneration, selectedSeason)) return;
         episodeMetadataLoaded = true;
         notifyVodChanged(vod, generation, RefreshEvent.Type.VOD_EPISODE_TITLES);
+    }
+
+    private void completeEpisodeMetadataOnMainThread(Vod vod, int generation, int metadataGeneration, Integer selectedSeason) {
+        activity.runOnUiThread(() -> {
+            if (!isCurrentEpisodeMetadataRequest(generation, metadataGeneration, selectedSeason)) return;
+            synchronized (episodeMetadataLock) {
+                if (!isCurrentEpisodeMetadataRequest(generation, metadataGeneration, selectedSeason)) return;
+                Flag target = activeFlagFor(vod);
+                com.fongmi.android.tv.utils.TmdbEpisodeSorter.sort(target);
+            }
+            finishEpisodeMetadataLoad(vod, generation, metadataGeneration, selectedSeason);
+        });
     }
 
     /**
@@ -1941,7 +1953,6 @@ public class TmdbUIAdapter {
                 if (!isCurrentEpisodeMetadataRequest(generation, metadataGeneration, selectedSeason)) return false;
                 Flag target = activeFlagFor(vod);
                 boolean changed = applyEpisodeMetadata(target == null ? null : target.getEpisodes(), episodesByNumber, selectedSeason);
-                com.fongmi.android.tv.utils.TmdbEpisodeSorter.sort(target);
                 SpiderDebug.log("tmdb", "应用第 %d 季集数标题: %d 集", selectedSeason, episodes.size());
                 return changed;
             }
@@ -1990,7 +2001,6 @@ public class TmdbUIAdapter {
                     // 用尽力切分补齐剩下的集，与选集界面的季度按钮同一套分段口径。
                     changed |= applySegmentFallbackMetadata(sourceEpisodes, episodesBySeason, seasons, seasonCounts);
                 }
-                com.fongmi.android.tv.utils.TmdbEpisodeSorter.sort(target);
                 SpiderDebug.log("tmdb", "应用多季切片元数据: %s", seasons);
                 return changed;
             }

@@ -5,9 +5,9 @@ import java.util.Locale;
 /**
  * The bounded set of semantic roles the controlled binder may rewrite.
  *
- * <p>Only the 13 user-editable color slots and the six foreground roles the
- * resolver derives from them are listed. Player, media, logo, rating, health and
- * brand colors are intentionally absent so a profile can never reach them.
+ * <p>The 13 user-editable color slots are followed by derived Material and
+ * interaction roles used by runtime binding. Player, media, logo, rating,
+ * health and brand colors are intentionally absent so a profile cannot reach them.
  */
 public enum ThemeRole {
     PRIMARY,
@@ -28,7 +28,15 @@ public enum ThemeRole {
     ON_SECONDARY_CONTAINER,
     ON_ERROR,
     ON_SUCCESS,
-    ON_WARNING;
+    ON_WARNING,
+    OUTLINE_VARIANT,
+    SURFACE_DIM,
+    SURFACE_BRIGHT,
+    SURFACE_CONTAINER_LOWEST,
+    SURFACE_CONTAINER_LOW,
+    SURFACE_CONTAINER_HIGHEST,
+    ERROR_CONTAINER,
+    ON_ERROR_CONTAINER;
 
     public static final String TAG_PREFIX = "webhtv:";
 
@@ -54,18 +62,26 @@ public enum ThemeRole {
             case SECONDARY_CONTAINER -> tokens.colorSecondaryContainer();
             case FOCUS -> tokens.colorFocus();
             case SURFACE -> tokens.colorSurface();
+            case SURFACE_DIM -> tokens.colorSurfaceDim();
+            case SURFACE_BRIGHT -> tokens.colorSurfaceBright();
             case SURFACE_CONTAINER -> tokens.colorSurfaceContainer();
+            case SURFACE_CONTAINER_LOWEST -> tokens.colorSurfaceContainerLowest();
+            case SURFACE_CONTAINER_LOW -> tokens.colorSurfaceContainerLow();
             case SURFACE_CONTAINER_HIGH -> tokens.colorSurfaceContainerHigh();
+            case SURFACE_CONTAINER_HIGHEST -> tokens.colorSurfaceContainerHighest();
             case ON_SURFACE -> tokens.colorOnSurface();
             case ON_SURFACE_VARIANT -> tokens.colorOnSurfaceVariant();
             case OUTLINE -> tokens.colorOutline();
+            case OUTLINE_VARIANT -> tokens.colorOutlineVariant();
             case ERROR -> tokens.colorError();
+            case ERROR_CONTAINER -> tokens.colorErrorContainer();
             case SUCCESS -> tokens.colorSuccess();
             case WARNING -> tokens.colorWarning();
             case ON_PRIMARY -> tokens.colorOnPrimary();
             case ON_PRIMARY_CONTAINER -> tokens.colorOnPrimaryContainer();
             case ON_SECONDARY_CONTAINER -> tokens.colorOnSecondaryContainer();
             case ON_ERROR -> tokens.colorOnError();
+            case ON_ERROR_CONTAINER -> tokens.colorOnErrorContainer();
             case ON_SUCCESS -> tokens.colorOnSuccess();
             case ON_WARNING -> tokens.colorOnWarning();
         };

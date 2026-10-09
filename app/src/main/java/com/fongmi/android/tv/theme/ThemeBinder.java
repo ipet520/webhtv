@@ -33,8 +33,9 @@ import java.util.WeakHashMap;
  * else - player surfaces, media, posters, brand and health colors, focus
  * selectors, unknown colors - is left untouched.
  *
- * <p>This runs on the main thread only, is a no-op when the active tokens equal
- * the baseline, and never touches a view more than once per token signature.
+ * <p>This runs on the main thread only. Untagged views remain untouched when the
+ * active tokens equal the baseline; explicit semantic role tags are still bound
+ * from the active token snapshot. A view is never rebound more than once per token signature.
  */
 public final class ThemeBinder {
 
@@ -71,9 +72,8 @@ public final class ThemeBinder {
     public static void bind(View root, ThemeTokens baseline, ThemeTokens active) {
         if (root == null || baseline == null || active == null) return;
         if (Looper.myLooper() != Looper.getMainLooper()) return;
-        if (baseline.equals(active)) {
-            // Default profile: the static Layer 1 theme is already correct, so the
-            // binder must cost nothing and change nothing.
+        if (baseline.equals(active) && !containsExplicitRole(root)) {
+            // Default profile without semantic tags remains a strict no-write path.
             lastBindMillis = 0L;
             lastBoundViews = 0;
             return;
@@ -100,7 +100,7 @@ public final class ThemeBinder {
             View view = queue.poll();
             if (view == null) continue;
             walked++;
-            if (isExempt(view)) continue;
+            if (isExempt(view) && ThemeRole.fromTag(view.getTag()) == null) continue;
             if (bindView(view, index, active, signature)) bound++;
             if (view instanceof RecyclerView recyclerView) watchChildren(recyclerView, index, active, signature);
             if (view instanceof ViewGroup group) {
@@ -136,6 +136,19 @@ public final class ThemeBinder {
         return count;
     }
 
+    private static boolean containsExplicitRole(View root) {
+        Deque<View> queue = new ArrayDeque<>();
+        queue.add(root);
+        while (!queue.isEmpty()) {
+            View view = queue.poll();
+            if (ThemeRole.fromTag(view.getTag()) != null) return true;
+            if (view instanceof ViewGroup group) {
+                for (int child = 0; child < group.getChildCount(); child++) queue.add(group.getChildAt(child));
+            }
+        }
+        return false;
+    }
+
     private static void watchChildren(RecyclerView recyclerView, ThemeColorIndex index, ThemeTokens active, long signature) {
         if (WATCHED.containsKey(recyclerView)) return;
         RecyclerView.OnChildAttachStateChangeListener listener = new RecyclerView.OnChildAttachStateChangeListener() {
@@ -158,8 +171,9 @@ public final class ThemeBinder {
         if (applied != null && applied == signature) return false;
         ThemeRole explicit = ThemeRole.fromTag(view.getTag());
         boolean changed = false;
-        if (view instanceof TextView textView) changed |= bindText(textView, explicit, index, active);
-        if (view instanceof ImageView imageView) changed |= bindImageTint(imageView, explicit, index, active);
+        ThemeRole foreground = view instanceof MaterialButton ? foregroundRole(explicit) : explicit;
+        if (view instanceof TextView textView) changed |= bindText(textView, foreground, index, active);
+        if (view instanceof ImageView imageView) changed |= bindImageTint(imageView, foreground, index, active);
         if (view instanceof MaterialCardView cardView) changed |= bindCard(cardView, explicit, index, active);
         if (view instanceof MaterialButton button) changed |= bindButton(button, explicit, index, active);
         changed |= bindBackgroundTint(view, explicit, index, active);
@@ -347,7 +361,10 @@ public final class ThemeBinder {
             Integer replacement = singleColor(source.getDefaultColor(), explicit, index, active);
             return replacement == null ? null : ColorStateList.valueOf(replacement);
         }
-        ColorStateList cached = REBUILT.get(source);
+        // The legacy cache is keyed by ColorStateList identity alone. An explicit
+        // role can legitimately map the same shared selector to a different token,
+        // so only inferred legacy replacements may use that cache.
+        ColorStateList cached = explicit == null ? REBUILT.get(source) : null;
         if (cached != null) return cached;
         int[][] states = ThemeColorIndex.stateSkeleton();
         int[] colors = new int[states.length];
@@ -370,7 +387,7 @@ public final class ThemeBinder {
         // ColorStateList exposes a public (int[][], int[]) constructor, so the list
         // can be rebuilt directly without XML inflation or hidden platform APIs.
         ColorStateList rebuilt = new ColorStateList(states, colors);
-        REBUILT.put(source, rebuilt);
+        if (explicit == null) REBUILT.put(source, rebuilt);
         return rebuilt;
     }
 
@@ -389,13 +406,23 @@ public final class ThemeBinder {
 
     private static Integer singleColor(int current, ThemeRole explicit, ThemeColorIndex index, ThemeTokens active) {
         if (explicit != null) {
-            Integer baseline = index.baselineOf(explicit);
             int target = explicit.colorOf(active);
             if (target == 0 || target == current) return null;
-            if (baseline != null && baseline != current) return null;
             return target;
         }
         return index.replacementFor(current, active);
+    }
+
+    private static ThemeRole foregroundRole(ThemeRole fill) {
+        if (fill == null) return null;
+        return switch (fill) {
+            case PRIMARY -> ThemeRole.ON_PRIMARY;
+            case PRIMARY_CONTAINER -> ThemeRole.ON_PRIMARY_CONTAINER;
+            case SECONDARY_CONTAINER -> ThemeRole.ON_SECONDARY_CONTAINER;
+            case ERROR -> ThemeRole.ON_ERROR;
+            case ERROR_CONTAINER -> ThemeRole.ON_ERROR_CONTAINER;
+            default -> fill;
+        };
     }
 
     private static boolean isExempt(View view) {

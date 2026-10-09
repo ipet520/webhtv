@@ -77,6 +77,13 @@ public class AboutDialogLayoutTest {
     }
 
     @Test
+    public void lightAlertDialogViewportNeverExceedsItsActualWindowRemainder() {
+        assertEquals(418, LightDialog.resolveAlertListViewportHeight(500, 380, 448, 418, 590));
+        assertEquals(250, LightDialog.resolveAlertListViewportHeight(450, 300, 600, 626, 400));
+        assertEquals(290, LightDialog.resolveAlertListViewportHeight(700, 400, 600, 626, 590));
+    }
+
+    @Test
     public void githubProxyDialogExposesPersistentEnableSwitch() throws Exception {
         String layout = read(findMainResPath().resolve(Path.of("layout", "dialog_github_proxy.xml")));
         String dialog = read(findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "dialog", "AboutDialog.java")));

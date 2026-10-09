@@ -13,6 +13,7 @@ import android.view.Window;
 import android.view.WindowManager;
 
 import androidx.appcompat.app.AlertDialog;
+import androidx.core.content.ContextCompat;
 import androidx.fragment.app.FragmentActivity;
 
 import com.fongmi.android.tv.App;
@@ -29,6 +30,7 @@ import com.fongmi.android.tv.utils.Notify;
 import com.fongmi.android.tv.utils.ResUtil;
 import com.fongmi.android.tv.utils.Task;
 import com.fongmi.android.tv.utils.Util;
+import com.google.android.material.button.MaterialButton;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.github.catvod.net.OkHttp;
 
@@ -47,6 +49,11 @@ public final class AboutDialog {
 
     public static void show(FragmentActivity activity, Runnable updateAction) {
         DialogAboutBinding binding = DialogAboutBinding.inflate(LayoutInflater.from(activity));
+        if (Util.isLeanback()) {
+            applyDohCancelStyle(binding.checkUpdate);
+            applyDohCancelStyle(binding.githubProxy);
+            applyDohCancelStyle(binding.confirm);
+        }
         binding.version.setText(activity.getString(R.string.about_version, AppVersion.fullName(), BuildConfig.FLAVOR_mode, BuildConfig.FLAVOR_abi));
 
         Dialog dialog = new Dialog(activity);
@@ -66,6 +73,12 @@ public final class AboutDialog {
         dialog.show();
         configureWindow(activity, dialog, binding);
         binding.confirm.requestFocus();
+    }
+
+    private static void applyDohCancelStyle(MaterialButton button) {
+        ChoiceDialog.applyDohCancelColors(button);
+        button.setStrokeColor(ContextCompat.getColorStateList(button.getContext(), R.color.dialog_outlined_button_stroke));
+        button.setStrokeWidth(ResUtil.dp2px(1));
     }
 
     private static void showGithubProxy(FragmentActivity activity) {

@@ -65,7 +65,7 @@ public final class AppearanceDialog extends DialogFragment {
         LinearLayout row = new LinearLayout(requireContext());
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
-        ThemeTokens tokens = ThemeController.current();
+        ThemeTokens tokens = ThemeController.legacyInteractionTokens();
         int fill = tokens.colorSurfaceContainerHigh();
         row.setBackground(ThemeEditorUi.interactive(requireContext(), fill,
                 tokens.colorOutline(), tokens.colorFocus(), false));

@@ -113,6 +113,7 @@ public class ThemeContractTest {
             assertTrue(path + " missing " + resource, actual != null);
             assertEquals(resource, component.getAccessor().invoke(tokens), actual);
         }
+        assertEquals(colors.get("webhtv_color_primary"), colors.get("webhtv_color_focus"));
     }
 
     private static Map<String, Integer> colors(Path path) throws Exception {

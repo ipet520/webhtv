@@ -73,6 +73,7 @@ public class FollowingActivity extends AppCompatActivity implements FollowingAda
     private String focusIdentity;
     private String pendingNotifyIdentity;
     private int filterIndex = FILTER_ALL;
+    private int loadGeneration;
     private final ActivityResultLauncher<String> notificationPermission = registerForActivityResult(
             new ActivityResultContracts.RequestPermission(), granted -> {
                 if (pendingNotifyIdentity == null) return;
@@ -113,6 +114,10 @@ public class FollowingActivity extends AppCompatActivity implements FollowingAda
             Notify.show(R.string.following_enabled_hint);
             finish();
             return;
+        }
+        if (savedInstanceState != null) {
+            filterIndex = Math.max(FILTER_ALL, Math.min(FILTER_COUNT - 1,
+                    savedInstanceState.getInt("following_filter_index", FILTER_ALL)));
         }
         binding = ActivityFollowingBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
@@ -158,23 +163,35 @@ public class FollowingActivity extends AppCompatActivity implements FollowingAda
     }
 
     @Override
+    protected void onSaveInstanceState(@NonNull Bundle outState) {
+        outState.putInt("following_filter_index", filterIndex);
+        super.onSaveInstanceState(outState);
+    }
+
+    @Override
     public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
         if (hasFocus) Util.hideSystemUI(this);
     }
 
     private void load() {
+        if (binding == null || isFinishing() || isDestroyed()) return;
+        int generation = ++loadGeneration;
+        int selectedFilter = filterIndex;
         binding.loading.setVisibility(View.VISIBLE);
         Task.execute(() -> {
             List<Following> following = FollowingStore.list();
             List<FollowingAdapter.Row> rows = new ArrayList<>();
             for (Following item : following) {
-                if (!matchesFilter(item)) continue;
+                if (!matchesFilter(item, selectedFilter)) continue;
                 rows.add(new FollowingAdapter.Row(item, FollowingStore.preferredSource(item.identityKey)));
             }
             rows.sort((left, right) -> LIST_ORDER.compare(left.following, right.following));
             int unread = FollowingStore.unreadCount();
-            App.post(() -> render(rows, unread));
+            App.post(() -> {
+                if (generation != loadGeneration || binding == null || isFinishing() || isDestroyed()) return;
+                render(rows, unread);
+            });
         });
     }
 
@@ -220,8 +237,8 @@ public class FollowingActivity extends AppCompatActivity implements FollowingAda
         });
     }
 
-    private boolean matchesFilter(Following item) {
-        return switch (filterIndex) {
+    private boolean matchesFilter(Following item, int filter) {
+        return switch (filter) {
             case FILTER_UPDATES -> item.hasUpdate || item.unwatchedCount > 0;
             case FILTER_UNWATCHED -> item.unwatchedCount > 0;
             case FILTER_ENDED -> FollowingMetadataSnapshot.ENDED.equals(item.officialStatus)

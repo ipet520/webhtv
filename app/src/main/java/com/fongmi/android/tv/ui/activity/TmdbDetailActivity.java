@@ -11190,6 +11190,10 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     protected void onResume() {
         super.onResume();
         refreshSelectionAfterExternalPlayback();
+        if (vod != null) {
+            updateKeepState();
+            updateFollowingState();
+        }
         if (vod != null && binding.loading.getVisibility() != View.VISIBLE) revealDefaultPlaybackLoadingPage();
         scheduleBackdropSlide(BACKDROP_SLIDE_DELAY_MS);
     }

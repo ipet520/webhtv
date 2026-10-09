@@ -46,7 +46,9 @@ public class ThemeBinderContractTest {
         ThemeColorIndex index = ThemeColorIndex.of(baseline);
         assertFalse(index.isEmpty());
         assertEquals(ThemeRole.ERROR, index.uniqueRoleFor(baseline.colorError()));
-        assertEquals(ThemeRole.SURFACE, index.uniqueRoleFor(baseline.colorSurface()));
+        assertNull(index.uniqueRoleFor(baseline.colorSurface()));
+        assertTrue(index.rolesFor(baseline.colorSurface()).contains(ThemeRole.SURFACE));
+        assertTrue(index.rolesFor(baseline.colorSurface()).contains(ThemeRole.SURFACE_BRIGHT));
         // The light palette deliberately shares one blue between primary and focus,
         // so that value is ambiguous and the binder requires both to agree.
         assertTrue(index.rolesFor(baseline.colorFocus()).contains(ThemeRole.PRIMARY));

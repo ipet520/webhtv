@@ -2430,7 +2430,7 @@ public class VideoActivityLayoutTest {
         assertTrue("playback page range focus must replace the visible episode items",
                 showSegment >= 0
                         && activity.indexOf("List<Episode> episodes = getFlag().getEpisodes();", showSegment) > showSegment
-                        && activity.indexOf("List<Episode> items = episodes.subList(start, end);", showSegment) > showSegment
+                        && activity.indexOf("List<Episode> items = new ArrayList<>(episodes.subList(start, end));", showSegment) > showSegment
                         && activity.indexOf("mEpisodeAdapter.addAll(items);", showSegment) > showSegment
                         && activity.indexOf("mEpisodeGridAdapter.addAll(items);", showSegment) > showSegment);
 

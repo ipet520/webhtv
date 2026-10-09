@@ -71,6 +71,13 @@ public final class LightDialog {
         return Math.min(maxHeight, currentHeight - currentListHeight + desiredListHeight);
     }
 
+    static int resolveAlertListViewportHeight(int currentWindowHeight, int currentListHeight,
+                                              int desiredListHeight, int maxListHeight, int maxWindowHeight) {
+        int nonListHeight = Math.max(0, currentWindowHeight - currentListHeight);
+        int windowRemainder = Math.max(0, maxWindowHeight - nonListHeight);
+        return Math.min(Math.min(desiredListHeight, maxListHeight), windowRemainder);
+    }
+
     private static void applyAlertWindow(AlertDialog dialog, Window window) {
         Context context = dialog.getContext();
         int screenWidth = ResUtil.getScreenWidth(context);
@@ -99,8 +106,11 @@ public final class LightDialog {
         }
         contentHeight += Math.max(0, measuredItems - 1) * list.getDividerHeight();
         if (measuredItems < adapter.getCount()) contentHeight = listMaxHeight;
-        int listHeight = Math.min(contentHeight, listMaxHeight);
-        int windowHeight = resolveAlertWindowHeight(window.getDecorView().getHeight(), list.getHeight(), listHeight, windowMaxHeight);
+        int currentWindowHeight = window.getDecorView().getHeight();
+        int currentListHeight = list.getHeight();
+        int listHeight = resolveAlertListViewportHeight(currentWindowHeight, currentListHeight,
+                contentHeight, listMaxHeight, windowMaxHeight);
+        int windowHeight = resolveAlertWindowHeight(currentWindowHeight, currentListHeight, listHeight, windowMaxHeight);
         ViewGroup.LayoutParams params = list.getLayoutParams();
         params.height = listHeight;
         list.setLayoutParams(params);

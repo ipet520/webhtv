@@ -45,6 +45,15 @@ public class ThemePresetsTest {
     }
 
     @Test
+    public void persistedExplicitPresetFocusIsNotSilentlyRewritten() {
+        ThemeProfile legacy = ThemePresets.Preset.OCEAN.profile();
+        legacy.light.focus = legacy.light.primary;
+        ThemeTokens resolved = new ThemeEditor(legacy).preview(false, 0);
+        assertEquals(ThemeProfileValidator.parseColor(legacy.light.focus, 0), resolved.colorFocus());
+        assertEquals(legacy.light.focus, ThemeProfileCodec.parse(ThemeProfileCodec.encode(legacy)).light.focus);
+    }
+
+    @Test
     public void palettesDifferInSurfacesSecondaryAndSemanticColorsNotOnlyPrimary() {
         for (boolean dark : new boolean[]{false, true}) {
             Set<Integer> surfaces = new HashSet<>();

@@ -33,7 +33,7 @@ public final class ThemeDialogSemantics {
     }
 
     public static ThemeTokens tokens() {
-        return ThemeController.current();
+        return ThemeController.legacyInteractionTokens();
     }
 
     /**

@@ -192,7 +192,7 @@ final class PlaybackPerformanceModal {
     private static void styleListButton(
             MaterialButton button,
             boolean selected) {
-        ThemeTokens tokens = ThemeController.current();
+        ThemeTokens tokens = ThemeController.legacyInteractionTokens();
         int[][] states = new int[][]{
                 {-android.R.attr.state_enabled},
                 {android.R.attr.state_pressed},
@@ -272,7 +272,7 @@ final class PlaybackPerformanceModal {
     private static void styleActionButton(
             MaterialButton button,
             boolean primary) {
-        ThemeTokens tokens = ThemeController.current();
+        ThemeTokens tokens = ThemeController.legacyInteractionTokens();
         int[][] states = new int[][]{
                 {-android.R.attr.state_enabled},
                 {android.R.attr.state_pressed},
@@ -324,7 +324,7 @@ final class PlaybackPerformanceModal {
 
     private static void styleCloseButton(
             MaterialButton button) {
-        ThemeTokens tokens = ThemeController.current();
+        ThemeTokens tokens = ThemeController.legacyInteractionTokens();
         int[][] states = new int[][]{
                 {-android.R.attr.state_enabled},
                 {android.R.attr.state_pressed},

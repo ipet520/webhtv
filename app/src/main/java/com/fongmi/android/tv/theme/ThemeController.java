@@ -54,6 +54,20 @@ public final class ThemeController {
         return current;
     }
 
+    /**
+     * Compatibility projection for existing controls that historically mapped
+     * an unset Focus slot to Primary. New TV semantic controls use {@link #current()}.
+     */
+    public static ThemeTokens legacyInteractionTokens() {
+        ThemeTokens active = current;
+        ThemeProfile activeProfile = profile;
+        if (activeProfile == null) return active.withColorFocus(active.colorPrimary());
+        ThemeProfile.SlotSet slots = isNight(App.get()) ? activeProfile.dark : activeProfile.light;
+        return slots == null || slots.focus == null
+                ? active.withColorFocus(active.colorPrimary())
+                : active;
+    }
+
     /** The frozen Layer 1 palette the binder compares against. */
     public static ThemeTokens baseline() {
         return baseline;
@@ -238,18 +252,26 @@ public final class ThemeController {
             case SECONDARY_CONTAINER -> R.color.webhtv_color_secondary_container;
             case FOCUS -> R.color.webhtv_color_focus;
             case SURFACE -> R.color.webhtv_color_surface;
+            case SURFACE_DIM -> R.color.webhtv_color_surface_dim;
+            case SURFACE_BRIGHT -> R.color.webhtv_color_surface_bright;
             case SURFACE_CONTAINER -> R.color.webhtv_color_surface_container;
+            case SURFACE_CONTAINER_LOWEST -> R.color.webhtv_color_surface_container_lowest;
+            case SURFACE_CONTAINER_LOW -> R.color.webhtv_color_surface_container_low;
             case SURFACE_CONTAINER_HIGH -> R.color.webhtv_color_surface_container_high;
+            case SURFACE_CONTAINER_HIGHEST -> R.color.webhtv_color_surface_container_highest;
             case ON_SURFACE -> R.color.webhtv_color_on_surface;
             case ON_SURFACE_VARIANT -> R.color.webhtv_color_on_surface_variant;
             case OUTLINE -> R.color.webhtv_color_outline;
+            case OUTLINE_VARIANT -> R.color.webhtv_color_outline_variant;
             case ERROR -> R.color.webhtv_color_error;
+            case ERROR_CONTAINER -> R.color.webhtv_color_error_container;
             case SUCCESS -> R.color.webhtv_color_success;
             case WARNING -> R.color.webhtv_color_warning;
             case ON_PRIMARY -> R.color.webhtv_color_on_primary;
             case ON_PRIMARY_CONTAINER -> R.color.webhtv_color_on_primary_container;
             case ON_SECONDARY_CONTAINER -> R.color.webhtv_color_on_secondary_container;
             case ON_ERROR -> R.color.webhtv_color_on_error;
+            case ON_ERROR_CONTAINER -> R.color.webhtv_color_on_error_container;
             case ON_SUCCESS -> R.color.webhtv_color_on_success;
             case ON_WARNING -> R.color.webhtv_color_on_warning;
         };
@@ -286,8 +308,8 @@ public final class ThemeController {
     /**
      * Applies the active profile to an already-created view tree.
      *
-     * <p>When no profile override is active this returns immediately, so the
-     * default Layer 1 path is byte-identical and costs nothing.
+     * <p>When no profile override is active, untagged views keep the compiled
+     * Layer 1 appearance. Explicit semantic role tags are bound from the current token snapshot.
      */
     public static void bindTheme(View root) {
         ThemeBinder.bind(root, baseline, current);

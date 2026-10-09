@@ -70,6 +70,7 @@ public class CollectFragment extends BaseFragment implements MenuProvider, Colle
     private static final int MENU_GROUP_ALL = 1;
     private static final int MENU_GROUP_OFFSET = 100;
     private static final int GROUP_POPUP_ITEM_HEIGHT = 44;
+    private static final int GROUP_POPUP_ITEM_GAP = 4;
     private static final int GROUP_POPUP_MAX_ITEMS = 8;
     private static final int GRID_ITEM_MARGIN_DP = 4;
     private static final int GRID_TOP_PADDING_DP = 8;
@@ -628,7 +629,7 @@ public class CollectFragment extends BaseFragment implements MenuProvider, Colle
         scroll.setOverScrollMode(View.OVER_SCROLL_NEVER);
         LinearLayoutCompat content = new LinearLayoutCompat(requireContext());
         content.setOrientation(LinearLayoutCompat.VERTICAL);
-        content.setPadding(0, ResUtil.dp2px(6), 0, ResUtil.dp2px(6));
+        content.setPadding(ResUtil.dp2px(4), ResUtil.dp2px(6), ResUtil.dp2px(4), ResUtil.dp2px(6));
         scroll.addView(content, new ScrollView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         addGroupPopupItem(content, getString(com.fongmi.android.tv.R.string.search_scope_all), MENU_GROUP_ALL);
         for (int i = 0; i < mGroups.size(); i++) addGroupPopupItem(content, mGroups.get(i), MENU_GROUP_OFFSET + i);
@@ -644,18 +645,29 @@ public class CollectFragment extends BaseFragment implements MenuProvider, Colle
     }
 
     private int getGroupPopupWidth() {
-        int width = ResUtil.getTextWidth(getString(com.fongmi.android.tv.R.string.search_scope_all), 16);
-        for (String group : mGroups) width = Math.max(width, ResUtil.getTextWidth(group, 16));
-        int contentWidth = width + ResUtil.dp2px(36);
+        MaterialTextView measureView = new MaterialTextView(requireContext());
+        measureView.setSingleLine(true);
+        measureView.setIncludeFontPadding(false);
+        measureView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
+        float maxActualTextWidth = measureView.getPaint().measureText(getString(com.fongmi.android.tv.R.string.search_scope_all));
+        for (String group : mGroups) maxActualTextWidth = Math.max(maxActualTextWidth, measureView.getPaint().measureText(group));
+        int textWidth = (int) Math.ceil(maxActualTextWidth);
+        int itemPadding = ResUtil.dp2px(18);
+        int outerGap = ResUtil.dp2px(4);
+        int desiredWidth = textWidth + itemPadding * 2 + outerGap * 2;
         int maxWidth = ResUtil.getScreenWidth(requireContext()) - ResUtil.dp2px(32);
-        return Math.min(contentWidth, maxWidth);
+        return Math.min(desiredWidth, maxWidth);
     }
 
     private int getGroupPopupHeight() {
+        int itemCount = mGroups.size() + 1;
         int itemHeight = ResUtil.dp2px(GROUP_POPUP_ITEM_HEIGHT);
+        int itemGap = ResUtil.dp2px(GROUP_POPUP_ITEM_GAP);
+        int gapCount = Math.max(0, itemCount - 1);
         int padding = ResUtil.dp2px(12);
-        int contentHeight = (mGroups.size() + 1) * itemHeight + padding;
-        int maxHeight = Math.min(ResUtil.getScreenHeight(requireContext()) - mBinding.toolbar.getHeight() - ResUtil.dp2px(32), GROUP_POPUP_MAX_ITEMS * itemHeight + padding);
+        int contentHeight = itemCount * itemHeight + gapCount * itemGap + padding;
+        int maxGapCount = Math.max(0, GROUP_POPUP_MAX_ITEMS - 1);
+        int maxHeight = Math.min(ResUtil.getScreenHeight(requireContext()) - mBinding.toolbar.getHeight() - ResUtil.dp2px(32), GROUP_POPUP_MAX_ITEMS * itemHeight + maxGapCount * itemGap + padding);
         return Math.min(contentHeight, Math.max(itemHeight + padding, maxHeight));
     }
 
@@ -673,7 +685,10 @@ public class CollectFragment extends BaseFragment implements MenuProvider, Colle
             if (groupPopup != null) groupPopup.dismiss();
             onGroupFilterSelected(itemId);
         });
-        content.addView(view, new LinearLayoutCompat.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ResUtil.dp2px(GROUP_POPUP_ITEM_HEIGHT)));
+        LinearLayoutCompat.LayoutParams params = new LinearLayoutCompat.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ResUtil.dp2px(GROUP_POPUP_ITEM_HEIGHT));
+        int itemGap = ResUtil.dp2px(GROUP_POPUP_ITEM_GAP);
+        params.topMargin = content.getChildCount() == 0 ? 0 : itemGap;
+        content.addView(view, params);
     }
 
     private int getSelectableItemBackground() {

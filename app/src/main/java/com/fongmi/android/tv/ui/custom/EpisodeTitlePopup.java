@@ -103,7 +103,6 @@ public class EpisodeTitlePopup {
         titleView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
         titleView.setTypeface(null, android.graphics.Typeface.BOLD);  // 粗体
         titleView.setSingleLine(false);
-        titleView.setMaxLines(2);
         container.addView(titleView);
 
         // 剧照

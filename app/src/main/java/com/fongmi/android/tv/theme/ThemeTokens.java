@@ -171,4 +171,24 @@ public record ThemeTokens(
         ThemeContrast.require(this);
         return this;
     }
+
+    /** Returns a compatibility projection without changing the semantic palette. */
+    public ThemeTokens withColorFocus(int focus) {
+        if (focus == colorFocus) return this;
+        return new ThemeTokens(
+                colorPrimary, colorOnPrimary, colorPrimaryContainer, colorOnPrimaryContainer,
+                colorSecondary, colorOnSecondary, colorSecondaryContainer, colorOnSecondaryContainer,
+                colorTertiary, colorOnTertiary, colorError, colorOnError, colorErrorContainer, colorOnErrorContainer,
+                colorSuccess, colorOnSuccess, colorSuccessContainer, colorOnSuccessContainer,
+                colorWarning, colorOnWarning, colorWarningContainer, colorOnWarningContainer,
+                colorSurface, colorSurfaceDim, colorSurfaceBright, colorSurfaceContainerLowest,
+                colorSurfaceContainerLow, colorSurfaceContainer, colorSurfaceContainerHigh, colorSurfaceContainerHighest,
+                colorOnSurface, colorOnSurfaceVariant, colorOutline, colorOutlineVariant,
+                colorInverseSurface, colorInverseOnSurface, colorInversePrimary, colorScrim, colorShadow,
+                focus, focusScale, dialogOpacity, colorPlayerControl, colorPlayerControlMuted,
+                colorPlayerControlActive, colorPlayerScrim, colorHealthGood, colorHealthWarn, colorHealthBad,
+                colorOverlayLight, colorOverlayDark
+        );
+    }
+
 }
