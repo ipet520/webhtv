@@ -39,6 +39,7 @@
         android:layout_alignEnd="@+id/image"
         android:layout_alignBottom="@+id/image"
         android:background="@drawable/selector_vod_oval"
+        android:tag="webhtv:focus-stroke:2dp"
         android:duplicateParentState="true" />
 
 </RelativeLayout>

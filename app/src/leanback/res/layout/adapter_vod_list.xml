@@ -7,6 +7,7 @@
     android:background="@drawable/shape_vod_list"
     android:focusable="true"
     android:focusableInTouchMode="true"
+    android:tag="webhtv:focus-stroke:1.5dp"
     android:foreground="@drawable/selector_vod">
 
     <androidx.appcompat.widget.LinearLayoutCompat

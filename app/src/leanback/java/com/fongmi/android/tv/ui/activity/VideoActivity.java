@@ -5597,7 +5597,8 @@ private boolean runtimeSourceOnly;
         String identityKey = FollowingPlaybackBridge.identityKey(mHistory, currentSourceSeasonNumber());
         if (TextUtils.isEmpty(identityKey)) return;
         followingActionPending = true;
-        mBinding.following.setEnabled(false);
+        // Keep the focused Leanback view eligible for DPAD focus while the async action runs.
+        // followingActionPending already blocks duplicate clicks until the result arrives.
         FollowingPlaybackBridge.findAsync(identityKey, existing -> {
             if (isFinishing() || isDestroyed()) return;
             if (existing != null) {

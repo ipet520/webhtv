@@ -422,14 +422,13 @@ public class AdBlockStatsDialog {
         }
     }
 
-    private static void restoreItemFocus(RecyclerView recycler, int requestedPosition, int itemCount) {
-        if (recycler == null || itemCount <= 0) return;
-        int target = Math.min(Math.max(0, requestedPosition), itemCount - 1);
-        recycler.scrollToPosition(target);
-        recycler.post(() -> {
-            RecyclerView.ViewHolder targetHolder = recycler.findViewHolderForAdapterPosition(target);
-            if (targetHolder != null) targetHolder.itemView.requestFocus();
-        });
+    private static int countExpandedLogRowsAfter(List<Object> items, int position) {
+        int count = 0;
+        for (int index = position + 1; index < items.size()
+                && items.get(index) instanceof AdBlockLog; index++) {
+            count++;
+        }
+        return count;
     }
 
     private enum GroupType { SOURCE, PIPELINE }
@@ -476,12 +475,19 @@ public class AdBlockStatsDialog {
                 holder.binding.source.setVisibility(View.GONE);
                 holder.binding.count.setText(String.valueOf(group.getCount()));
                 holder.itemView.setOnClickListener(view -> {
-                    int focusedPosition = holder.getBindingAdapterPosition();
-                    RecyclerView recycler = (RecyclerView) view.getParent();
-                    if (!expanded.add(group.getSiteKey())) expanded.remove(group.getSiteKey());
+                    int adapterPosition = holder.getBindingAdapterPosition();
+                    if (adapterPosition == RecyclerView.NO_POSITION) return;
+                    int oldChildCount = countExpandedLogRowsAfter(visibleItems, adapterPosition);
+                    boolean expanding = expanded.add(group.getSiteKey());
+                    if (!expanding) expanded.remove(group.getSiteKey());
                     rebuild();
-                    notifyDataSetChanged();
-                    restoreItemFocus(recycler, focusedPosition, getItemCount());
+                    notifyItemChanged(adapterPosition);
+                    int newChildCount = countExpandedLogRowsAfter(visibleItems, adapterPosition);
+                    if (expanding && newChildCount > 0) {
+                        notifyItemRangeInserted(adapterPosition + 1, newChildCount);
+                    } else if (!expanding && oldChildCount > 0) {
+                        notifyItemRangeRemoved(adapterPosition + 1, oldChildCount);
+                    }
                 });
             } else {
                 bindLog(holder, (AdBlockLog) visible);
@@ -550,12 +556,19 @@ public class AdBlockStatsDialog {
                 holder.binding.source.setVisibility(View.VISIBLE);
                 holder.binding.count.setText(String.valueOf(group.getHitCount()));
                 holder.itemView.setOnClickListener(view -> {
-                    int focusedPosition = holder.getBindingAdapterPosition();
-                    RecyclerView recycler = (RecyclerView) view.getParent();
-                    if (!expanded.add(group.getRuleId())) expanded.remove(group.getRuleId());
+                    int adapterPosition = holder.getBindingAdapterPosition();
+                    if (adapterPosition == RecyclerView.NO_POSITION) return;
+                    int oldChildCount = countExpandedLogRowsAfter(visibleItems, adapterPosition);
+                    boolean expanding = expanded.add(group.getRuleId());
+                    if (!expanding) expanded.remove(group.getRuleId());
                     rebuild();
-                    notifyDataSetChanged();
-                    restoreItemFocus(recycler, focusedPosition, getItemCount());
+                    notifyItemChanged(adapterPosition);
+                    int newChildCount = countExpandedLogRowsAfter(visibleItems, adapterPosition);
+                    if (expanding && newChildCount > 0) {
+                        notifyItemRangeInserted(adapterPosition + 1, newChildCount);
+                    } else if (!expanding && oldChildCount > 0) {
+                        notifyItemRangeRemoved(adapterPosition + 1, oldChildCount);
+                    }
                 });
             } else {
                 AdBlockLog log = (AdBlockLog) visible;

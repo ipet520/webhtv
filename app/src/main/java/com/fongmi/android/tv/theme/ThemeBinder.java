@@ -254,6 +254,7 @@ public final class ThemeBinder {
         if (!(view instanceof MaterialButton || view instanceof MaterialCardView) || customStateBackground) {
             changed |= bindBackground(view, state, explicit, spec, context);
         }
+        changed |= bindForegroundFocusStroke(view, state, spec, context);
         state.signature = context.signature;
         return changed;
     }
@@ -339,6 +340,106 @@ public final class ThemeBinder {
         }
         state.background.source = current;
         state.background.applied = null;
+        return false;
+    }
+
+    /**
+     * Applies an explicitly opted-in Focus outline to a view foreground selector.
+     *
+     * <p>The general runtime binder owns view backgrounds. Foregrounds are used by
+     * poster cards to draw an outline above media content, so only the narrow
+     * {@code webhtv:focus-stroke:<width>} metadata enables this path. It clones and
+     * tracks the foreground independently and changes only focused-state strokes.
+     */
+    private static boolean bindForegroundFocusStroke(View view, BindingState state, BindingSpec spec,
+                                                     BindingContext context) {
+        Drawable current = view.getForeground();
+        DrawableBinding binding = state.foreground;
+        if (spec.focusStrokeDp <= 0f) {
+            if (binding.applied != null && current == binding.applied) {
+                view.setForeground(binding.source);
+                binding.clear();
+                return true;
+            }
+            binding.clear();
+            return false;
+        }
+        if (binding.applied != null && current == binding.applied
+                && binding.signature == context.signature) return false;
+        boolean stillOwned = binding.applied != null && current == binding.applied;
+        Drawable source = stillOwned ? binding.source : current;
+        if (source == null || !hasStateListDrawable(source, new IdentityHashMap<>())) {
+            binding.clear();
+            return false;
+        }
+        Drawable copy = cloneDrawable(source, view);
+        if (copy == null) {
+            binding.clear();
+            return false;
+        }
+        boolean changed = bindFocusedForegroundStroke(copy, spec, context.active,
+                view.getResources().getDisplayMetrics().density, new IdentityHashMap<>());
+        if (!changed) {
+            if (stillOwned) {
+                view.setForeground(source);
+                binding.clear();
+                return true;
+            }
+            binding.source = source;
+            binding.applied = null;
+            binding.signature = context.signature;
+            return false;
+        }
+        if (copy != current) view.setForeground(copy);
+        binding.source = source;
+        binding.applied = copy;
+        binding.signature = context.signature;
+        return true;
+    }
+
+    private static boolean bindFocusedForegroundStroke(Drawable drawable, BindingSpec spec, ThemeTokens active,
+                                                       float density, IdentityHashMap<Drawable, Boolean> visited) {
+        if (drawable == null || visited.put(drawable, Boolean.TRUE) != null) return false;
+        if (drawable instanceof StateListDrawable states) {
+            boolean changed = false;
+            for (int position = 0; position < states.getStateCount(); position++) {
+                int[] stateSet = states.getStateSet(position);
+                if (!hasState(stateSet, android.R.attr.state_focused)) continue;
+                ThemeRole strokeRole = spec.roleFor("stroke", stateSet);
+                float widthDp = spec.strokeWidthFor(stateSet);
+                if (widthDp <= 0f) widthDp = spec.focusStrokeDp;
+                if (widthDp <= 0f) continue;
+                int color = strokeRole == null ? active.colorFocus() : strokeRole.colorOf(active);
+                int widthPx = Math.max(1, Math.round(widthDp * density));
+                changed |= setFocusStroke(states.getStateDrawable(position), widthPx, color,
+                        new IdentityHashMap<>());
+            }
+            return changed;
+        }
+        if (drawable instanceof InsetDrawable inset) {
+            return bindFocusedForegroundStroke(inset.getDrawable(), spec, active, density, visited);
+        }
+        if (drawable instanceof ScaleDrawable scale) {
+            return bindFocusedForegroundStroke(scale.getDrawable(), spec, active, density, visited);
+        }
+        if (drawable instanceof LayerDrawable layers) {
+            boolean changed = false;
+            for (int position = 0; position < layers.getNumberOfLayers(); position++) {
+                if (layers.getId(position) != android.R.id.mask) {
+                    changed |= bindFocusedForegroundStroke(layers.getDrawable(position), spec, active, density, visited);
+                }
+            }
+            return changed;
+        }
+        if (drawable instanceof RippleDrawable ripple) {
+            boolean changed = false;
+            for (int position = 0; position < ripple.getNumberOfLayers(); position++) {
+                if (ripple.getId(position) != android.R.id.mask) {
+                    changed |= bindFocusedForegroundStroke(ripple.getDrawable(position), spec, active, density, visited);
+                }
+            }
+            return changed;
+        }
         return false;
     }
 
@@ -959,13 +1060,15 @@ public final class ThemeBinder {
         final ColorListBinding buttonIcon = new ColorListBinding();
         final ColorListBinding backgroundTint = new ColorListBinding();
         final DrawableBinding background = new DrawableBinding();
+        final DrawableBinding foreground = new DrawableBinding();
         long signature;
 
         boolean hasApplied() {
             return text.applied != null || hint.applied != null || imageTint.applied != null
                     || cardBackground.applied != null || cardStroke.applied != null
                     || buttonStroke.applied != null || buttonIcon.applied != null
-                    || backgroundTint.applied != null || background.applied != null;
+                    || backgroundTint.applied != null || background.applied != null
+                    || foreground.applied != null;
         }
     }
 

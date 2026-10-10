@@ -2,6 +2,9 @@ package com.fongmi.android.tv.theme;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNotSame;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
 
 import android.app.Dialog;
 import android.content.Context;
@@ -10,6 +13,9 @@ import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.StateListDrawable;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.ViewGroup;
 import android.widget.FrameLayout;
 import android.widget.PopupWindow;
 import android.widget.TextView;
@@ -217,6 +223,72 @@ public class ThemeBinderRuntimeTest {
         assertEquals(active.colorOnPrimaryContainer(),
                 button.getIconTint().getColorForState(pressedFocused, 0));
     }
+
+    @Test
+    public void optedInVodCardFocusSelectorsFollowRuntimeFocusAndKeepTheirSourceGeometry() {
+        Context context = Robolectric.buildActivity(Host.class).setup().get();
+        ThemeTokens baseline = ThemeTokens.light();
+        ThemeTokens first = palette("#234A91", "#D9E5FF", "#D8F0DF", "#D81B60");
+        ThemeTokens second = palette("#285C3A", "#D7EEDD", "#F8E4C5", "#7B1FA2");
+        int[] layouts = {
+                R.layout.adapter_file,
+                R.layout.adapter_search,
+                R.layout.adapter_search_list,
+                R.layout.adapter_vod,
+                R.layout.adapter_vod_list,
+                R.layout.adapter_vod_rect,
+                R.layout.adapter_vod_oval
+        };
+
+        for (int layout : layouts) {
+            View root = LayoutInflater.from(context).inflate(layout, null, false);
+            View card = findFocusStrokeView(root);
+            assertNotNull("layout must opt in the actual card focus selector: " + layout, card);
+            assertTrue(String.valueOf(card.getTag()).startsWith("webhtv:focus-stroke:"));
+
+            StateListDrawable sourceStates = (StateListDrawable) focusDrawable(card);
+            int focusedIndex = focusedIndex(sourceStates);
+            GradientDrawable sourceShape = (GradientDrawable) sourceStates.getStateDrawable(focusedIndex);
+            int originalStroke = stroke(sourceShape);
+            float originalCornerRadius = sourceShape.getCornerRadius();
+
+            ThemeBinder.bind(root, baseline, first);
+            StateListDrawable firstStates = (StateListDrawable) focusDrawable(card);
+            GradientDrawable firstShape = (GradientDrawable) firstStates.getStateDrawable(focusedIndex);
+            assertNotSame("binding must use a view-local drawable copy", sourceStates, firstStates);
+            assertEquals("focused outline follows the active Focus slot", first.colorFocus(), stroke(firstShape));
+            assertEquals("focus geometry is unchanged", originalCornerRadius, firstShape.getCornerRadius(), 0.01f);
+            assertEquals("source drawable is not mutated", originalStroke, stroke(sourceShape));
+
+            ThemeBinder.bind(root, baseline, second);
+            StateListDrawable secondStates = (StateListDrawable) focusDrawable(card);
+            GradientDrawable secondShape = (GradientDrawable) secondStates.getStateDrawable(focusedIndex);
+            assertEquals("a later palette replaces the previous runtime Focus", second.colorFocus(), stroke(secondShape));
+            assertEquals("source drawable remains unchanged across rebinds", originalStroke, stroke(sourceShape));
+            assertEquals(sourceStates.getStateCount(), secondStates.getStateCount());
+        }
+    }
+
+    @Test
+    public void unmarkedForegroundSelectorsRemainOutsideTheFocusBindingScope() {
+        Context context = Robolectric.buildActivity(Host.class).setup().get();
+        ThemeTokens baseline = ThemeTokens.light();
+        ThemeTokens active = palette("#234A91", "#D9E5FF", "#D8F0DF", "#D81B60");
+        FrameLayout root = new FrameLayout(context);
+        FrameLayout card = new FrameLayout(context);
+        StateListDrawable selector = new StateListDrawable();
+        GradientDrawable focused = shape(0xFFFFFFFF);
+        selector.addState(new int[]{android.R.attr.state_focused}, focused);
+        int originalStroke = stroke(focused);
+        card.setForeground(selector);
+        root.addView(card);
+
+        ThemeBinder.bind(root, baseline, active);
+
+        assertSame("unmarked foregrounds are not claimed by the focused-card path", selector, card.getForeground());
+        assertEquals(originalStroke, stroke(focused));
+    }
+
     @Test
     public void dialogAndPopupShellsRebindFromTheirOriginalDrawables() {
         ThemeTokens baseline = ThemeTokens.light();
@@ -291,5 +363,33 @@ public class ThemeBinderRuntimeTest {
 
     private static int stroke(Drawable drawable) {
         return Shadow.<ShadowGradientDrawable>extract((GradientDrawable) drawable).getStrokeColor();
+    }
+
+    private static View findFocusStrokeView(View view) {
+        Object tag = view.getTag();
+        if (tag instanceof String value && value.startsWith("webhtv:focus-stroke:")) return view;
+        if (view instanceof ViewGroup group) {
+            for (int index = 0; index < group.getChildCount(); index++) {
+                View match = findFocusStrokeView(group.getChildAt(index));
+                if (match != null) return match;
+            }
+        }
+        return null;
+    }
+
+    private static Drawable focusDrawable(View view) {
+        Drawable drawable = view.getForeground();
+        if (!(drawable instanceof StateListDrawable)) drawable = view.getBackground();
+        assertTrue("opted-in card must keep its existing state-list selector", drawable instanceof StateListDrawable);
+        return drawable;
+    }
+
+    private static int focusedIndex(StateListDrawable states) {
+        for (int index = 0; index < states.getStateCount(); index++) {
+            for (int state : states.getStateSet(index)) {
+                if (state == android.R.attr.state_focused) return index;
+            }
+        }
+        throw new AssertionError("selector has no focused drawable state");
     }
 }
