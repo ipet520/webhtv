@@ -78,6 +78,7 @@ import com.fongmi.android.tv.databinding.ActivityVideoBinding;
 import com.fongmi.android.tv.db.AppDatabase;
 import com.fongmi.android.tv.event.ConfigEvent;
 import com.fongmi.android.tv.event.RefreshEvent;
+import com.fongmi.android.tv.theme.ThemeController;
 import com.fongmi.android.tv.impl.CustomTarget;
 import com.fongmi.android.tv.model.SiteViewModel;
 import com.fongmi.android.tv.model.SearchProgress;
@@ -1467,6 +1468,7 @@ private boolean runtimeSourceOnly;
         SpiderDebug.log("video-flow", "initView after playback cost=%dms", System.currentTimeMillis() - start);
         applyPlaybackOverlay();
         mFrameParams = mBinding.video.getLayoutParams();
+        bindVideoFocusStroke();
         mPlayerUi = new VodPlayerUiController(new VodPlayerUiHost() {
             @Override
             public PlayerManager player() {
@@ -4349,7 +4351,7 @@ private boolean runtimeSourceOnly;
             mBinding.video.setForeground(null);
             mBinding.video.setLayoutParams(new RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.MATCH_PARENT));
         } else {
-            mBinding.video.setForeground(ResUtil.getDrawable(R.drawable.selector_video));
+            restoreVideoFocusForeground();
             mBinding.video.setLayoutParams(mFrameParams);
         }
         restoreEmbeddedVideoLayoutAfterFullscreen();
@@ -4358,6 +4360,15 @@ private boolean runtimeSourceOnly;
         setFullscreen(false);
         mFocus2 = null;
         hideInfo();
+    }
+
+    private void bindVideoFocusStroke() {
+        ThemeController.bindFocusStroke(mBinding.video, 1.5f);
+    }
+
+    private void restoreVideoFocusForeground() {
+        mBinding.video.setForeground(ResUtil.getDrawable(R.drawable.selector_video));
+        bindVideoFocusStroke();
     }
 
     private void restoreEmbeddedVideoLayoutAfterFullscreen() {
@@ -10394,7 +10405,7 @@ private void applyAudioStageLayout(boolean visible) {
             mBinding.video.setForeground(null);
             mBinding.video.setLayoutParams(new RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.MATCH_PARENT));
         } else {
-            mBinding.video.setForeground(ResUtil.getDrawable(R.drawable.selector_video));
+            restoreVideoFocusForeground();
             mBinding.video.setLayoutParams(mFrameParams);
         }
     }
