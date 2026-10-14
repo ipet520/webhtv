@@ -28,6 +28,13 @@ public final class WebHomeHistoryService {
         return history != null && history.getPosition() > 0 && history.getDuration() > 0;
     }
 
+    public static History prepareExactPlayback(History history) {
+        if (history == null) return null;
+        History playback = history.copy();
+        if (!played(playback)) playback.resetPlaybackPosition();
+        return playback;
+    }
+
     private static boolean usesSeparateAudioHistory(String siteKey) {
         // PUSH accepts both video and audio results. Its audio eligibility is not
         // the type of a persisted video History row (AudioHistory is separate).
@@ -75,7 +82,6 @@ public final class WebHomeHistoryService {
                 throw new IllegalArgumentException("季度来源已改变，无法精确恢复");
             }
         }
-        if (playback && !played(history)) throw new IllegalArgumentException("历史没有有效播放进度");
         if (playback && !history.isCurrentSourceAvailable()) throw new IllegalArgumentException("原历史站源不可用");
         return history;
     }
@@ -128,6 +134,8 @@ public final class WebHomeHistoryService {
         result.addProperty("deleteScope", ref.kind);
         result.addProperty("sourceLabel", history.getSiteName().isEmpty() ? ref.siteKey : history.getSiteName());
         boolean audioSource = usesSeparateAudioHistory(ref.siteKey);
+        boolean canPlayExact = ref.cid == VodConfig.getCid() && history.isCurrentSourceAvailable() && !audioSource;
+        result.addProperty("canPlayExact", canPlayExact);
         result.addProperty("canResume", played(history) && history.isCurrentSourceAvailable() && !audioSource);
         // Deleting a physical route also removes its snapshots. Do not present that
         // as a harmless single-quarter operation when other projections are visible.

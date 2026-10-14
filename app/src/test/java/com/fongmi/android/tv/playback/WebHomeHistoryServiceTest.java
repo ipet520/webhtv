@@ -88,7 +88,8 @@ public class WebHomeHistoryServiceTest {
     @Test public void pushExceptionKeepsExistingProgressSourceAndAudioGuards() {
         History h=row("push_agent",7,-1); h.setPosition(0); database.getHistoryDao().insertOrUpdate(h);
         assertFalse(WebHomeHistoryService.read().getAsJsonArray("records").get(0).getAsJsonObject().get("canResume").getAsBoolean());
-        assertThrows(IllegalArgumentException.class,()->WebHomeHistoryService.resolve(ref(h,"ITEM"),true));
+        assertTrue(WebHomeHistoryService.read().getAsJsonArray("records").get(0).getAsJsonObject().get("canPlayExact").getAsBoolean());
+        assertEquals(h.getKey(),WebHomeHistoryService.resolve(ref(h,"ITEM"),true).getKey());
         h.setPosition(50_000); h.setCid(8); h.setKey("push_agent@@@vod@@@8"); database.getHistoryDao().insertOrUpdate(h);
         Setting.putGlobalHistoryMode(Setting.GLOBAL_HISTORY_AUTO);
         assertThrows(IllegalArgumentException.class,()->WebHomeHistoryService.resolve(ref(h,"ITEM"),true));
@@ -150,15 +151,27 @@ public class WebHomeHistoryServiceTest {
         assertEquals("FAILED",outcome(delete(ref(a,"ITEM")))); assertNotNull(History.find(7,a.getKey()));
         assertFalse(ViewingRecordSyncStore.isLocalWriteEnabled());
     }
-    @Test public void physicalRowsWithoutProgressRemainVisibleButCannotResume() {
+    @Test public void physicalRowsWithoutProgressRemainVisibleAndCanStartExactPlayback() {
         History a=row("A",7,-1); a.setPosition(0); database.getHistoryDao().insertOrUpdate(a);
         JsonArray records=WebHomeHistoryService.read().getAsJsonArray("records");
         assertEquals(1,records.size()); assertFalse(records.get(0).getAsJsonObject().get("canResume").getAsBoolean());
+        assertTrue(records.get(0).getAsJsonObject().get("canPlayExact").getAsBoolean());
         assertEquals(0,records.get(0).getAsJsonObject().get("position").getAsLong());
-        try { WebHomeHistoryService.resolve(ref(a,"ITEM"),true); fail(); }
-        catch(IllegalArgumentException expected) { assertTrue(expected.getMessage().contains("进度")); }
+        assertEquals(a.getKey(),WebHomeHistoryService.resolve(ref(a,"ITEM"),true).getKey());
         assertEquals("DELETED",outcome(delete(ref(a,"ITEM"))));
         assertNull(History.find(7,a.getKey()));
+    }
+    @Test public void exactPlaybackClearsInvalidProgressOnlyOnPlaybackCopy() {
+        History invalid=row("A",7,-1); invalid.setPosition(50_000); invalid.setDuration(0);
+        History prepared=WebHomeHistoryService.prepareExactPlayback(invalid);
+        assertNotSame(invalid,prepared); assertFalse(WebHomeHistoryService.played(prepared));
+        assertTrue(prepared.getPosition() <= 0); assertTrue(prepared.getDuration() <= 0);
+        assertEquals(50_000,invalid.getPosition()); assertEquals(0,invalid.getDuration());
+
+        History valid=row("B",7,-1);
+        History resumed=WebHomeHistoryService.prepareExactPlayback(valid);
+        assertNotSame(valid,resumed); assertEquals(valid.getPosition(),resumed.getPosition());
+        assertEquals(valid.getDuration(),resumed.getDuration()); assertTrue(WebHomeHistoryService.played(resumed));
     }
     @Test public void seasonDeletePreservesOtherQuarterAndPhysicalRoute() {
         History current=row("A",7,2);
@@ -233,11 +246,12 @@ public class WebHomeHistoryServiceTest {
             JsonObject recordB=null;
             for(var record:independent.getAsJsonArray("records")) if(record.getAsJsonObject().get("tmdbId").getAsInt()==99) recordB=record.getAsJsonObject();
             assertNotNull(recordB); assertEquals(position>0&&duration>0,recordB.get("canResume").getAsBoolean());
+            assertTrue("exact physical row may be opened independently of its resume point",recordB.get("canPlayExact").getAsBoolean());
             assertNotEquals(independent.getAsJsonArray("records").get(0).getAsJsonObject().get("displayId"),
                     independent.getAsJsonArray("records").get(1).getAsJsonObject().get("displayId"));
             if(position<=0||duration<=0) {
-                try { WebHomeHistoryService.resolve(ref(b,"ITEM"),true); fail("invalid progress must not resume"); }
-                catch(IllegalArgumentException expected) { assertTrue(expected.getMessage().contains("进度")); }
+                assertEquals(b.getKey(),WebHomeHistoryService.resolve(ref(b,"ITEM"),true).getKey());
+                assertFalse(WebHomeHistoryService.played(WebHomeHistoryService.prepareExactPlayback(b)));
             }
             JsonObject entry=new JsonObject(); entry.addProperty("case", "position_"+position+"_duration_"+duration);
             entry.add("legacy",legacy); entry.add("independent",independent); cases.add(entry);
