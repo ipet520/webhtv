@@ -20,7 +20,7 @@ Alternatives: no change leaves display/management/resume/delete identities incon
 
 `fm.history({mode:'independent',version:1})` returns `{version:1,mode:'independent',records:[...]}`. No argument keeps legacy array semantics. Each record includes immutable-by-convention `historyRecordRef` with version, kind ITEM/SEASON, historyKey, cid, siteKey, vodId, typed TMDB/season where applicable, and stable displayId. Unknown season is -1; season 0 is valid. Native determines accessible CID scope from Global History. Cross-CID entries have explicit non-resumable capability until safe playback context is available.
 
-Physical rows remain ITEM references; trustworthy extra quarterly projections are SEASON references, excluding an equivalent current physical row. Projection creation/restore uses shared source provenance, never invents per-source seasonal snapshots. Only positive progress with valid duration is exposed as played/restorable state.
+Physical rows remain ITEM references; trustworthy extra quarterly projections are SEASON references, excluding an equivalent current played physical row. Projection creation/restore uses shared source provenance, never invents per-source seasonal snapshots. Accessible valid physical records remain listable without a resume point; positive progress with valid duration determines played/restorable capability, not physical record existence. Quarterly projection generation still requires valid progress.
 
 `fm.vod(...,{intent:'history_exact',historyRecordRef:ref})` validates reference on Native, reads actual native state, and sends exact payload into existing VideoActivity; no supplied position is trusted. ITEM uses exact persistent key, SEASON uses HistoryResumePayload provenance validation. Invalid, changed or inaccessible references fail without default fuzzy matching. No intent continues default findResumeHistory behavior. Future detail-session intents reserved but not implemented.
 
@@ -94,3 +94,58 @@ ITEM follows the existing physical key/CID; line/episode changes do not invent n
 Default detail playback still calls Native without history_exact and receives the original legacy history view. The history intent extension is available for a later, separately approved detail-session intent, but that session lifecycle is not implemented here. Native progress throttle and stale asynchronous progress-write findings remain deferred. No real TV/APK installation, history write/delete or user-data test occurred.
 
 Next action: atomic local child closure (App guard commit plus annotated recovery tag, WebHome normal commit). Do not push; hand off matched APK/HTML candidates for user integration acceptance.
+
+## H-INTEGRATED-LOSS-20261014 regression closure evidence
+
+### Baseline and scope
+
+App `e6eee3f4482959a59ce076570b0e89a905298fd2`, branch `sync/upstream-beta-bugfixes-20261006`; WebHome `4cacae61f823a4c2d571b920f3b60fe00c510a62`, branch `codex/mobile-aggregate-filter-layout`. Both tracked worktrees were clean; App's original untracked `scripts/build-arm64.ps1` remains protected. Task paused and resumed without discarding or resetting work. No fetch/pull, branch move, push or Suite pointer update.
+
+User real-device evidence: on the same new App, Native and old HTML show two different works; new HTML shows one. One Native record has no valid progress. The user further identified a failed playback after successful resource retrieval without Pan login as a way that this record was created. This task does not change login, resource retrieval or playback failure behavior.
+
+### Confirmed root cause and first loss
+
+`WebHomeHistoryService.read()` gated physical ITEM creation on `played(route)` (`position > 0 && duration > 0`). This incorrectly promoted resume-point validity into list admission. `HistoryDao.findAll(currentCid)` and the default `History.get()` have no corresponding progress exclusion. The first loss occurs before Bridge serialization, SDK handling, HTML normalization or rendering.
+
+The unconditional new Native test `differentWorksRemainVisibleAcrossProgressAndDurationBoundaries` first ran against the unchanged provider. Its actual HomeWebBridge private history handler on in-memory Room recorded `dao=2, legacy=2, independent=1` for B position=0/duration>0 and failed with expected 2/actual 1. Evidence: external loss-before.log and loss-before.xml. Fixture identity summaries are synthetic; no actual user records, URLs or tokens were logged.
+
+TCL exact runtime DAO/API/state/DOM counts were not collected: **UNVERIFIED**. The root-cause mechanism is test-confirmed and agrees with the supplied observation; no claim of device instrumentation or post-fix TCL acceptance is made.
+
+### Targeted fix
+
+- `read()`: create ITEM from accessible valid persistent identity even when played=false. Same current/global CID and incognito authorization boundaries remain.
+- `record()`: canResume now explicitly requires played, source availability and non-audio route; no valid point gets `尚未建立有效续播点` capability reason. Original progress values are returned unchanged.
+- `resolve()`: played remains mandatory for playback=true. It is no longer a precondition for deletion identity resolution. CID, key/source match, quarterly provenance, local-write permission, scope fingerprint, ITEM other-quarter guard, exact Writer fallback prohibition and tombstones remain unchanged. This permits deleting an existing no-progress ITEM without granting playback capability.
+- SEASON generation retains existing valid season/episode/progress and owner checks. No fabricated row, TMDB/name grouping, extra CID access or fallback to legacy aggregated read.
+- No production WebHome JS/CSS/HTML change was necessary: current HTML admission checks identity/title/product visibility separately from canResume. Only HTML regression tests changed. Existing title/explicit-expired product filters and default detail Continue Gate remain untouched.
+- The previous `metadataOnlyRowsAreNotPretendPlaybackHistory` test expectation of an empty list was itself the mistaken coupling. It is replaced with assertions that the physical row stays visible, progress is not invented, exact playback refuses it and exact deletion succeeds. Identity/scope protections were not relaxed.
+
+### Counts and boundary coverage
+
+Environment: Robolectric, in-memory Room, actual HomeWebBridge history method; exported synthetic responses consumed by current SDK expressions/production HTML functions and Chromium DOM. Same CID7, synthetic works A/B, A valid throughout. B positions {0,-1,50000} × durations {500000,0,Native TIME_UNSET}: nine combinations. TIME_UNSET represents Native unknown/missing time state; separate HTML cases omit position/duration fields entirely. Additional Native/HTML cases remove TMDB metadata while retaining a valid physical identity.
+
+| Layer | Before, B position0/duration>0 | After, all nine combinations |
+|---|---:|---:|
+| Authorized DAO rows | 2 | 2 |
+| Actual Legacy Bridge/API | 2 | 2 |
+| Actual Independent Bridge/API | 1 | 2 |
+| HTML normalized records | Not measured before fix | 2 |
+| state.recent.items | Not measured before fix | 2 |
+| TV record cards | Not measured before fix | 2 |
+| Mobile record cards | Not measured before fix | 2 |
+
+Both identities remain distinct. Mobile's existing More control is excluded from record-card counts. Invalid-progress B is displayed/selectable, Continue is disabled, poster activation never issues fm.vod for B or A. Played/restorable values remain separate from physical presence. Native strict deletion of no-TMDB/no-progress B preserves A and returns authoritative readback.
+
+### Verification
+
+- Native Leanback/Mobile: each 33 isolated tests (WebHomeHistoryServiceTest17, HistoryRecordRefTest4, HistoryResumePayloadTest5, TmdbSeasonProgressStoreTest7), zero failures/errors. Covers same-work independent routes, same-row line/episode changes, current/global CID, season0/unknown, missing/changed identity, frozen GROUP/new member, SEASON scope, exact line selection and permission failures.
+- HTML actual SDK expression contract: 15 checks with Native fixture export enabled; standalone missing-progress regression remains active even without an export.
+- Chromium history: original 26 scenarios plus TV and Mobile nine-case Native-response pipeline scenarios, all pass. Single/double/third-confirm, held key, management/cancel/all/delete, failure handling, neighboring focus, player-return simulation and 120-record DPAD remain covered.
+- Shared immersive browser regression passed: TV filter/Back, Detail/Search/category return and Mobile Sidebar/Search. E01–E24 matrix above retains isolated/static PASS evidence; E25–E28 retain real performance/player/provider/native-page PENDING boundaries. No full TCL playback, Pan login failure or Native UI test occurred.
+- Both ARM64 Release candidates built in 1m19s using existing offline toolchain and fastRelease=true. The later change only added a Native test; final production APK code is unchanged and is not rebuilt unnecessarily.
+- One formal WebHome Build/Verify passed; generated index unchanged: 1,810,735 bytes, SHA-256 `05282873e8753a6397723cefbab5ac3a3fac8bc1f6993a8da71e725b7c2c7047`. Child diff checks passed.
+- External evidence directory remains history-integrated. Current logs: loss-native-final.log (builds), loss-native-tests.log (final33 tests), loss-native-fixtures.json (actual synthetic Bridge responses), loss-html-contract.log, loss-browser.log, loss-shared-regression.log.
+
+### Recovery anchor
+
+Production changes limited to WebHomeHistoryService; Native/HTML tests and this existing contract document updated. Completed: first-loss reproduction, targeted fix, Native33 tests per flavor, actual-provider fixture→HTML/state/DOM proof, TV/Mobile regressions, both APK builds and HTML Build/Verify. Remaining acceptance: install this updated App with current HTML and confirm both TCL records, no-point capability, individual management and exact resume for valid A. Native progress throttling, queued writes and future detail-session work remain deferred. Next action: one normal local commit per modified child, with App guard recovery tag; **PUSHED=NO**.

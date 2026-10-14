@@ -111,9 +111,15 @@ public class WebHomeHistoryServiceTest {
         assertEquals("FAILED",outcome(delete(ref(a,"ITEM")))); assertNotNull(History.find(7,a.getKey()));
         assertFalse(ViewingRecordSyncStore.isLocalWriteEnabled());
     }
-    @Test public void metadataOnlyRowsAreNotPretendPlaybackHistory() {
+    @Test public void physicalRowsWithoutProgressRemainVisibleButCannotResume() {
         History a=row("A",7,-1); a.setPosition(0); database.getHistoryDao().insertOrUpdate(a);
-        assertEquals(0,WebHomeHistoryService.read().getAsJsonArray("records").size());
+        JsonArray records=WebHomeHistoryService.read().getAsJsonArray("records");
+        assertEquals(1,records.size()); assertFalse(records.get(0).getAsJsonObject().get("canResume").getAsBoolean());
+        assertEquals(0,records.get(0).getAsJsonObject().get("position").getAsLong());
+        try { WebHomeHistoryService.resolve(ref(a,"ITEM"),true); fail(); }
+        catch(IllegalArgumentException expected) { assertTrue(expected.getMessage().contains("进度")); }
+        assertEquals("DELETED",outcome(delete(ref(a,"ITEM"))));
+        assertNull(History.find(7,a.getKey()));
     }
     @Test public void seasonDeletePreservesOtherQuarterAndPhysicalRoute() {
         History current=row("A",7,2);
@@ -165,5 +171,52 @@ public class WebHomeHistoryServiceTest {
         JsonObject options=new JsonObject(); options.addProperty("mode","independent"); options.addProperty("version",1);
         JsonObject current=com.google.gson.JsonParser.parseString((String)method.invoke(bridge,options)).getAsJsonObject();
         assertEquals(1,current.get("version").getAsInt()); assertEquals(2,current.getAsJsonArray("records").size());
+    }
+    @Test public void differentWorksRemainVisibleAcrossProgressAndDurationBoundaries() throws Exception {
+        History a=row("A",7,-1), b=row("B",7,-1);
+        a.setVodName("Fixture work A"); database.getHistoryDao().insertOrUpdate(a);
+        b.setVodName("Fixture work B"); b.setTmdbId(99);
+        var bridge=new com.fongmi.android.tv.web.HomeWebBridge(null,null,null,null);
+        var method=com.fongmi.android.tv.web.HomeWebBridge.class.getDeclaredMethod("history",JsonObject.class); method.setAccessible(true);
+        JsonObject options=new JsonObject(); options.addProperty("mode","independent"); options.addProperty("version",1);
+        JsonArray cases=new JsonArray();
+        long[] positions={0,-1,50_000};
+        long[] durations={500_000,0,androidx.media3.common.C.TIME_UNSET};
+        for (long position:positions) for(long duration:durations) {
+            b.setPosition(position); b.setDuration(duration); database.getHistoryDao().insertOrUpdate(b);
+            JsonArray legacy=com.google.gson.JsonParser.parseString((String)method.invoke(bridge,new JsonObject())).getAsJsonArray();
+            JsonObject independent=com.google.gson.JsonParser.parseString((String)method.invoke(bridge,options)).getAsJsonObject();
+            System.out.println("HISTORY_LOSS_FIXTURE positionValid="+(position>0)+" durationValid="+(duration>0)
+                    +" dao="+database.getHistoryDao().findAll(7).size()+" legacy="+legacy.size()
+                    +" independent="+independent.getAsJsonArray("records").size());
+            assertEquals(2,database.getHistoryDao().findAll(7).size()); assertEquals(2,legacy.size());
+            assertEquals("independent list must not require a resume point",2,independent.getAsJsonArray("records").size());
+            JsonObject recordB=null;
+            for(var record:independent.getAsJsonArray("records")) if(record.getAsJsonObject().get("tmdbId").getAsInt()==99) recordB=record.getAsJsonObject();
+            assertNotNull(recordB); assertEquals(position>0&&duration>0,recordB.get("canResume").getAsBoolean());
+            assertNotEquals(independent.getAsJsonArray("records").get(0).getAsJsonObject().get("displayId"),
+                    independent.getAsJsonArray("records").get(1).getAsJsonObject().get("displayId"));
+            if(position<=0||duration<=0) {
+                try { WebHomeHistoryService.resolve(ref(b,"ITEM"),true); fail("invalid progress must not resume"); }
+                catch(IllegalArgumentException expected) { assertTrue(expected.getMessage().contains("进度")); }
+            }
+            JsonObject entry=new JsonObject(); entry.addProperty("case", "position_"+position+"_duration_"+duration);
+            entry.add("legacy",legacy); entry.add("independent",independent); cases.add(entry);
+        }
+        String export=System.getenv("WEBHOME_HISTORY_LOSS_FIXTURE_PATH");
+        if(export!=null&&!export.isEmpty()) java.nio.file.Files.writeString(java.nio.file.Path.of(export),cases.toString());
+    }
+    @Test public void missingTmdbAndUnknownProgressPreservePhysicalIdentityAndSafeDelete() {
+        History a=row("A",7,-1),b=row("B",7,-1);
+        b.setVodName("Different work without metadata"); b.setTmdbId(0); b.setMediaType("");
+        b.resetPlaybackPosition(); database.getHistoryDao().insertOrUpdate(b);
+        assertEquals(2,History.get().size());
+        JsonArray records=WebHomeHistoryService.read().getAsJsonArray("records"); assertEquals(2,records.size());
+        JsonObject recordB=null;
+        for(var record:records) if(record.getAsJsonObject().get("key").getAsString().equals(b.getKey())) recordB=record.getAsJsonObject();
+        assertNotNull(recordB); assertFalse(recordB.get("canResume").getAsBoolean());
+        assertTrue(recordB.get("canDelete").getAsBoolean());
+        assertEquals("DELETED",outcome(delete(ref(b,"ITEM"))));
+        assertNotNull(History.find(7,a.getKey())); assertNull(History.find(7,b.getKey()));
     }
 }

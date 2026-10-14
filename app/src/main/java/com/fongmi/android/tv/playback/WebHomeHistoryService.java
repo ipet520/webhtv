@@ -68,7 +68,7 @@ public final class WebHomeHistoryService {
                 throw new IllegalArgumentException("季度来源已改变，无法精确恢复");
             }
         }
-        if (!played(history)) throw new IllegalArgumentException("历史没有有效播放进度");
+        if (playback && !played(history)) throw new IllegalArgumentException("历史没有有效播放进度");
         if (playback && !history.isCurrentSourceAvailable()) throw new IllegalArgumentException("原历史站源不可用");
         return history;
     }
@@ -81,8 +81,10 @@ public final class WebHomeHistoryService {
             List<TmdbSeasonProgress> snapshots = AppDatabase.get().getTmdbSeasonProgressDao().findAll();
             List<JsonObject> records = new ArrayList<>();
             for (History route : routes) {
-                if (played(route)) {
-                    HistoryRecordRef item = HistoryRecordRef.from(route, "ITEM");
+                // Persistent record existence is independent of a resume point.
+                // Keep accessible physical rows; never synthesize playback progress.
+                HistoryRecordRef item = HistoryRecordRef.from(route, "ITEM");
+                if (item.isValid()) {
                     item.scopeToken = scopeToken(item);
                     records.add(record(route, item));
                 }
@@ -119,7 +121,7 @@ public final class WebHomeHistoryService {
         result.addProperty("deleteScope", ref.kind);
         result.addProperty("sourceLabel", history.getSiteName().isEmpty() ? ref.siteKey : history.getSiteName());
         boolean audioSource = com.fongmi.android.tv.utils.AudioUtil.isAudioSiteEnabled(ref.siteKey);
-        result.addProperty("canResume", history.isCurrentSourceAvailable() && !audioSource);
+        result.addProperty("canResume", played(history) && history.isCurrentSourceAvailable() && !audioSource);
         // Deleting a physical route also removes its snapshots. Do not present that
         // as a harmless single-quarter operation when other projections are visible.
         boolean hasOtherSeasons = !ref.isSeason() && AppDatabase.get().getTmdbSeasonProgressDao()
@@ -128,6 +130,7 @@ public final class WebHomeHistoryService {
         result.addProperty("canDelete", ref.cid > 0 && !hasOtherSeasons);
         result.addProperty("capabilityReason", ref.cid <= 0 ? "该配置尚未持久化，不支持本机 API 精确删除"
                 : hasOtherSeasons ? "此记录关联其他季度，请先删除具体季度进度"
+                : !played(history) ? "尚未建立有效续播点"
                 : ref.cid != VodConfig.getCid() ? "请先切换到该历史的原配置"
                 : audioSource ? "该来源使用独立音频历史，请通过原生音频页面恢复" : "");
         return result;
