@@ -168,6 +168,14 @@ public class WebHomeHistoryServiceTest {
         assertTrue(prepared.getPosition() <= 0); assertTrue(prepared.getDuration() <= 0);
         assertEquals(50_000,invalid.getPosition()); assertEquals(0,invalid.getDuration());
 
+        History zeroPosition=row("C",7,-1); zeroPosition.setPosition(0);
+        History missingDuration=row("D",7,-1); missingDuration.setDuration(androidx.media3.common.C.TIME_UNSET);
+        for (History incomplete : List.of(zeroPosition, missingDuration)) {
+            History fromTop=WebHomeHistoryService.prepareExactPlayback(incomplete);
+            assertNotSame(incomplete,fromTop); assertFalse(WebHomeHistoryService.played(fromTop));
+            assertTrue(fromTop.getPosition() <= 0); assertTrue(fromTop.getDuration() <= 0);
+        }
+
         History valid=row("B",7,-1);
         History resumed=WebHomeHistoryService.prepareExactPlayback(valid);
         assertNotSame(valid,resumed); assertEquals(valid.getPosition(),resumed.getPosition());

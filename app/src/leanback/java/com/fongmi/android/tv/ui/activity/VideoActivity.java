@@ -5378,6 +5378,9 @@ private boolean runtimeSourceOnly;
         }
         TmdbItem tmdbItem = getHistoryTmdbItem();
         History resumeHistory = getIntentResumeHistory();
+        if (getIntent().getBooleanExtra("webhomeHistoryExact", false)) {
+            resumeHistory = com.fongmi.android.tv.playback.WebHomeHistoryService.prepareExactPlayback(resumeHistory);
+        }
         if (isDetailSessionPlayback() && resumeHistory == null
                 && (!TextUtils.isEmpty(getIntentPlaybackEpisodeName()) || !TextUtils.isEmpty(getIntentPlaybackEpisodeUrl()))) {
             Flag selectedFlag = findIntentPlaybackFlag(item.getFlags(), getIntentPlaybackFlagKey(),
