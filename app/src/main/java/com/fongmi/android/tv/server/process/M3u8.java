@@ -5,6 +5,7 @@ import android.text.TextUtils;
 import com.fongmi.android.tv.App;
 import com.fongmi.android.tv.api.config.AdBlockStatsStore;
 import com.fongmi.android.tv.server.Nano;
+import com.fongmi.android.tv.server.Server;
 import com.fongmi.android.tv.server.impl.Process;
 import com.fongmi.android.tv.api.config.HlsRuleConfig;
 import com.fongmi.android.tv.setting.Setting;
@@ -172,8 +173,8 @@ public class M3u8 implements Process {
         return resolved == null ? value : resolved.toString();
     }
 
-    private String proxy(String target) {
-        return "http://127.0.0.1:9978/m3u8?url=" + URLEncoder.encode(target, StandardCharsets.UTF_8);
+    String proxy(String target) {
+        return Server.get().getAddress("/m3u8") + "?url=" + URLEncoder.encode(target, StandardCharsets.UTF_8);
     }
 
     private boolean isPlaylist(String url, MediaType type) {
