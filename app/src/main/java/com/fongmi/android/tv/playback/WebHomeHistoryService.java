@@ -28,6 +28,13 @@ public final class WebHomeHistoryService {
         return history != null && history.getPosition() > 0 && history.getDuration() > 0;
     }
 
+    private static boolean usesSeparateAudioHistory(String siteKey) {
+        // PUSH accepts both video and audio results. Its audio eligibility is not
+        // the type of a persisted video History row (AudioHistory is separate).
+        return !com.fongmi.android.tv.api.SiteApi.PUSH.equals(siteKey)
+                && com.fongmi.android.tv.utils.AudioUtil.isAudioSiteEnabled(siteKey);
+    }
+
     public static com.fongmi.android.tv.history.HistorySourceResolver.EpisodeMatch exactSelection(
             History history, List<com.fongmi.android.tv.bean.Flag> flags) {
         if (history == null || flags == null || flags.isEmpty()) return null;
@@ -53,7 +60,7 @@ public final class WebHomeHistoryService {
     public static History resolve(HistoryRecordRef ref, boolean playback) {
         if (!accessible(ref)) throw new IllegalArgumentException("历史引用无效或不在可访问配置范围");
         if (playback && ref.cid != VodConfig.getCid()) throw new IllegalArgumentException("请先切换到该历史的原配置");
-        if (playback && com.fongmi.android.tv.utils.AudioUtil.isAudioSiteEnabled(ref.siteKey)) {
+        if (playback && usesSeparateAudioHistory(ref.siteKey)) {
             throw new IllegalArgumentException("该来源使用独立音频历史，请通过原生音频页面恢复");
         }
         History route = History.find(ref.cid, ref.historyKey);
@@ -120,7 +127,7 @@ public final class WebHomeHistoryService {
         result.addProperty("displayId", ref.displayId());
         result.addProperty("deleteScope", ref.kind);
         result.addProperty("sourceLabel", history.getSiteName().isEmpty() ? ref.siteKey : history.getSiteName());
-        boolean audioSource = com.fongmi.android.tv.utils.AudioUtil.isAudioSiteEnabled(ref.siteKey);
+        boolean audioSource = usesSeparateAudioHistory(ref.siteKey);
         result.addProperty("canResume", played(history) && history.isCurrentSourceAvailable() && !audioSource);
         // Deleting a physical route also removes its snapshots. Do not present that
         // as a harmless single-quarter operation when other projections are visible.

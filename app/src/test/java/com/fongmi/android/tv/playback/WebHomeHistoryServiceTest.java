@@ -58,6 +58,45 @@ public class WebHomeHistoryServiceTest {
         return WebHomeHistoryService.delete(request);
     }
     private String outcome(JsonObject response) { return response.getAsJsonArray("results").get(0).getAsJsonObject().get("status").getAsString(); }
+    @Test public void videoPushSourcesKeepExactResumeDespiteAudioEligibility() throws Exception {
+        assertTrue(com.fongmi.android.tv.utils.AudioUtil.isAudioSiteEnabled(com.fongmi.android.tv.api.SiteApi.PUSH));
+        String[] ids={"https://example.test/ordinary.mp4?a=1&b=2", "https://pan.quark.cn/s/exact-share", "https://example.test/pushed.m3u8"};
+        JsonArray fixtures=new JsonArray();
+        for (String id:ids) {
+            History h=row("push_agent",7,-1); h.setKey("push_agent@@@"+id+"@@@7");
+            h.setEpisodeUrl(id); h.setVodRemarks("正片"); h.setSourceBindingKey("line#0");
+            database.getHistoryDao().insertOrUpdate(h);
+            JsonObject record=null;
+            JsonObject envelope=WebHomeHistoryService.read();
+            for(var value:envelope.getAsJsonArray("records")) if(value.getAsJsonObject().get("key").getAsString().equals(h.getKey())) record=value.getAsJsonObject();
+            assertNotNull(record); assertTrue(record.get("canResume").getAsBoolean());
+            assertEquals("",record.get("capabilityReason").getAsString());
+            History resolved=WebHomeHistoryService.resolve(ref(h,"ITEM"),true);
+            assertEquals(h.getKey(),resolved.getKey()); assertEquals(id,resolved.getVodId());
+            assertEquals(id,resolved.getEpisodeUrl()); assertEquals(50_000,resolved.getPosition());
+            var activity=org.robolectric.Robolectric.buildActivity(android.app.Activity.class).setup().get();
+            com.fongmi.android.tv.ui.activity.VideoActivity.startHistoryExact(activity,resolved,ref(h,"ITEM").resumePayload(resolved));
+            org.robolectric.shadows.ShadowActivity shadow=org.robolectric.shadow.api.Shadow.extract(activity);
+            android.content.Intent intent=shadow.getNextStartedActivity();
+            assertEquals("push_agent",intent.getStringExtra("key")); assertEquals(id,intent.getStringExtra("id"));
+            assertTrue(intent.getBooleanExtra("webhomeHistoryExact",false));
+            fixtures.add(record.deepCopy());
+        }
+        String export=System.getenv("WEBHOME_MULTI_SOURCE_FIXTURE_PATH");
+        if(export!=null&&!export.isEmpty()) java.nio.file.Files.writeString(java.nio.file.Path.of(export),fixtures.toString());
+    }
+    @Test public void pushExceptionKeepsExistingProgressSourceAndAudioGuards() {
+        History h=row("push_agent",7,-1); h.setPosition(0); database.getHistoryDao().insertOrUpdate(h);
+        assertFalse(WebHomeHistoryService.read().getAsJsonArray("records").get(0).getAsJsonObject().get("canResume").getAsBoolean());
+        assertThrows(IllegalArgumentException.class,()->WebHomeHistoryService.resolve(ref(h,"ITEM"),true));
+        h.setPosition(50_000); h.setCid(8); h.setKey("push_agent@@@vod@@@8"); database.getHistoryDao().insertOrUpdate(h);
+        Setting.putGlobalHistoryMode(Setting.GLOBAL_HISTORY_AUTO);
+        assertThrows(IllegalArgumentException.class,()->WebHomeHistoryService.resolve(ref(h,"ITEM"),true));
+        History audio=row("A",7,-1); Setting.putAudioConfig("{\"configured\":true,\"enabledSites\":[\"A\"]}");
+        assertThrows(IllegalArgumentException.class,()->WebHomeHistoryService.resolve(ref(audio,"ITEM"),true));
+        for(var record:WebHomeHistoryService.read().getAsJsonArray("records")) if(record.getAsJsonObject().get("key").getAsString().equals(audio.getKey()))
+            assertFalse(record.getAsJsonObject().get("canResume").getAsBoolean());
+    }
     @Test public void independentReadAndExactResumeDoNotFoldOrChooseNewerSource() {
         History a=row("A",7,-1), b=row("B",7,-1); b.setCreateTime(9000); database.getHistoryDao().insertOrUpdate(b);
         assertEquals(2,WebHomeHistoryService.read().getAsJsonArray("records").size());
