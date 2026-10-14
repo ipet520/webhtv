@@ -152,6 +152,7 @@ public class HomeWebController {
     private volatile boolean bridgeReady;
     private volatile boolean sdkReady;
     private volatile boolean paused;
+    private boolean pendingHistoryChanged;
     private volatile boolean destroyed;
 
     public HomeWebController(Activity activity, WebView webView, Listener listener) {
@@ -926,6 +927,7 @@ public class HomeWebController {
         active = this;
         webView.setVisibility(View.VISIBLE);
         focusWebView("show");
+        dispatchPendingHistoryChanged();
         consumeExtensionReload();
     }
 
@@ -1192,6 +1194,7 @@ public class HomeWebController {
         }
         webView.onResume();
         recoverAfterResume();
+        dispatchPendingHistoryChanged();
         consumeExtensionReload();
     }
 
@@ -1595,6 +1598,21 @@ public class HomeWebController {
         });
     }
 
+    public void dispatchHistoryChanged() {
+        if (destroyed) return;
+        if (paused || !bridgeReady || !isVisible()) {
+            pendingHistoryChanged = true;
+            return;
+        }
+        dispatchLifecycle("fmhistorychange", "{version:1}");
+    }
+
+    private void dispatchPendingHistoryChanged() {
+        if (!pendingHistoryChanged || destroyed || paused || !bridgeReady || !isVisible()) return;
+        pendingHistoryChanged = false;
+        dispatchLifecycle("fmhistorychange", "{version:1}");
+    }
+
     private boolean isCurrentPageFinish(WebView view, String url) {
         return !destroyed && view == webView && isCurrentPageFinish(url, view.getUrl());
     }
@@ -1795,6 +1813,7 @@ public class HomeWebController {
             if (destroyed || current != webView || !isThemeRuntimeCurrent(currentTarget, generation)) return;
             sdkReady = true;
             injectExtensions(WebHomeExtension.RUN_AT_END);
+            dispatchPendingHistoryChanged();
             current.postDelayed(() -> {
                 if (destroyed || current != webView || !isThemeRuntimeCurrent(currentTarget, generation)) return;
                 injectExtensions(WebHomeExtension.RUN_AT_IDLE);

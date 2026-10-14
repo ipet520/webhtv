@@ -908,6 +908,7 @@ public class HomeActivity extends BaseActivity implements ExitConfirmDialog.List
                 break;
             case HISTORY:
                 getHistory();
+                if (mWeb != null) mWeb.dispatchHistoryChanged();
                 break;
             case SIZE:
                 if (mWeb != null && mWeb.isVisible()) return;
