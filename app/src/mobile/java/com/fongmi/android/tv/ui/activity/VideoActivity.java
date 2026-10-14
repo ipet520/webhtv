@@ -861,7 +861,19 @@ private final Task.Scope mPersonalRecommendationTasks = new Task.Scope(Task.reco
     private static void startDirect(Activity activity, String key, String id, String name, String pic, String mark,
             String playFlag, String playFlagKey, String playEpisodeName, String playEpisodeUrl,
             boolean resumeFromHistory, History resumeHistory) {
-        if (AudioActivity.startSite(activity, key, id, name, pic, mark)) return;
+        startDirect(activity, key, id, name, pic, mark, playFlag, playFlagKey, playEpisodeName,
+                playEpisodeUrl, resumeFromHistory, resumeHistory, null);
+    }
+
+    public static void startHistoryExact(Activity activity, History history, String payload) {
+        startDirect(activity, history.getSiteKey(), history.getVodId(), history.getVodName(), history.getVodPic(), null,
+                null, history.getSourceBindingKey(), null, null, true, history, payload);
+    }
+
+    private static void startDirect(Activity activity, String key, String id, String name, String pic, String mark,
+            String playFlag, String playFlagKey, String playEpisodeName, String playEpisodeUrl,
+            boolean resumeFromHistory, History resumeHistory, String exactPayload) {
+        if (exactPayload == null && AudioActivity.startSite(activity, key, id, name, pic, mark)) return;
         Intent intent = new Intent(activity, VideoActivity.class);
         intent.putExtra("collect", false);
         intent.putExtra("mark", mark);
@@ -870,9 +882,10 @@ private final Task.Scope mPersonalRecommendationTasks = new Task.Scope(Task.reco
         intent.putExtra("key", key);
         intent.putExtra("id", id);
         intent.putExtra(EXTRA_RESUME_FROM_HISTORY, resumeFromHistory);
+        if (exactPayload != null) intent.putExtra("webhomeHistoryExact", true);
         if (resumeHistory != null) {
             intent.putExtra(EXTRA_RESUME_HISTORY_CID, resumeHistory.getCid());
-            intent.putExtra(EXTRA_RESUME_HISTORY_KEY, HistoryResumePayload.encode(resumeHistory));
+            intent.putExtra(EXTRA_RESUME_HISTORY_KEY, exactPayload == null ? HistoryResumePayload.encode(resumeHistory) : exactPayload);
         }
         putIntentPlaybackSelection(intent, playFlag, playFlagKey, playEpisodeName, playEpisodeUrl);
         activity.startActivity(intent);
@@ -5805,6 +5818,14 @@ private final Task.Scope mPersonalRecommendationTasks = new Task.Scope(Task.reco
     private boolean checkHistory(Vod item) {
         TmdbItem tmdbItem = getHistoryTmdbItem();
         History resumeHistory = getIntentResumeHistory();
+        if (getIntent().getBooleanExtra("webhomeHistoryExact", false)) {
+            var match = com.fongmi.android.tv.playback.WebHomeHistoryService.exactSelection(resumeHistory, item.getFlags());
+            if (resumeHistory == null || resumeHistory.getCid() != VodConfig.getCid() || match == null) {
+                Notify.show("原历史线路、剧集或配置已改变，无法精确恢复"); finish(); return false;
+            }
+            putIntentPlaybackSelection(getIntent(), match.flag().getFlag(),
+                    Flag.stableKey(match.flag(), item.getFlags().indexOf(match.flag())), match.episode().getName(), match.episode().getUrl());
+        }
         if (hasIntentResumeHistory() && resumeHistory == null) {
             Notify.show(R.string.history_record_missing);
             finish();

@@ -2094,7 +2094,8 @@ public class HomeWebController {
                       openLive:()=>invoke('app.openLive',{}),
                       openKeep:()=>invoke('app.openKeep',{}),
                       openSetting:()=>invoke('app.openSetting',{}),
-                      history:()=>invoke('app.history',{})
+                      history:(options)=>invoke('app.history',options||{}),
+                      historyDelete:(options)=>invoke('app.historyDelete',options||{})
                     },
                     pan,
                     ext,
@@ -2128,6 +2129,7 @@ public class HomeWebController {
                     openKeep:window.fongmi.app.openKeep,
                     openSetting:window.fongmi.app.openSetting,
                     history:window.fongmi.app.history,
+                    historyDelete:window.fongmi.app.historyDelete,
                     themeInfo:window.fongmi.theme.info,
                     openDetail:window.fongmi.navigation.openDetail,
                     openNativeDetail:window.fongmi.navigation.openNativeDetail,

@@ -343,6 +343,35 @@ public final class PlaybackProgressWriter {
         }
         if (input.deletedAt <= 0) input.deletedAt = System.currentTimeMillis();
 
+        if (input.exact) {
+            if (input.recordRef == null || !input.recordRef.isValid()
+                    || !input.historyKey.equals(input.recordRef.historyKey) || cid != input.recordRef.cid
+                    || input.isSeasonScope() != input.recordRef.isSeason()
+                    || input.recordRef.isSeason() && (!input.mediaType.equals(input.recordRef.mediaType)
+                        || input.tmdbId != input.recordRef.tmdbId || input.seasonNumber != input.recordRef.seasonNumber)
+                    || !input.recordRef.isSeason() && !"item".equals(input.scope)) {
+                return PlaybackProgressApplyResult.failed(input, "精确删除引用无效");
+            }
+            if (!WebHomeHistoryService.accessible(input.recordRef)) return PlaybackProgressApplyResult.failed(input, "历史配置不可访问");
+            History existing = History.find(cid, input.historyKey);
+            if (existing == null) return PlaybackProgressApplyResult.skipped(input, input.historyKey, "记录已不存在");
+            try {
+                if (input.confirmedGroup) {
+                    if (!input.recordRef.matches(existing)) throw new IllegalArgumentException("作品组来源已改变");
+                } else WebHomeHistoryService.resolve(input.recordRef, false);
+            }
+            catch (IllegalArgumentException error) { return PlaybackProgressApplyResult.failed(input, error.getMessage()); }
+            if (input.recordRef.scopeToken == null || input.recordRef.scopeToken.isEmpty()
+                    || !input.recordRef.scopeToken.equals(WebHomeHistoryService.scopeToken(input.recordRef))) {
+                return PlaybackProgressApplyResult.failed(input, "历史范围已更新，请刷新后重新选择");
+            }
+            if (!input.confirmedGroup && !input.recordRef.isSeason() && AppDatabase.get().getTmdbSeasonProgressDao()
+                    .findBySource(cid, existing.getMediaType(), existing.getTmdbId(), existing.getKey())
+                    .stream().anyMatch(snapshot -> snapshot.seasonNumber != input.recordRef.seasonNumber)) {
+                return PlaybackProgressApplyResult.failed(input, "此记录关联其他季度，请先删除具体季度进度");
+            }
+        }
+
         // Persist the marker before touching History. If a playback write races this
         // deletion, the marker makes the stale write lose deterministically.
         PlaybackDeleteTombstoneStore.record(input, cid, filter);
@@ -508,7 +537,7 @@ public final class PlaybackProgressWriter {
             History exact = dao.find(cid, input.historyKey);
             if (exact != null) result.put(exact.getKey(), exact);
             // A history key from another device normally contains a different cid suffix.
-            if (result.isEmpty() && !TextUtils.isEmpty(input.siteKey) && !TextUtils.isEmpty(input.vodId)) addByItem(dao, cid, input, result);
+            if (!input.exact && result.isEmpty() && !TextUtils.isEmpty(input.siteKey) && !TextUtils.isEmpty(input.vodId)) addByItem(dao, cid, input, result);
         } else if (!TextUtils.isEmpty(input.siteKey) && !TextUtils.isEmpty(input.vodId)) {
             addByItem(dao, cid, input, result);
         } else {
