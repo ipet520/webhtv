@@ -147,6 +147,7 @@ public class HomeWebBridge {
                 case "vod.category" -> vodCategory(payload);
                 case "player.playUrl" -> playUrl(payload);
                 case "player.playVod" -> playVod(payload);
+                case "player.detailSession" -> detailSession(payload);
                 case "player.playVodInline" -> playVodInline(payload);
                 case "player.preloadArtwork" -> preloadArtwork(payload);
                 case "player.control" -> control(payload);
@@ -268,6 +269,25 @@ public class HomeWebBridge {
                 HomeWebController.safeLogUrl(playUrl));
         App.post(() -> controller.prepareNativePlayback(() -> VideoActivity.start(activity, SiteApi.PUSH, playUrl, playTitle, playPic, null, playWall, playContent)));
         return "{}";
+    }
+
+    private String detailSession(JsonObject payload) {
+        String operation = Json.safeString(payload, "operation");
+        String id = Json.safeString(payload, "sessionId");
+        if ("capabilities".equals(operation)) return "{\"version\":1}";
+        if ("close".equals(operation)) {
+            com.fongmi.android.tv.playback.WebHomeDetailSessionService.close(id);
+            return "{\"version\":1,\"closed\":true}";
+        }
+        if ("read".equals(operation)) return com.fongmi.android.tv.playback.WebHomeDetailSessionService.read(id).toString();
+        if (!"play".equals(operation)) throw new IllegalArgumentException("不支持的详情会话操作");
+        var accepted = com.fongmi.android.tv.playback.WebHomeDetailSessionService.accept(payload);
+        String requestId = Json.safeString(payload, "requestId");
+        if (accepted.launch()) App.post(() -> controller.prepareNativePlayback(() -> {
+            try { VideoActivity.startDetailSession(activity, id, requestId); }
+            catch (Exception e) { com.fongmi.android.tv.playback.WebHomeDetailSessionService.fail(id, requestId); }
+        }));
+        return com.fongmi.android.tv.playback.WebHomeDetailSessionService.read(id).toString();
     }
 
     private String playVod(JsonObject payload) {

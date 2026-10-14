@@ -826,6 +826,42 @@ private boolean runtimeSourceOnly;
         activity.startActivity(intent);
     }
 
+    public static void startDetailSession(Activity activity, String sessionId, String requestId) {
+        var session = com.fongmi.android.tv.playback.WebHomeDetailSessionService.require(sessionId, requestId);
+        History owned = session.resume ? com.fongmi.android.tv.playback.WebHomeDetailSessionService.resumeHistory(session) : null;
+        com.google.gson.JsonObject route = session.route;
+        Intent intent = new Intent(activity, VideoActivity.class);
+        intent.putExtra("key", owned == null ? route.get("siteKey").getAsString() : owned.getSiteKey());
+        intent.putExtra("id", owned == null ? route.get("vodId").getAsString() : owned.getVodId());
+        intent.putExtra("name", owned == null ? route.get("title").getAsString() : owned.getVodName());
+        intent.putExtra("pic", owned == null ? route.get("pic").getAsString() : owned.getVodPic());
+        if (route.has("wall")) intent.putExtra("wallPic", route.get("wall").getAsString());
+        if (route.has("content")) intent.putExtra("content", route.get("content").getAsString());
+        intent.putExtra("webhomeDetailSessionId", sessionId);
+        intent.putExtra("tmdbMode", false);
+        intent.putExtra("webhomeDetailRequestId", requestId);
+        if (owned == null && route.has("target") && route.get("target").isJsonObject()) {
+            var target = route.getAsJsonObject("target");
+            int episode = target.has("episodeNumber") ? target.get("episodeNumber").getAsInt() : 0;
+            String episodeName = com.github.catvod.utils.Json.safeString(target, "episodeTitle");
+            if (episodeName.isEmpty() && episode > 0) episodeName = String.valueOf(episode);
+            putIntentPlaybackSelection(intent, com.github.catvod.utils.Json.safeString(target, "flag"),
+                    com.github.catvod.utils.Json.safeString(target, "sourceBindingKey"), episodeName,
+                    com.github.catvod.utils.Json.safeString(target, "episodeUrl"));
+            if (episode > 0) {
+                intent.putExtra(EXTRA_TMDB_PLAY_EPISODE_NUMBER, episode);
+                intent.putExtra(EXTRA_TMDB_PLAY_SEASON_NUMBER, target.has("seasonNumber") ? target.get("seasonNumber").getAsInt() : -1);
+            }
+        }
+        if (owned != null) {
+            intent.putExtra(EXTRA_RESUME_FROM_HISTORY, true);
+            intent.putExtra(EXTRA_RESUME_HISTORY_CID, owned.getCid());
+            intent.putExtra(EXTRA_RESUME_HISTORY_KEY, owned.getKey());
+            intent.putExtra("webhomeHistoryExact", true);
+        }
+        activity.startActivity(intent);
+    }
+
     public static void startDirect(Activity activity, String key, String id, String name, String pic) {
         startDirect(activity, key, id, name, pic, null);
     }
@@ -5316,12 +5352,48 @@ private boolean runtimeSourceOnly;
         }
     }
 
+    private boolean isDetailSessionPlayback() {
+        return !TextUtils.isEmpty(getIntent().getStringExtra("webhomeDetailSessionId"));
+    }
+
+    private boolean bindDetailSessionHistory() {
+        if (!isDetailSessionPlayback()) return true;
+        try {
+            com.fongmi.android.tv.playback.WebHomeDetailSessionService.bind(
+                    getIntent().getStringExtra("webhomeDetailSessionId"),
+                    getIntent().getStringExtra("webhomeDetailRequestId"), mHistory);
+            return true;
+        } catch (IllegalArgumentException e) {
+            com.fongmi.android.tv.playback.WebHomeDetailSessionService.fail(
+                    getIntent().getStringExtra("webhomeDetailSessionId"), getIntent().getStringExtra("webhomeDetailRequestId"));
+            Notify.show(e.getMessage()); finish(); return false;
+        }
+    }
+
     private boolean checkHistory(Vod item) {
+        if (isDetailSessionPlayback()) {
+            try { com.fongmi.android.tv.playback.WebHomeDetailSessionService.require(
+                    getIntent().getStringExtra("webhomeDetailSessionId"), getIntent().getStringExtra("webhomeDetailRequestId")); }
+            catch (IllegalArgumentException e) { Notify.show(e.getMessage()); finish(); return false; }
+        }
         TmdbItem tmdbItem = getHistoryTmdbItem();
         History resumeHistory = getIntentResumeHistory();
+        if (isDetailSessionPlayback() && resumeHistory == null
+                && (!TextUtils.isEmpty(getIntentPlaybackEpisodeName()) || !TextUtils.isEmpty(getIntentPlaybackEpisodeUrl()))) {
+            Flag selectedFlag = findIntentPlaybackFlag(item.getFlags(), getIntentPlaybackFlagKey(),
+                    getIntentPlaybackFlag(), getIntentPlaybackEpisodeUrl());
+            if (selectedFlag == null || findIntentPlaybackEpisode(selectedFlag,
+                    getIntentPlaybackEpisodeName(), getIntentPlaybackEpisodeUrl()) == null) {
+                com.fongmi.android.tv.playback.WebHomeDetailSessionService.fail(
+                        getIntent().getStringExtra("webhomeDetailSessionId"), getIntent().getStringExtra("webhomeDetailRequestId"));
+                Notify.show("本次详情的线路或剧集已不可定位"); finish(); return false;
+            }
+        }
         if (getIntent().getBooleanExtra("webhomeHistoryExact", false)) {
             var match = com.fongmi.android.tv.playback.WebHomeHistoryService.exactSelection(resumeHistory, item.getFlags());
             if (resumeHistory == null || resumeHistory.getCid() != VodConfig.getCid() || match == null) {
+                if (isDetailSessionPlayback()) com.fongmi.android.tv.playback.WebHomeDetailSessionService.fail(
+                        getIntent().getStringExtra("webhomeDetailSessionId"), getIntent().getStringExtra("webhomeDetailRequestId"));
                 Notify.show("原历史线路、剧集或配置已改变，无法精确恢复"); finish(); return false;
             }
             putIntentPlaybackSelection(getIntent(), match.flag().getFlag(),
@@ -5333,7 +5405,7 @@ private boolean runtimeSourceOnly;
             return false;
         }
         mHistory = resumeHistory == null
-                ? History.findPlayback(getHistoryKey(), List.of(item.getName(), getName()), item.getFlags(), tmdbItem, currentSourceSeasonNumber(item))
+                ? (isDetailSessionPlayback() ? null : History.findPlayback(getHistoryKey(), List.of(item.getName(), getName()), item.getFlags(), tmdbItem, currentSourceSeasonNumber(item)))
                 : resumeHistory.forPlaybackKey(getHistoryKey(), VodConfig.getCid());
         mHistory = mHistory == null ? createHistory(item) : mHistory;
         if (!TextUtils.isEmpty(getWallPic())) mHistory.setWallPic(getWallPic());
@@ -5347,6 +5419,7 @@ private boolean runtimeSourceOnly;
         mHistory.setVodName(item.getName());
         mHistory.setVodPic(getInitialArtwork(item));
         enrichHistoryMeta(item);
+        if (!bindDetailSessionHistory()) return false;
         PlaybackEventCollector.get().updateHistory(mHistory);
         setArtwork(getInitialArtwork(item));
         setScale(getScale());
@@ -5741,6 +5814,7 @@ private boolean runtimeSourceOnly;
     }
 
     private boolean reloadHistoryAfterTmdbMatch(TmdbItem matched) {
+        if (isDetailSessionPlayback()) return false;
         Vod item = mVod;
         if (item == null || matched == null || hasIntentResumeHistory()) return false;
         if (mHistory != null && mHistory.isCrossSourcePlayback()
