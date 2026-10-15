@@ -128,6 +128,29 @@ public class WebHomeRemoteBridgeWiringTest {
         assertTrue(bridge.contains("mapped.getCode()"));
     }
 
+    @Test
+    public void ordinaryPanPlaybackKeepsTheNativePushHandoffWithoutDetailSessionGate() throws Exception {
+        String bridge = readMain("HomeWebBridge.java");
+        String controller = readMain("HomeWebController.java");
+        String leanback = readFlavor("leanback", "VideoActivity.java");
+        String mobile = readFlavor("mobile", "VideoActivity.java");
+
+        assertTrue(bridge.contains("case \"pan.play\" -> playPan(payload);"));
+        String playPan = methodBody(bridge, "private String playPan(JsonObject payload)", "private String stripPush(");
+        assertTrue(playPan.contains("VideoActivity.start(activity, SiteApi.PUSH"));
+        assertFalse(bridge.contains("player.detailSession"));
+        assertFalse(controller.contains("detailSession:(options)"));
+        assertFalse(bridge.contains("WebHomeDetailSessionService"));
+        assertFalse(leanback.contains("webhomeDetailSessionId"));
+        assertFalse(mobile.contains("webhomeDetailSessionId"));
+        assertFalse(leanback.contains("WebHomeDetailSessionService"));
+        assertFalse(mobile.contains("WebHomeDetailSessionService"));
+        assertTrue(leanback.contains("History.findPlayback(getHistoryKey()"));
+        assertTrue(mobile.contains("History.findPlayback(getHistoryKey()"));
+        assertTrue(leanback.contains("WebHomeHistoryService.exactSelection(resumeHistory, item.getFlags())"));
+        assertTrue(mobile.contains("WebHomeHistoryService.exactSelection(resumeHistory, item.getFlags())"));
+    }
+
     private static boolean ordered(String source, String first, String second) {
         int firstIndex = source.indexOf(first);
         int secondIndex = source.indexOf(second, Math.max(0, firstIndex + first.length()));
@@ -145,6 +168,12 @@ public class WebHomeRemoteBridgeWiringTest {
     private static String readMain(String name) throws Exception {
         Path root = Path.of("src", "main", "java", "com", "fongmi", "android", "tv", "web");
         if (!Files.exists(root)) root = Path.of("app", "src", "main", "java", "com", "fongmi", "android", "tv", "web");
+        return new String(Files.readAllBytes(root.resolve(name)), StandardCharsets.UTF_8).replace("\r\n", "\n");
+    }
+
+    private static String readFlavor(String flavor, String name) throws Exception {
+        Path root = Path.of("src", flavor, "java", "com", "fongmi", "android", "tv", "ui", "activity");
+        if (!Files.exists(root)) root = Path.of("app", "src", flavor, "java", "com", "fongmi", "android", "tv", "ui", "activity");
         return new String(Files.readAllBytes(root.resolve(name)), StandardCharsets.UTF_8).replace("\r\n", "\n");
     }
 }
