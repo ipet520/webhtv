@@ -84,6 +84,7 @@ import com.fongmi.android.tv.model.SiteViewModel;
 import com.fongmi.android.tv.model.SearchProgress;
 import com.fongmi.android.tv.playback.PlaybackEventCollector;
 import com.fongmi.android.tv.playback.HistoryResumePayload;
+import com.fongmi.android.tv.playback.PlaybackSourceIdentity;
 import com.fongmi.android.tv.playback.SubtitleRestoreCoordinator;
 import com.fongmi.android.tv.player.IntroSkipKinds;
 import com.fongmi.android.tv.player.IntroSkipPlayback;
@@ -370,6 +371,7 @@ private boolean runtimeSourceOnly;
     private static final String EXTRA_TMDB_PLAY_SEASON_NUMBER = "tmdb_play_season_number";
     private static final String EXTRA_TMDB_PLAY_EPISODE_NUMBER = "tmdb_play_episode_number";
     private static final String EXTRA_RESUME_FROM_HISTORY = "resume_from_history";
+    private static final String EXTRA_WEBHOME_FRESH_HANDOFF = "webhome_fresh_handoff";
     private static final String EXTRA_RESUME_HISTORY_CID = "resume_history_cid";
     private static final String EXTRA_RESUME_HISTORY_KEY = "resume_history_key";
     private static final String EXTRA_TMDB_VOD_CACHE_KEY = "tmdb_vod_cache_key";
@@ -474,7 +476,6 @@ private boolean runtimeSourceOnly;
     private com.fongmi.android.tv.service.AiEpisodeSeasonService mAiSeasonService;
     private AlertDialog mAiSeasonLoadingDialog;
     private TmdbItem mPendingTmdbSeasonChoice;
-    private Runnable mR4;
     private Runnable mBackdropRunnable;
     private String mBackdropSignature;
     private int mCurrentBackdropPage = 0;
@@ -752,6 +753,30 @@ private boolean runtimeSourceOnly;
             return;
         }
         startSkippingDispatch(activity, key, id, name, pic, mark, collect, cast, tmdbItem, wallPic, content, launch, searchKeyword);
+    }
+
+    /** WebHome handoff starts fresh playback; Native History remains an explicit route. */
+    public static void startFromWebHome(Activity activity, String key, String id, String name, String pic, String mark, String wallPic, String content) {
+        long launch = System.currentTimeMillis();
+        ImgUtil.preload(activity, pic);
+        if (Setting.isPlaybackArtworkWall() && !TextUtils.isEmpty(wallPic) && !TextUtils.equals(wallPic, pic)) ImgUtil.preload(activity, wallPic);
+        if (dispatchToContentHandler(activity, key, id, name, pic, mark, false)) return;
+        Intent intent = new Intent(activity, VideoActivity.class);
+        intent.putExtra("launchTime", launch);
+        intent.putExtra("tmdbMode", false);
+        intent.putExtra("tmdbItem", (com.fongmi.android.tv.bean.TmdbItem) null);
+        intent.putExtra("collect", false);
+        intent.putExtra("cast", false);
+        intent.putExtra("mark", mark);
+        intent.putExtra("name", name);
+        intent.putExtra("pic", pic);
+        intent.putExtra("wallPic", wallPic);
+        intent.putExtra("content", content);
+        intent.putExtra("key", key);
+        intent.putExtra("id", id);
+        intent.putExtra(EXTRA_WEBHOME_FRESH_HANDOFF, true);
+        activity.startActivity(intent);
+        SpiderDebug.log("video-flow", "WebHome fresh handoff dispatched cost=%dms key=%s id=%s", System.currentTimeMillis() - launch, key, id);
     }
 
     /** 跳过 ContentDispatcher 的启动路径（供阅读器等 handler 判定内容不归自己管时回退）。 */
@@ -1507,7 +1532,6 @@ private boolean runtimeSourceOnly;
         mR1 = this::hideControl;
         mR2 = this::updateFocus;
         mR3 = this::setTraffic;
-        mR4 = this::showEmpty;
         mSeekProgressFallback = this::hideSeekProgressIfReady;
         mAudioRefreshLyricsRunnable = this::refreshLyricsNow;
         mApplyAudioBackgroundRunnable = this::applyAudioBackground;
@@ -2446,7 +2470,7 @@ private boolean runtimeSourceOnly;
     }
 
     private void prepareFastTmdbPlaybackHistory(Vod item, Flag flag, Episode episode) {
-        mHistory = History.findPlayback(getHistoryKey(), List.of(item.getName(), getName()), item.getFlags(), getHistoryTmdbItem(), currentSourceSeasonNumber(item));
+        mHistory = isWebHomeFreshHandoff() ? null : History.findPlayback(getHistoryKey(), List.of(item.getName(), getName()), item.getFlags(), getHistoryTmdbItem(), currentSourceSeasonNumber(item));
         mHistory = mHistory == null ? createHistory(item) : mHistory;
         if (!TextUtils.isEmpty(getWallPic())) mHistory.setWallPic(getWallPic());
         if (!TextUtils.isEmpty(getMark())) mHistory.setVodRemarks(getMark());
@@ -2517,7 +2541,6 @@ private boolean runtimeSourceOnly;
         mTmdbEpisodeFallbackReleased = false;
         mPersonalRecommendationGeneration++;
         mTmdbDialogGeneration++;
-        App.removeCallbacks(mR4);
         App.removeCallbacks(mTmdbDetailTimeout);
         App.removeCallbacks(mTmdbEpisodeTimeout);
         resetPendingTmdbBind();
@@ -2670,8 +2693,8 @@ private boolean runtimeSourceOnly;
             showEmpty();
         } else {
             mBinding.name.setText(getName());
-            App.post(mR4, 10000);
-            checkSearch(false);
+            boolean searchStarted = checkSearch(false);
+            if (!searchStarted) showEmpty();
         }
     }
 
@@ -2714,7 +2737,6 @@ private boolean runtimeSourceOnly;
         mBinding.name.setText(item.getName());
         mFlagAdapter.addAll(item.getFlags());
         mBinding.video.requestFocus();
-        App.removeCallbacks(mR4);
         if (!checkHistory(item)) return;
         checkFlag(item);
         checkKeepImg();
@@ -5335,8 +5357,9 @@ private boolean runtimeSourceOnly;
             finish();
             return false;
         }
+        boolean webHomeFreshHandoff = isWebHomeFreshHandoff();
         mHistory = resumeHistory == null
-                ? History.findPlayback(getHistoryKey(), List.of(item.getName(), getName()), item.getFlags(), tmdbItem, currentSourceSeasonNumber(item))
+                ? webHomeFreshHandoff ? null : History.findPlayback(getHistoryKey(), List.of(item.getName(), getName()), item.getFlags(), tmdbItem, currentSourceSeasonNumber(item))
                 : resumeHistory.forPlaybackKey(getHistoryKey(), VodConfig.getCid());
         mHistory = mHistory == null ? createHistory(item) : mHistory;
         if (!TextUtils.isEmpty(getWallPic())) mHistory.setWallPic(getWallPic());
@@ -5355,6 +5378,10 @@ private boolean runtimeSourceOnly;
         setScale(getScale());
         setPartAdapter();
         return true;
+    }
+
+    private boolean isWebHomeFreshHandoff() {
+        return getIntent().getBooleanExtra(EXTRA_WEBHOME_FRESH_HANDOFF, false);
     }
 
     private boolean shouldKeepPushArtwork() {
@@ -5745,7 +5772,7 @@ private boolean runtimeSourceOnly;
 
     private boolean reloadHistoryAfterTmdbMatch(TmdbItem matched) {
         Vod item = mVod;
-        if (item == null || matched == null || hasIntentResumeHistory()) return false;
+        if (item == null || matched == null || hasIntentResumeHistory() || isWebHomeFreshHandoff()) return false;
         if (mHistory != null && mHistory.isCrossSourcePlayback()
                 && mHistory.getTmdbId() == matched.getTmdbId()
                 && TextUtils.equals(mHistory.getMediaType(), matched.getMediaType())) return false;
@@ -7881,10 +7908,17 @@ private boolean runtimeSourceOnly;
         else nextFlag(position);
     }
 
-    private void checkSearch(boolean force) {
-        if (!force && !PlayerSetting.isAutoChange()) return;
-        if (mQuickAdapter.getItemCount() == 0) initSearch(mBinding.name.getText().toString(), true);
-        else if (isAutoMode() || force) nextSite();
+    private boolean checkSearch(boolean force) {
+        if (!force && !PlayerSetting.isAutoChange()) return false;
+        if (mQuickAdapter.getItemCount() == 0) {
+            initSearch(mBinding.name.getText().toString(), true);
+            return true;
+        }
+        if (isAutoMode() || force) {
+            nextSite();
+            return true;
+        }
+        return false;
     }
 
     private void initSearch(String keyword, boolean auto) {
@@ -7927,11 +7961,18 @@ private boolean runtimeSourceOnly;
         }
         if (isInitAuto() && PlayerSetting.isAutoChange()) nextSite();
         if (items.isEmpty()) return;
-        App.removeCallbacks(mR4);
     }
 
     private void setSearchProgress(SearchProgress progress) {
-        if (progress == null || isInitAuto()) return;
+        if (progress == null) return;
+        if (progress.finished() && isInitAuto()) {
+            mBinding.getRoot().post(() -> {
+                if (isFinishing() || isDestroyed() || !isInitAuto() || mQuickAdapter.getItemCount() > 0) return;
+                showEmpty();
+            });
+            return;
+        }
+        if (isInitAuto()) return;
         showQuickSearchDialog(new ArrayList<>());
         if (mQuickSearchDialog != null) mQuickSearchDialog.setProgress(progress.current(), progress.total(), progress.finished());
     }
@@ -7966,8 +8007,11 @@ private boolean runtimeSourceOnly;
     }
 
     private boolean mismatch(Vod item) {
-        if (getId().equals(item.getId())) return true;
-        if (mBroken.contains(item.getId())) return true;
+        String currentSiteKey = mVod == null || TextUtils.isEmpty(mVod.getSiteKey()) ? getKey() : mVod.getSiteKey();
+        String currentVodId = mVod == null ? getId() : mVod.getId();
+        String itemSiteKey = TextUtils.isEmpty(item.getSiteKey()) ? getKey() : item.getSiteKey();
+        if (PlaybackSourceIdentity.matches(currentSiteKey, currentVodId, itemSiteKey, item.getId())) return true;
+        if (mBroken.contains(PlaybackSourceIdentity.key(itemSiteKey, item.getId()))) return true;
         String keyword = Objects.toString(mBinding.part.getTag(), "");
         if (isAutoMode()) return !item.getName().equals(keyword);
         else return !item.getName().contains(keyword);
@@ -7991,7 +8035,9 @@ private boolean runtimeSourceOnly;
         Vod item = mQuickAdapter.get(position);
         Notify.show(getString(R.string.play_switch_site, item.getSiteName()));
         mQuickAdapter.remove(position);
-        mBroken.add(getId());
+        String currentSiteKey = mVod == null || TextUtils.isEmpty(mVod.getSiteKey()) ? getKey() : mVod.getSiteKey();
+        String currentVodId = mVod == null ? getId() : mVod.getId();
+        mBroken.add(PlaybackSourceIdentity.key(currentSiteKey, currentVodId));
         setInitAuto(false);
         applySearchArtwork(item);
         getDetail(item);
@@ -8636,7 +8682,7 @@ private boolean runtimeSourceOnly;
         stopBackdropAutoScroll();
         dismissQuickSearchDialog();
         RefreshEvent.keep();
-        App.removeCallbacks(mR1, mR2, mR3, mR4, mSeekProgressFallback, mAudioRefreshLyricsRunnable, mApplyAudioBackgroundRunnable, mHideAudioFocusRunnable);
+        App.removeCallbacks(mR1, mR2, mR3, mSeekProgressFallback, mAudioRefreshLyricsRunnable, mApplyAudioBackgroundRunnable, mHideAudioFocusRunnable);
         App.removeCallbacks(mPendingFastTmdbPlaybackStart);
         App.removeCallbacks(mTmdbDetailTimeout);
         App.removeCallbacks(mTmdbEpisodeTimeout);

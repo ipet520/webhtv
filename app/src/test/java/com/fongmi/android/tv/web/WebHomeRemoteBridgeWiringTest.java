@@ -137,7 +137,7 @@ public class WebHomeRemoteBridgeWiringTest {
 
         assertTrue(bridge.contains("case \"pan.play\" -> playPan(payload);"));
         String playPan = methodBody(bridge, "private String playPan(JsonObject payload)", "private String stripPush(");
-        assertTrue(playPan.contains("VideoActivity.start(activity, SiteApi.PUSH"));
+        assertTrue(playPan.contains("VideoActivity.startFromWebHome(activity, SiteApi.PUSH"));
         assertFalse(bridge.contains("player.detailSession"));
         assertFalse(controller.contains("detailSession:(options)"));
         assertFalse(bridge.contains("WebHomeDetailSessionService"));
@@ -145,8 +145,10 @@ public class WebHomeRemoteBridgeWiringTest {
         assertFalse(mobile.contains("webhomeDetailSessionId"));
         assertFalse(leanback.contains("WebHomeDetailSessionService"));
         assertFalse(mobile.contains("WebHomeDetailSessionService"));
-        assertTrue(leanback.contains("History.findPlayback(getHistoryKey()"));
-        assertTrue(mobile.contains("History.findPlayback(getHistoryKey()"));
+        assertTrue(leanback.contains("? webHomeFreshHandoff ? null : History.findPlayback(getHistoryKey()"));
+        assertTrue(mobile.contains("? webHomeFreshHandoff ? null : History.findPlayback(getHistoryKey()"));
+        assertTrue(leanback.contains("EXTRA_WEBHOME_FRESH_HANDOFF"));
+        assertTrue(mobile.contains("EXTRA_WEBHOME_FRESH_HANDOFF"));
         assertTrue(leanback.contains("WebHomeHistoryService.exactSelection(resumeHistory, item.getFlags())"));
         assertTrue(mobile.contains("WebHomeHistoryService.exactSelection(resumeHistory, item.getFlags())"));
     }
