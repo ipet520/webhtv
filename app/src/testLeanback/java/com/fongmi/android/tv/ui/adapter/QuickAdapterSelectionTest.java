@@ -59,6 +59,24 @@ public class QuickAdapterSelectionTest {
     }
 
     @Test
+    public void dismissedQuickSearchDialogInvalidatesQueuedUiCallbacks() throws Exception {
+        Path root = repoRoot();
+        String dialog = read(root.resolve("app/src/leanback/java/com/fongmi/android/tv/ui/dialog/QuickSearchDialog.java"));
+
+        assertTrue("batch callback must have a stable identity so it can be removed",
+                dialog.contains("private final Runnable drainNextBatchTask = this::drainNextBatch;"));
+        assertTrue("dismissal must cancel queued list callbacks",
+                dialog.contains("binding.recycler.removeCallbacks(drainNextBatchTask);")
+                        && dialog.contains("binding.recycler.removeCallbacks(focusFirstItemTask);"));
+        assertTrue("batch callback must stop after dismissal or fragment detachment",
+                dialog.contains("if (dismissed || !isAdded() || getContext() == null || adapter == null || binding == null)"));
+        assertTrue("loading update must not resolve resources without a live context",
+                dialog.contains("if (dismissed || context == null || binding == null || adapter == null) return;"));
+        assertTrue("destroyed view must release stale binding and adapter references",
+                dialog.contains("binding = null;") && dialog.contains("adapter = null;"));
+    }
+
+    @Test
     public void boundCurrentSiteStaysActivatedAndOtherSitesDoNot() {
         App application = App.get();
         // The quick switcher layout resolves its text colours through semantic

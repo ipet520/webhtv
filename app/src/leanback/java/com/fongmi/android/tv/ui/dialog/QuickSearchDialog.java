@@ -38,11 +38,14 @@ public class QuickSearchDialog extends BaseAlertDialog implements QuickAdapter.O
     private QuickAdapter adapter;
     private boolean firstItemFocused;
     private boolean draining;
+    private boolean dismissed;
     private int panelWidth;
     private int progressCurrent;
     private int progressTotal;
     private boolean searchFinished;
     private String currentSiteKey = "";
+    private final Runnable drainNextBatchTask = this::drainNextBatch;
+    private final Runnable focusFirstItemTask = () -> focusPosition(0);
 
     public QuickSearchDialog() {
         pending = new ArrayList<>();
@@ -74,7 +77,7 @@ public class QuickSearchDialog extends BaseAlertDialog implements QuickAdapter.O
     }
 
     public void addAll(List<Vod> items) {
-        if (items.isEmpty()) return;
+        if (items.isEmpty() || dismissed) return;
         pending.addAll(items);
         updateLoading();
         drainPending();
@@ -117,13 +120,13 @@ public class QuickSearchDialog extends BaseAlertDialog implements QuickAdapter.O
     }
 
     private void drainPending() {
-        if (adapter == null || binding == null || draining) return;
+        if (dismissed || adapter == null || binding == null || draining) return;
         draining = true;
-        binding.recycler.post(this::drainNextBatch);
+        binding.recycler.post(drainNextBatchTask);
     }
 
     private void drainNextBatch() {
-        if (adapter == null || binding == null) {
+        if (dismissed || !isAdded() || getContext() == null || adapter == null || binding == null) {
             draining = false;
             return;
         }
@@ -143,23 +146,25 @@ public class QuickSearchDialog extends BaseAlertDialog implements QuickAdapter.O
         adapter.addAll(items);
         if (start == 0 && !firstItemFocused) {
             firstItemFocused = true;
-            binding.recycler.post(() -> focusPosition(0));
+            binding.recycler.post(focusFirstItemTask);
         }
         if (pending.isEmpty()) draining = false;
-        else binding.recycler.postDelayed(this::drainNextBatch, 16);
+        else binding.recycler.postDelayed(drainNextBatchTask, 16);
         updateLoading();
     }
 
     private void updateProgress() {
-        if (binding == null) return;
-        binding.status.setText(getString(R.string.search_progress, progressCurrent, progressTotal));
+        android.content.Context context = getContext();
+        if (dismissed || context == null || binding == null) return;
+        binding.status.setText(context.getString(R.string.search_progress, progressCurrent, progressTotal));
         updateLoading();
     }
 
     private void updateLoading() {
-        if (binding == null || adapter == null) return;
+        android.content.Context context = getContext();
+        if (dismissed || context == null || binding == null || adapter == null) return;
         boolean empty = adapter.getItemCount() == 0 && pending.isEmpty();
-        binding.loading.setText(getString(searchFinished && empty ? R.string.search_no_result : R.string.search_loading));
+        binding.loading.setText(context.getString(searchFinished && empty ? R.string.search_no_result : R.string.search_loading));
         if (empty) {
             binding.loading.setVisibility(View.VISIBLE);
             binding.recycler.setVisibility(View.GONE);
@@ -167,7 +172,7 @@ public class QuickSearchDialog extends BaseAlertDialog implements QuickAdapter.O
     }
 
     private void focusPosition(int position) {
-        if (adapter == null || adapter.getItemCount() <= position) return;
+        if (dismissed || !isAdded() || getContext() == null || binding == null || adapter == null || adapter.getItemCount() <= position) return;
         binding.recycler.scrollToPosition(position);
         RecyclerView.ViewHolder holder = binding.recycler.findViewHolderForAdapterPosition(position);
         if (holder != null) holder.itemView.requestFocus();
@@ -182,10 +187,28 @@ public class QuickSearchDialog extends BaseAlertDialog implements QuickAdapter.O
 
     @Override
     public void onDismiss(DialogInterface dialog) {
+        dismissed = true;
+        cancelPendingUiWork();
         super.onDismiss(dialog);
         pending.clear();
         draining = false;
         if (dismissListener != null) dismissListener.onDismiss(dialog);
+    }
+
+    @Override
+    public void onDestroyView() {
+        dismissed = true;
+        cancelPendingUiWork();
+        binding = null;
+        adapter = null;
+        draining = false;
+        super.onDestroyView();
+    }
+
+    private void cancelPendingUiWork() {
+        if (binding == null) return;
+        binding.recycler.removeCallbacks(drainNextBatchTask);
+        binding.recycler.removeCallbacks(focusFirstItemTask);
     }
 
     @NonNull
@@ -204,9 +227,10 @@ public class QuickSearchDialog extends BaseAlertDialog implements QuickAdapter.O
 
     @Override
     public void onStart() {
+        dismissed = false;
         super.onStart();
         Window window = getDialog() == null ? null : getDialog().getWindow();
-        if (window == null) return;
+        if (window == null || binding == null) return;
         window.getDecorView().setPadding(0, 0, 0, 0);
         clearParentPaddingAndFillHeight();
         window.setGravity(Gravity.END | Gravity.BOTTOM);
@@ -219,6 +243,7 @@ public class QuickSearchDialog extends BaseAlertDialog implements QuickAdapter.O
         window.setAttributes(params);
         window.setLayout(panelWidth, WindowManager.LayoutParams.MATCH_PARENT);
         binding.getRoot().post(() -> {
+            if (dismissed || !isAdded() || getContext() == null || binding == null || getDialog() == null) return;
             clearParentPaddingAndFillHeight();
             window.setLayout(panelWidth, WindowManager.LayoutParams.MATCH_PARENT);
         });
