@@ -178,8 +178,15 @@ public class ReaderPlaybackRoutingSourceTest {
                     source.contains("if (mViewModel != null) mViewModel.cancelPlayerContent();"));
             assertTrue(path + " must track the result already applied to the player",
                     source.contains("mAppliedPlayerResult"));
+            // 这里只钉「重复结果不得再起播一次」这个语义，不再钉死大括号风格：
+            // Leanback 需要在这个早退分支里顺带释放播放加载守卫（同一结果已在播就不会再有
+            // READY 回调来收圈），所以它的分支是多行块；mobile 没有那套守卫状态，保持单行即可。
+            // 两者共同且唯一必须成立的，是早退判定本身且它真的 return 掉了。
+            int duplicate = source.indexOf("result == mAppliedPlayerResult && !player().isEmpty()");
+            int applied = source.indexOf("mAppliedPlayerResult = result;", duplicate);
             assertTrue(path + " must ignore a duplicate player result while playback remains active",
-                    source.contains("if (result == mAppliedPlayerResult && !player().isEmpty()) return;"));
+                    duplicate >= 0 && applied > duplicate
+                            && source.substring(duplicate, applied).contains("return"));
         }
     }
 
@@ -600,7 +607,7 @@ public class ReaderPlaybackRoutingSourceTest {
 
     private static String read(String path) throws Exception {
         Path direct = Path.of(path);
-        if (Files.exists(direct)) return Files.readString(direct, StandardCharsets.UTF_8);
-        return Files.readString(Path.of(path.substring("app/".length())), StandardCharsets.UTF_8);
+        if (Files.exists(direct)) return Files.readString(direct, StandardCharsets.UTF_8).replace("\r\n", "\n");
+        return Files.readString(Path.of(path.substring("app/".length())), StandardCharsets.UTF_8).replace("\r\n", "\n");
     }
 }

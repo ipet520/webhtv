@@ -70,8 +70,8 @@ public class CollectActivity extends BaseActivity implements CollectAdapter.OnCl
     private static final int GROUP_POPUP_ITEM_HEIGHT_DP = 52;
     private static final int GROUP_POPUP_ITEM_GAP_DP = 2;
     private static final int GROUP_POPUP_MAX_ITEMS = 7;
-    private static final int GROUP_POPUP_MIN_WIDTH_DP = 184;
     private static final int GROUP_POPUP_PADDING_DP = 8;
+    private static final int GROUP_POPUP_ITEM_HORIZONTAL_PADDING_DP = 20;
 
     private ActivityCollectBinding mBinding;
     private CollectAdapter mCollectAdapter;
@@ -418,13 +418,23 @@ public class CollectActivity extends BaseActivity implements CollectAdapter.OnCl
             mGroupPopup = null;
             anchor.requestFocus();
         });
+        com.fongmi.android.tv.theme.ThemeController.bindPopupWindow(mGroupPopup);
         mGroupPopup.showAsDropDown(anchor, anchor.getWidth() - mGroupPopup.getWidth(), ResUtil.dp2px(8), Gravity.NO_GRAVITY);
     }
 
     private int groupPopupWidth(View anchor) {
-        int width = ResUtil.getTextWidth(getString(R.string.search_scope_all), 18);
-        for (String group : mGroups) width = Math.max(width, ResUtil.getTextWidth(group, 18));
-        width = Math.max(ResUtil.dp2px(GROUP_POPUP_MIN_WIDTH_DP), width + ResUtil.dp2px(56));
+        MaterialTextView measureView = new MaterialTextView(this);
+        measureView.setSingleLine(true);
+        measureView.setIncludeFontPadding(false);
+        measureView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 18);
+        float maxActualTextWidth = measureView.getPaint().measureText(getString(R.string.search_scope_all));
+        for (String group : mGroups) maxActualTextWidth = Math.max(maxActualTextWidth, measureView.getPaint().measureText(group));
+        int textWidth = (int) Math.ceil(maxActualTextWidth);
+        int itemPadding = ResUtil.dp2px(GROUP_POPUP_ITEM_HORIZONTAL_PADDING_DP);
+        int rowMargin = ResUtil.dp2px(GROUP_POPUP_ITEM_GAP_DP);
+        int outerPadding = ResUtil.dp2px(GROUP_POPUP_PADDING_DP);
+        int desiredWidth = textWidth + itemPadding * 2 + rowMargin * 2 + outerPadding * 2;
+        int width = desiredWidth;
         return Math.min(Math.max(anchor.getWidth(), width), ResUtil.getScreenWidth() - ResUtil.dp2px(48));
     }
 
@@ -442,13 +452,14 @@ public class CollectActivity extends BaseActivity implements CollectAdapter.OnCl
         view.setText(text);
         view.setTextColor(ContextCompat.getColorStateList(this, R.color.selector_search_scope_text));
         view.setTextSize(TypedValue.COMPLEX_UNIT_SP, 18);
-        view.setGravity(Gravity.CENTER_VERTICAL);
+        view.setGravity(Gravity.CENTER);
         view.setSingleLine(true);
         view.setEllipsize(TextUtils.TruncateAt.END);
         view.setIncludeFontPadding(false);
         view.setFocusable(true);
         view.setBackgroundResource(R.drawable.selector_search_scope_item);
-        int padding = ResUtil.dp2px(20);
+        com.fongmi.android.tv.theme.ThemeController.bindThemeBinding(view, R.string.theme_binding_search_scope_item);
+        int padding = ResUtil.dp2px(GROUP_POPUP_ITEM_HORIZONTAL_PADDING_DP);
         view.setPadding(padding, 0, padding, 0);
         view.setSelected(Objects.equals(mFilterGroup, group));
         view.setOnClickListener(v -> {

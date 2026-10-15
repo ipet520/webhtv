@@ -16,6 +16,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Parcelable;
+import android.os.SystemClock;
 import android.provider.Settings;
 import android.text.TextUtils;
 import android.text.style.ClickableSpan;
@@ -73,6 +74,7 @@ import com.fongmi.android.tv.bean.Danmaku;
 import com.fongmi.android.tv.bean.Episode;
 import com.fongmi.android.tv.bean.EpisodePositionCache;
 import com.fongmi.android.tv.bean.Flag;
+import com.fongmi.android.tv.theme.WebHtvAlertDialogBuilder;
 import com.fongmi.android.tv.ui.helper.EpisodeSeasonSnapshot;
 import com.fongmi.android.tv.bean.History;
 import com.fongmi.android.tv.bean.Keep;
@@ -258,6 +260,14 @@ import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class VideoActivity extends PlaybackActivity implements Clock.Callback, CustomKeyDown.Listener, TrackDialog.Listener, ControlDialog.Listener, DanmakuDialog.Host, FlagAdapter.OnClickListener, EpisodeAdapter.OnClickListener, EpisodeGroupAdapter.OnClickListener, QualityAdapter.OnClickListener, QuickAdapter.OnClickListener, ParseAdapter.OnClickListener, CastDialog.Listener, InfoDialog.Listener, SubtitlePlaybackSession.Host, com.fongmi.android.tv.ui.novel.NovelReaderHost {
+    /**
+     * 用户拖拽 seek 时加载圈的最小可见时长。
+     *
+     * <p>必须盖过一个完整的网速采样间隔（{@code setTraffic} 每秒一跳），因为读数是由
+     * 相邻两次采样的字节差算出的：窗口短于一跳就永远只能拿到没有间隔的首跳（空白）。
+     * 取 1.2s 留出余量，避免收圈与首跳采样同帧竞争。
+     */
+    private static final long SEEK_PROGRESS_MIN_VISIBLE_MS = 1200L;
     private static final long LYRICS_OFFSET_MIN_MS = -5000L;
     private static final long LYRICS_OFFSET_MAX_MS = 5000L;
     private static final long LYRICS_OFFSET_STEP_MS = 500L;
@@ -457,6 +467,8 @@ private int mAudioBackgroundRandomNonce;
     private Runnable mR3;
     private Runnable mR4;
     private Runnable mSeekProgressFallback;
+    private boolean mSeekProgressPending;
+    private long mSeekProgressStartedAtMs;
     private Runnable mTmdbDetailTimeout;
     private Clock mClock;
     private MpvPlayer mDiscMenuPlayer;
@@ -740,6 +752,11 @@ private final Task.Scope mPersonalRecommendationTasks = new Task.Scope(Task.reco
         start(activity, key, id, name, pic, mark, false, tmdbItem);
     }
 
+    /** 追更页通过 flavor 专用入口调用；普通历史记录仍使用原有模式路由。 */
+    public static void startFromFollowingHistory(Activity activity, History item) {
+        startFromHistory(activity, item);
+    }
+
     public static void startFromHistory(Activity activity, History item) {
         if (shouldOpenLegacyTmdbDetail(item.getSiteKey(), item.getVodId())) {
             TmdbDetailActivity.startFromHistory(activity, item);
@@ -844,7 +861,19 @@ private final Task.Scope mPersonalRecommendationTasks = new Task.Scope(Task.reco
     private static void startDirect(Activity activity, String key, String id, String name, String pic, String mark,
             String playFlag, String playFlagKey, String playEpisodeName, String playEpisodeUrl,
             boolean resumeFromHistory, History resumeHistory) {
-        if (AudioActivity.startSite(activity, key, id, name, pic, mark)) return;
+        startDirect(activity, key, id, name, pic, mark, playFlag, playFlagKey, playEpisodeName,
+                playEpisodeUrl, resumeFromHistory, resumeHistory, null);
+    }
+
+    public static void startHistoryExact(Activity activity, History history, String payload) {
+        startDirect(activity, history.getSiteKey(), history.getVodId(), history.getVodName(), history.getVodPic(), null,
+                null, history.getSourceBindingKey(), null, null, true, history, payload);
+    }
+
+    private static void startDirect(Activity activity, String key, String id, String name, String pic, String mark,
+            String playFlag, String playFlagKey, String playEpisodeName, String playEpisodeUrl,
+            boolean resumeFromHistory, History resumeHistory, String exactPayload) {
+        if (exactPayload == null && AudioActivity.startSite(activity, key, id, name, pic, mark)) return;
         Intent intent = new Intent(activity, VideoActivity.class);
         intent.putExtra("collect", false);
         intent.putExtra("mark", mark);
@@ -853,9 +882,10 @@ private final Task.Scope mPersonalRecommendationTasks = new Task.Scope(Task.reco
         intent.putExtra("key", key);
         intent.putExtra("id", id);
         intent.putExtra(EXTRA_RESUME_FROM_HISTORY, resumeFromHistory);
+        if (exactPayload != null) intent.putExtra("webhomeHistoryExact", true);
         if (resumeHistory != null) {
             intent.putExtra(EXTRA_RESUME_HISTORY_CID, resumeHistory.getCid());
-            intent.putExtra(EXTRA_RESUME_HISTORY_KEY, HistoryResumePayload.encode(resumeHistory));
+            intent.putExtra(EXTRA_RESUME_HISTORY_KEY, exactPayload == null ? HistoryResumePayload.encode(resumeHistory) : exactPayload);
         }
         putIntentPlaybackSelection(intent, playFlag, playFlagKey, playEpisodeName, playEpisodeUrl);
         activity.startActivity(intent);
@@ -1157,6 +1187,7 @@ private final Task.Scope mPersonalRecommendationTasks = new Task.Scope(Task.reco
                 ? com.fongmi.android.tv.ui.helper.TmdbUIAdapter.flagKey(flag, index)
                 : mTmdbUIAdapter == null ? "" : mTmdbUIAdapter.activeFlagKey(flag);
         mHistory.setSourceBindingKey(flagKey);
+        syncHistory();
     }
 
     private Flag resolveHistoryPlaybackFlag(List<Flag> flags) {
@@ -1632,6 +1663,8 @@ private final Task.Scope mPersonalRecommendationTasks = new Task.Scope(Task.reco
         mBinding.control.action.next.setOnClickListener(view -> checkNext());
         mBinding.control.action.decode.setOnClickListener(guarded(this::onDecode));
         mBinding.control.action.playParams.setOnClickListener(guarded(this::onPlayParams));
+        mBinding.control.action.multiThreadProxy.setOnClickListener(guarded(this::onMultiThreadProxy));
+        mBinding.control.action.codecCapability.setOnClickListener(guarded(this::onCodecCapabilityPanel));
         mBinding.control.action.ending.setOnClickListener(guarded(this::onEnding));
         mBinding.control.action.repeat.setOnClickListener(guarded(this::onRepeat));
         mBinding.control.action.opening.setOnClickListener(guarded(this::onOpening));
@@ -2204,7 +2237,7 @@ private final Task.Scope mPersonalRecommendationTasks = new Task.Scope(Task.reco
      * 没有记录时 getPlayerOrDefault 会退回设置页的全局默认。
      * 播放服务还没连上时先只记会话内核（取址在工作线程上读它），引擎由 onServiceConnected 补齐。
      */
-    private int applyHistoryPlayerKernel() {
+    private int applyHistoryPlayerKernel(boolean forcePrepare) {
         int kernel = mHistory == null ? PlayerSetting.getPlayer() : mHistory.getPlayerOrDefault();
         PlayerSetting.putActivePlayer(kernel);
         if (service() == null) {
@@ -2212,13 +2245,17 @@ private final Task.Scope mPersonalRecommendationTasks = new Task.Scope(Task.reco
             return kernel;
         }
         mPendingPlayerKernel = PlayerSetting.NONE;
-        player().preparePlayer(kernel);
+        player().preparePlayer(kernel, forcePrepare);
         // preparePlayer() is intentionally allowed before playback ownership
         // is established; keep the mobile seek view on the replacement player.
         getSeekView().setProgressPlayer(player().getPlayer());
         setPlayerKernel();
         setDecode();
         return kernel;
+    }
+
+    private int applyHistoryPlayerKernel() {
+        return applyHistoryPlayerKernel(false);
     }
 
     /**
@@ -4798,7 +4835,7 @@ private final Task.Scope mPersonalRecommendationTasks = new Task.Scope(Task.reco
         if (result == null || isFinishing() || isDestroyed()) return;
         if (mKaraokeResultDialog != null && mKaraokeResultDialog.isShowing()) return;
         KaraokeResultView view = new KaraokeResultView(this).setResult(result);
-        AlertDialog dialog = new MaterialAlertDialogBuilder(this, R.style.ThemeOverlay_WebHTV_LightDialog).setView(view).create();
+        AlertDialog dialog = new WebHtvAlertDialogBuilder(this, R.style.ThemeOverlay_WebHTV_Dialog).setView(view).create();
         view.setAction(() -> {
             dialog.dismiss();
             completeKaraokeResult(action);
@@ -5415,7 +5452,9 @@ private final Task.Scope mPersonalRecommendationTasks = new Task.Scope(Task.reco
             return;
         }
 
-        if (mSeekProgressFallback != null) App.removeCallbacks(mSeekProgressFallback);
+        // seek 窗口开着时不能摘掉它的最小可见计时器：那次 showProgress 属于 seek 自身
+        // （BUFFERING 分支），计时器是窗口唯一的收尾路径。
+        if (!mSeekProgressPending && mSeekProgressFallback != null) App.removeCallbacks(mSeekProgressFallback);
         mBinding.progress.getRoot().setVisibility(View.VISIBLE);
         if (mVod == null && shouldLoadTmdbDetail() && !mTmdbContentLoaded && !shouldRevealShellWhileLoading()) mBinding.progressLayout.showProgress();
         else if (mVod != null && !mBinding.progressLayout.isContent()) mBinding.progressLayout.showContent();
@@ -5424,6 +5463,9 @@ private final Task.Scope mPersonalRecommendationTasks = new Task.Scope(Task.reco
     }
 
     private void hideProgress() {
+        // 任何显式收圈都同时关闭 seek 窗口，避免窗口比圈活得更久。
+        mSeekProgressPending = false;
+        mSeekProgressStartedAtMs = 0;
         if (mSeekProgressFallback != null) App.removeCallbacks(mSeekProgressFallback);
         mBinding.progress.getRoot().setVisibility(View.GONE);
         App.removeCallbacks(mR2);
@@ -5776,6 +5818,17 @@ private final Task.Scope mPersonalRecommendationTasks = new Task.Scope(Task.reco
     private boolean checkHistory(Vod item) {
         TmdbItem tmdbItem = getHistoryTmdbItem();
         History resumeHistory = getIntentResumeHistory();
+        if (getIntent().getBooleanExtra("webhomeHistoryExact", false)) {
+            resumeHistory = com.fongmi.android.tv.playback.WebHomeHistoryService.prepareExactPlayback(resumeHistory);
+        }
+        if (getIntent().getBooleanExtra("webhomeHistoryExact", false)) {
+            var match = com.fongmi.android.tv.playback.WebHomeHistoryService.exactSelection(resumeHistory, item.getFlags());
+            if (resumeHistory == null || resumeHistory.getCid() != VodConfig.getCid() || match == null) {
+                Notify.show("原历史线路、剧集或配置已改变，无法精确恢复"); finish(); return false;
+            }
+            putIntentPlaybackSelection(getIntent(), match.flag().getFlag(),
+                    Flag.stableKey(match.flag(), item.getFlags().indexOf(match.flag())), match.episode().getName(), match.episode().getUrl());
+        }
         if (hasIntentResumeHistory() && resumeHistory == null) {
             Notify.show(R.string.history_record_missing);
             finish();
@@ -5936,8 +5989,10 @@ private final Task.Scope mPersonalRecommendationTasks = new Task.Scope(Task.reco
         boolean crossSource = mHistory.isCrossSourcePlayback();
         boolean shareEpisodeProgress = crossSource || isResumeFromHistory() || Setting.isHistoryAggregationEffective();
         boolean compatibleFlag = shareEpisodeProgress || TextUtils.equals(mHistory.getVodFlag(), flag.getFlag());
+        // 历史集 URL 能定位到当前线路条目（同集多版本并存）时才启用版本消歧；换线路/刷新保留集号容错。
+        boolean versionAware = flag.containsEpisodeUrl(mHistory.getEpisode());
         boolean sameEpisode = episode != null && (shareEpisodeProgress
-                ? historyEpisode.matchesPlayback(mHistory.getEpisode())
+                ? historyEpisode.matchesPlayback(mHistory.getEpisode(), versionAware)
                 : episode.matches(mHistory.getEpisode()));
         if (!compatibleFlag || (episode != null && !sameEpisode)) {
             mHistory.setPosition(C.TIME_UNSET);
@@ -6008,7 +6063,10 @@ private final Task.Scope mPersonalRecommendationTasks = new Task.Scope(Task.reco
     private void updateHistory(Episode item) {
         // 换线路或源站刷新时同一集的 URL、集名格式可能变化，统一按播放恢复规则识别。
         Episode historyEpisode = withSourceSeasonEpisodeIdentity(item);
-        boolean sameEpisode = historyEpisode.matchesPlayback(mHistory.getEpisode());
+        // 历史里那集的 URL 仍能定位到当前线路条目时（同集多版本并存）才启用版本消歧；
+        // 换线路/换源/源站刷新后 URL 必然失配，必须保留集号容错，否则跨线路续播会丢失进度。
+        boolean versionAware = getFlag().containsEpisodeUrl(mHistory.getEpisode());
+        boolean sameEpisode = historyEpisode.matchesPlayback(mHistory.getEpisode(), versionAware);
         boolean sameFlag = TextUtils.equals(mHistory.getVodFlag(), getFlag().getFlag());
         if (!sameEpisode || !sameFlag) mIntroSkipPlayback.reset();
         if ((!sameEpisode || !sameFlag) && service() != null) {
@@ -6107,9 +6165,8 @@ private final Task.Scope mPersonalRecommendationTasks = new Task.Scope(Task.reco
         FollowingPlaybackBridge.findAsync(identityKey, existing -> {
             if (isFinishing() || isDestroyed()) return;
             if (existing != null) {
-                followingActionPending = false;
-                mBinding.following.setEnabled(true);
-                FollowingActivity.start(this, existing.identityKey);
+                // 播放页保持原地：已追更时再次点击即刻取消，绝不跳转追更页打断播放。
+                cancelFollowing(identityKey);
                 return;
             }
             Following item = FollowingPlaybackBridge.build(mHistory, currentSourceSeasonNumber());
@@ -6127,6 +6184,23 @@ private final Task.Scope mPersonalRecommendationTasks = new Task.Scope(Task.reco
                 updateFollowingState();
                 Notify.show(R.string.following_added);
             });
+        });
+    }
+
+    /** 播放页取消追更：写墓碑后立即刷新按钮状态，不离开当前播放页。 */
+    private void cancelFollowing(String identityKey) {
+        FollowingScheduler.cancelNext(this, identityKey);
+        FollowingPlaybackBridge.deleteAsync(identityKey, error -> {
+            followingActionPending = false;
+            if (isFinishing() || isDestroyed()) return;
+            if (error != null) {
+                mBinding.following.setEnabled(true);
+                Notify.show(error.getMessage());
+                return;
+            }
+            updateFollowingState();
+            FollowingPlaybackBridge.refreshUnreadCountAsync(null);
+            Notify.show(R.string.following_canceled);
         });
     }
 
@@ -6423,7 +6497,7 @@ private final Task.Scope mPersonalRecommendationTasks = new Task.Scope(Task.reco
 
     @Override
     protected void onControllerReadyReconciled() {
-        showPlaybackContent();
+        if (canHideSeekProgress()) showPlaybackContent();
     }
 
     @Override
@@ -7099,6 +7173,7 @@ private final Task.Scope mPersonalRecommendationTasks = new Task.Scope(Task.reco
         view.setBackground(audioSheetItemBackground(false));
         view.setSingleLine(false);
         view.setMaxLines(2);
+        view.setEllipsize(TextUtils.TruncateAt.END);
         view.setOnClickListener(v -> action.run());
         return view;
     }
@@ -7433,6 +7508,7 @@ private final Task.Scope mPersonalRecommendationTasks = new Task.Scope(Task.reco
         item.setPadding(ResUtil.dp2px(14), 0, ResUtil.dp2px(14), 0);
         item.setSingleLine(false);
         item.setMaxLines(2);
+        item.setEllipsize(TextUtils.TruncateAt.END);
         item.setLineSpacing(ResUtil.dp2px(2), 1.0f);
         item.setTextColor(selected ? SHEET_TEXT_PRIMARY : SHEET_TEXT_SECONDARY);
         item.setBackground(lyricsResultItemBackground(selected));
@@ -7452,6 +7528,7 @@ private final Task.Scope mPersonalRecommendationTasks = new Task.Scope(Task.reco
         item.setPadding(ResUtil.dp2px(14), 0, ResUtil.dp2px(14), 0);
         item.setSingleLine(false);
         item.setMaxLines(3);
+        item.setEllipsize(TextUtils.TruncateAt.END);
         item.setLineSpacing(ResUtil.dp2px(2), 1.0f);
         item.setTextColor(Color.WHITE);
         item.setBackground(lyricsResultItemBackground(false));
@@ -7603,6 +7680,10 @@ private final Task.Scope mPersonalRecommendationTasks = new Task.Scope(Task.reco
         player().resetTrack();
         player().reset();
         player().stop();
+        // Automatic line fallback continues in the same failed playback session.
+        // Keep the remembered kernel, but recreate its engine so the next line cannot
+        // inherit a decoder/Surface failure that audio-only playback can survive.
+        applyHistoryPlayerKernel(true);
         showError(msg);
         startFlow();
     }
@@ -7637,8 +7718,11 @@ private final Task.Scope mPersonalRecommendationTasks = new Task.Scope(Task.reco
                 showProgress();
                 break;
             case Player.STATE_READY:
+                // seek 窗口未关时不能因为一次 READY 读数就收圈：引擎在 seek 真正生效前
+                // 仍可能宣称 READY，那正是「拖拽后先卡画面」的那一帧。圈已由 onSeekStarted
+                // 亮起，这里不收它就仍在屏上，由最小可见计时器与网速 ticker 收尾。
+                if (canHideSeekProgress()) showPlaybackContent();
                 if (mPendingKaraokeResult == null) mKaraokeResultShown = false;
-                showPlaybackContent();
                 boolean pendingResumeSeekApplied = applyPendingResumeSeek();
                 checkControl();
                 refreshLyrics();
@@ -7698,8 +7782,32 @@ private final Task.Scope mPersonalRecommendationTasks = new Task.Scope(Task.reco
         logVideoFrame("onSurfaceAttached after");
     }
 
+    /**
+     * 判断当前能否收掉 seek 期间挂起的加载圈。
+     *
+     * <p>拖拽进度时 {@code onSeekStarted()} 先亮圈，随后才把 seek 交给控制器。这中间引擎仍
+     * 报告 READY，于是挂在网速 ticker 上的兜底收口会在 seek 真正生效前把圈收掉——现象就是
+     * 「拖拽后大概率看不到加载中/网速」。窗口打开期间必须先满过最小可见时长，且播放器确实已
+     * READY 且不在真实加载阻塞中，才允许收口。窗口没关时圈就一直留着，由每秒一跳的网速
+     * ticker 继续重判，不会自己冒出重试循环。
+     */
+    private boolean canHideSeekProgress() {
+        if (!mSeekProgressPending) return true;
+        if (SystemClock.elapsedRealtime() - mSeekProgressStartedAtMs < SEEK_PROGRESS_MIN_VISIBLE_MS) return false;
+        return service() != null
+                && player() != null
+                && !player().isReleased()
+                && !player().isEmpty()
+                && player().getPlaybackState() == Player.STATE_READY
+                && (!player().isLoading() || player().isPlaying());
+    }
+
     private void hideSeekProgressIfReady() {
-        if (service() == null || player() == null || player().isReleased() || player().isEmpty() || !isOwner() || player().getPlaybackState() != Player.STATE_READY) return;
+        if (!mSeekProgressPending) return;
+        if (service() == null || player() == null || player().isReleased() || player().isEmpty()) return;
+        if (!isOwner()) return;
+        if (!canHideSeekProgress()) return;
+        mSeekProgressPending = false;
         showPlaybackContent();
     }
 
@@ -7717,15 +7825,20 @@ private final Task.Scope mPersonalRecommendationTasks = new Task.Scope(Task.reco
         if (mBinding.progress.getRoot().getVisibility() != View.VISIBLE) return;
         if (service() == null || player() == null || player().isReleased() || player().isEmpty()) return;
         if (!isOwner()) return;
+        if (!canHideSeekProgress()) return;
         if (player().getPlaybackState() != Player.STATE_READY) return;
         showPlaybackContent();
     }
 
     @Override
     protected void onSeekStarted() {
-        showProgress();
         App.removeCallbacks(mSeekProgressFallback);
-        App.post(mSeekProgressFallback, 500);
+        // 窗口必须在 showProgress() 之前打开：它内部会立刻投递网速 ticker，
+        // 那个 ticker 的兜底收口会读到尚未开始 seek 的 READY。
+        mSeekProgressPending = true;
+        mSeekProgressStartedAtMs = SystemClock.elapsedRealtime();
+        showProgress();
+        App.post(mSeekProgressFallback, SEEK_PROGRESS_MIN_VISIBLE_MS);
     }
 
     @Override

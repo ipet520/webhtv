@@ -1,7 +1,6 @@
 package com.fongmi.android.tv.ui.dialog;
 
 import android.app.Dialog;
-import android.graphics.Color;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.view.Gravity;
@@ -18,15 +17,21 @@ import com.fongmi.android.tv.R;
 import com.fongmi.android.tv.event.RefreshEvent;
 import com.fongmi.android.tv.setting.PlayerSetting;
 import com.fongmi.android.tv.setting.Setting;
+import com.fongmi.android.tv.theme.ThemeController;
+import com.fongmi.android.tv.theme.ThemeEditorUi;
+import com.fongmi.android.tv.theme.ThemeProfile;
+import com.fongmi.android.tv.theme.ThemeProfileStore;
+import com.fongmi.android.tv.theme.ThemeTokens;
 import com.fongmi.android.tv.utils.ResUtil;
 import com.google.android.material.textview.MaterialTextView;
 
-public final class AppearanceDialog extends DialogFragment implements ThemeDialog.Listener {
+public final class AppearanceDialog extends DialogFragment {
 
     private String[] uiScales;
     private String[] languages;
     private String[] imageSizes;
     private MaterialTextView uiScaleValue;
+    private MaterialTextView themeModeValue;
     private MaterialTextView themeValue;
     private MaterialTextView imageSizeValue;
     private MaterialTextView languageValue;
@@ -48,6 +53,7 @@ public final class AppearanceDialog extends DialogFragment implements ThemeDialo
         LinearLayout content = new LinearLayout(requireContext());
         content.setOrientation(LinearLayout.VERTICAL);
         uiScaleValue = addRow(content, R.string.setting_ui_scale, uiScales[Setting.getUiScaleIndex()], this::chooseUiScale);
+        themeModeValue = addRow(content, R.string.setting_theme_mode, getThemeModeText(), this::chooseThemeMode);
         themeValue = addRow(content, R.string.setting_theme_color, getThemeText(), view -> ThemeDialog.show(this));
         imageSizeValue = addRow(content, R.string.setting_size, imageSizes[PlayerSetting.getSize()], this::chooseImageSize);
         languageValue = addRow(content, R.string.setting_language, languages[Setting.getLanguageIndex()], this::chooseLanguage);
@@ -58,7 +64,10 @@ public final class AppearanceDialog extends DialogFragment implements ThemeDialo
         LinearLayout row = new LinearLayout(requireContext());
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setBackgroundResource(R.drawable.selector_git_cloud_card);
+        ThemeTokens tokens = ThemeController.legacyInteractionTokens();
+        int fill = tokens.colorSurfaceContainerHigh();
+        row.setBackground(ThemeEditorUi.interactive(requireContext(), fill,
+                tokens.colorOutline(), tokens.colorFocus(), false));
         row.setClickable(true);
         row.setFocusable(true);
         row.setPadding(dp(16), 0, dp(16), 0);
@@ -66,14 +75,14 @@ public final class AppearanceDialog extends DialogFragment implements ThemeDialo
 
         MaterialTextView title = new MaterialTextView(requireContext());
         title.setText(titleRes);
-        title.setTextColor(Color.parseColor("#202124"));
+        title.setTextColor(ThemeEditorUi.readable(tokens.colorOnSurface(), fill));
         title.setTextSize(15);
         title.setSingleLine(true);
         row.addView(title, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
 
         MaterialTextView summary = new MaterialTextView(requireContext());
         summary.setText(value);
-        summary.setTextColor(Color.parseColor("#5F6368"));
+        summary.setTextColor(ThemeEditorUi.readable(tokens.colorOnSurfaceVariant(), fill));
         summary.setTextSize(14);
         summary.setGravity(Gravity.END);
         summary.setSingleLine(true);
@@ -98,6 +107,32 @@ public final class AppearanceDialog extends DialogFragment implements ThemeDialo
         });
     }
 
+    private void chooseThemeMode(View view) {
+        String[] modes = {getString(R.string.setting_theme_mode_system), getString(R.string.setting_theme_mode_light), getString(R.string.setting_theme_mode_dark)};
+        int current = switch (Setting.getThemeMode()) {
+            case 0 -> 1;
+            case 1 -> 2;
+            default -> 0;
+        };
+        ChoiceDialog.showSingle(this, R.string.setting_theme_mode, modes, current, which -> {
+            int mode = which == 0 ? -1 : which - 1;
+            if (mode == Setting.getThemeMode()) return;
+            Setting.putThemeMode(mode);
+            themeModeValue.setText(getThemeModeText());
+            ThemeController.applyNightModeToApp();
+            dismissAllowingStateLoss();
+            RefreshEvent.theme();
+        });
+    }
+
+    private String getThemeModeText() {
+        return switch (Setting.getThemeMode()) {
+            case 0 -> getString(R.string.setting_theme_mode_light);
+            case 1 -> getString(R.string.setting_theme_mode_dark);
+            default -> getString(R.string.setting_theme_mode_system);
+        };
+    }
+
     private void chooseImageSize(View view) {
         ChoiceDialog.showSingle(this, R.string.setting_size, imageSizes, PlayerSetting.getSize(), which -> {
             imageSizeValue.setText(imageSizes[which]);
@@ -116,16 +151,16 @@ public final class AppearanceDialog extends DialogFragment implements ThemeDialo
         });
     }
 
-    @Override
-    public void setTheme(int color) {
-        themeValue.setText(themeText(color));
-        Setting.putThemeColor(color);
+    void onThemeProfileApplied() {
+        themeValue.setText(getThemeText());
         dismissAllowingStateLoss();
         RefreshEvent.theme();
     }
 
     private String getThemeText() {
-        return themeText(Setting.getThemeColor());
+        ThemeProfile profile = ThemeProfileStore.load();
+        String name = profile.displayName();
+        return "Default".equals(name) ? themeText(Setting.getThemeColor()) : name;
     }
 
     private String themeText(int color) {

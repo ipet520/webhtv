@@ -1,8 +1,6 @@
 package com.fongmi.android.tv.ui.dialog;
 
 import android.app.Dialog;
-import android.graphics.Color;
-import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.view.Gravity;
 import android.view.ViewGroup;
@@ -17,6 +15,9 @@ import androidx.fragment.app.DialogFragment;
 import androidx.fragment.app.FragmentManager;
 
 import com.fongmi.android.tv.App;
+import com.fongmi.android.tv.theme.ThemeController;
+import com.fongmi.android.tv.theme.ThemeDialogSemantics;
+import com.fongmi.android.tv.theme.ThemeTokens;
 import com.fongmi.android.tv.utils.FileUtil;
 import com.fongmi.android.tv.utils.ResUtil;
 import com.google.android.material.textview.MaterialTextView;
@@ -30,6 +31,7 @@ public final class BackupProgressDialog extends DialogFragment {
     private long total;
     private ProgressBar progress;
     private MaterialTextView detail;
+    private LinearLayoutCompat root;
 
     public static BackupProgressDialog open(FragmentManager manager, String title) {
         BackupProgressDialog dialog = new BackupProgressDialog();
@@ -43,15 +45,13 @@ public final class BackupProgressDialog extends DialogFragment {
     @Override
     public Dialog onCreateDialog(@Nullable Bundle savedInstanceState) {
         Dialog dialog = new Dialog(requireContext());
-        LinearLayoutCompat root = new LinearLayoutCompat(requireContext());
+        root = new LinearLayoutCompat(requireContext());
         root.setOrientation(LinearLayoutCompat.VERTICAL);
         root.setPadding(dp(20), dp(18), dp(20), dp(18));
-        GradientDrawable background = new GradientDrawable();
-        background.setColor(Color.WHITE);
-        background.setCornerRadius(dp(14));
-        root.setBackground(background);
+        root.setBackground(ThemeDialogSemantics.panel(requireContext(), 14));
 
-        MaterialTextView heading = text(title, 18, Color.parseColor("#202124"));
+        ThemeTokens tokens = ThemeDialogSemantics.tokens();
+        MaterialTextView heading = text(title, 18, tokens.colorOnSurface());
         heading.setGravity(Gravity.START);
         root.addView(heading, new LinearLayoutCompat.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
@@ -61,7 +61,7 @@ public final class BackupProgressDialog extends DialogFragment {
         progressParams.topMargin = dp(16);
         root.addView(progress, progressParams);
 
-        detail = text("", 13, Color.parseColor("#5F6368"));
+        detail = text("", 13, tokens.colorOnSurfaceVariant());
         LinearLayoutCompat.LayoutParams detailParams = new LinearLayoutCompat.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         detailParams.topMargin = dp(10);
         root.addView(detail, detailParams);
@@ -76,6 +76,11 @@ public final class BackupProgressDialog extends DialogFragment {
     @Override
     public void onStart() {
         super.onStart();
+        Dialog dialog = getDialog();
+        if (dialog != null) {
+            ThemeController.bindDialog(dialog);
+            ThemeDialogSemantics.bindLegacyDialog(root);
+        }
         Window window = getDialog() == null ? null : getDialog().getWindow();
         if (window == null) return;
         WindowManager.LayoutParams params = window.getAttributes();
@@ -112,7 +117,7 @@ public final class BackupProgressDialog extends DialogFragment {
         MaterialTextView view = new MaterialTextView(requireContext());
         view.setText(value);
         view.setTextSize(size);
-        view.setTextColor(color);
+        view.setTextColor(ThemeDialogSemantics.textColor(color));
         view.setLineSpacing(0, 1.1f);
         return view;
     }

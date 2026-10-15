@@ -1,39 +1,46 @@
 <?xml version="1.0" encoding="utf-8"?>
 <selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_enabled="false">
+        <shape android:shape="rectangle">
+            <solid android:color="?attr/colorSurfaceContainerLow" />
+            <corners android:radius="7dp" />
+            <stroke android:width="1dp" android:color="?attr/colorOutlineVariant" />
+        </shape>
+    </item>
     <item android:state_focused="true">
         <shape android:shape="rectangle">
-            <solid android:color="#D2E3FC" />
+            <solid android:color="?attr/colorPrimaryContainer" />
             <corners android:radius="7dp" />
             <stroke
                 android:width="2dp"
-                android:color="#0B57D0" />
+                android:color="@color/webhtv_color_focus" />
         </shape>
     </item>
     <item android:state_pressed="true">
         <shape android:shape="rectangle">
-            <solid android:color="#D2E3FC" />
+            <solid android:color="?attr/colorPrimaryContainer" />
             <corners android:radius="7dp" />
             <stroke
                 android:width="2dp"
-                android:color="#0B57D0" />
+                android:color="@color/webhtv_color_focus" />
         </shape>
     </item>
     <item android:state_selected="true">
         <shape android:shape="rectangle">
-            <solid android:color="#E8F0FE" />
+            <solid android:color="?attr/colorSecondaryContainer" />
             <corners android:radius="7dp" />
             <stroke
                 android:width="1dp"
-                android:color="#D2E3FC" />
+                android:color="?attr/colorOutline" />
         </shape>
     </item>
     <item>
         <shape android:shape="rectangle">
-            <solid android:color="#F3F5F7" />
+            <solid android:color="?attr/colorSurfaceContainerHigh" />
             <corners android:radius="7dp" />
             <stroke
                 android:width="1dp"
-                android:color="#E1E5EA" />
+                android:color="?attr/colorOutlineVariant" />
         </shape>
     </item>
 </selector>

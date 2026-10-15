@@ -29,6 +29,8 @@ import androidx.appcompat.widget.LinearLayoutCompat;
 import androidx.core.widget.NestedScrollView;
 
 import com.fongmi.android.tv.R;
+import com.fongmi.android.tv.theme.ThemeController;
+import com.fongmi.android.tv.theme.ThemeTokens;
 import com.fongmi.android.tv.ui.dialog.LightDialog;
 import com.fongmi.android.tv.utils.Notify;
 import com.fongmi.android.tv.utils.ResUtil;
@@ -165,7 +167,7 @@ public class SettingClipboardOverlay {
         panel = new LinearLayoutCompat(root.getContext());
         panel.setOrientation(LinearLayoutCompat.VERTICAL);
         panel.setPadding(dp(10), dp(8), dp(10), dp(10));
-        panel.setBackground(round(Color.WHITE, 10, Color.parseColor("#DADCE0")));
+        applyPanelTheme();
         panel.setClickable(true);
         panel.setFocusable(false);
 
@@ -193,6 +195,7 @@ public class SettingClipboardOverlay {
 
     private void render() {
         if (trigger == null || panel == null || list == null) return;
+        applyPanelTheme();
         trigger.setChecked(expanded);
         if (expanded) {
             showDialog(panelDialog, Gravity.BOTTOM | Gravity.START, 0, panelBottomOffset());
@@ -207,7 +210,7 @@ public class SettingClipboardOverlay {
         list.removeAllViews();
         List<String> items = snapshot();
         if (items.isEmpty()) {
-            MaterialTextView empty = text("暂无剪贴内容", 13, Color.parseColor("#5F6368"), false);
+            MaterialTextView empty = text("暂无剪贴内容", 13, ThemeController.current().colorOnSurfaceVariant(), false);
             empty.setGravity(Gravity.CENTER);
             empty.setPadding(0, dp(20), 0, dp(20));
             list.addView(empty);
@@ -221,18 +224,22 @@ public class SettingClipboardOverlay {
         row.setGravity(Gravity.CENTER_VERTICAL);
         row.setOrientation(LinearLayoutCompat.HORIZONTAL);
         row.setPadding(dp(2), dp(5), dp(4), dp(5));
-        row.setBackground(round(selected.contains(value) ? Color.parseColor("#E8F0FE") : Color.parseColor("#F8F9FA"), 7, selected.contains(value) ? Color.parseColor("#D2E3FC") : Color.parseColor("#E0E3E7")));
+        ThemeTokens tokens = ThemeController.current();
+        boolean checked = selected.contains(value);
+        row.setBackground(round(checked ? tokens.colorPrimaryContainer() : tokens.colorSurfaceContainer(), 7,
+                checked ? tokens.colorOutline() : tokens.colorOutlineVariant()));
         LinearLayoutCompat.LayoutParams params = new LinearLayoutCompat.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         params.bottomMargin = dp(5);
         row.setLayoutParams(params);
 
         MaterialCheckBox check = new MaterialCheckBox(root.getContext());
         check.setButtonTintList(ContextCompat.getColorStateList(root.getContext(), R.color.dialog_checkbox_tint));
-        check.setChecked(selected.contains(value));
+        check.setChecked(checked);
         check.setOnClickListener(view -> toggle(value));
         row.addView(check, new LinearLayoutCompat.LayoutParams(dp(38), dp(38)));
 
-        MaterialTextView content = text(display(value), 13, Color.parseColor("#202124"), false);
+        MaterialTextView content = text(display(value), 13,
+                checked ? tokens.colorOnPrimaryContainer() : tokens.colorOnSurface(), false);
         content.setMaxLines(3);
         content.setEllipsize(TextUtils.TruncateAt.END);
         row.addView(content, new LinearLayoutCompat.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
@@ -564,6 +571,11 @@ public class SettingClipboardOverlay {
         drawable.setCornerRadius(dp(radius));
         if (stroke != Color.TRANSPARENT) drawable.setStroke(dp(1), stroke);
         return drawable;
+    }
+
+    private void applyPanelTheme() {
+        ThemeTokens tokens = ThemeController.current();
+        panel.setBackground(round(tokens.colorSurfaceContainerHigh(), 10, tokens.colorOutlineVariant()));
     }
 
     private String display(String value) {

@@ -2,12 +2,14 @@ package com.fongmi.android.tv.ui.custom;
 
 import android.content.Context;
 import android.graphics.Canvas;
-import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Typeface;
 import android.text.Layout;
 import android.util.AttributeSet;
 import android.view.Gravity;
+
+import com.fongmi.android.tv.theme.ThemeController;
+import com.fongmi.android.tv.theme.ThemeTokens;
 
 public class MpvConfigEditText extends SafeScrollEditText {
 
@@ -33,10 +35,11 @@ public class MpvConfigEditText extends SafeScrollEditText {
     }
 
     private void initEditor() {
-        gutterPaint.setColor(Color.parseColor("#F8F9FA"));
-        dividerPaint.setColor(Color.parseColor("#E1E5EA"));
+        ThemeTokens tokens = ThemeController.current();
+        gutterPaint.setColor(tokens.colorSurfaceContainerLow());
+        dividerPaint.setColor(tokens.colorOutlineVariant());
         dividerPaint.setStrokeWidth(dp(1));
-        numberPaint.setColor(Color.parseColor("#9AA0A6"));
+        numberPaint.setColor(tokens.colorOnSurfaceVariant());
         numberPaint.setTextAlign(Paint.Align.RIGHT);
         numberPaint.setTextSize(sp(11));
         numberPaint.setTypeface(Typeface.MONOSPACE);

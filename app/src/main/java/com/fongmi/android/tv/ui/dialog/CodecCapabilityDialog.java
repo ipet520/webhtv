@@ -29,6 +29,8 @@ import androidx.fragment.app.FragmentActivity;
 import com.fongmi.android.tv.R;
 import com.fongmi.android.tv.player.PlayerManager;
 import com.fongmi.android.tv.player.codec.CodecCapabilityInspector;
+import com.fongmi.android.tv.theme.ThemeDialogSemantics;
+import com.fongmi.android.tv.theme.ThemeTokens;
 import com.fongmi.android.tv.utils.Notify;
 import com.fongmi.android.tv.utils.ResUtil;
 import com.fongmi.android.tv.utils.Util;
@@ -69,12 +71,13 @@ public final class CodecCapabilityDialog {
     }
 
     private View createContent() {
+        ThemeTokens tokens = ThemeDialogSemantics.tokens();
         LinearLayout root = new LinearLayout(activity);
         root.setOrientation(LinearLayout.VERTICAL);
 
         MaterialTextView note = new MaterialTextView(activity);
         note.setText("芯片 " + chipText());
-        note.setTextColor(Color.parseColor("#5F6368"));
+        note.setTextColor(tokens.colorOnSurfaceVariant());
         note.setTextSize(12);
         note.setLineSpacing(0, 1.12f);
         LinearLayout.LayoutParams noteParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
@@ -86,8 +89,8 @@ public final class CodecCapabilityDialog {
         search.setImeOptions(EditorInfo.IME_ACTION_SEARCH);
         search.setHint(R.string.codec_capability_search);
         search.setTextSize(14);
-        search.setTextColor(Color.parseColor("#202124"));
-        search.setHintTextColor(Color.parseColor("#7A7F85"));
+        search.setTextColor(tokens.colorOnSurface());
+        search.setHintTextColor(tokens.colorOnSurfaceVariant());
         search.setPadding(ResUtil.dp2px(12), 0, ResUtil.dp2px(12), 0);
         search.setBackground(searchBackground());
         search.addTextChangedListener(new TextWatcher() {
@@ -195,18 +198,20 @@ public final class CodecCapabilityDialog {
     }
 
     private GradientDrawable searchBackground() {
+        ThemeTokens tokens = ThemeDialogSemantics.tokens();
         GradientDrawable drawable = new GradientDrawable();
-        drawable.setColor(Color.parseColor("#F8F9FA"));
+        drawable.setColor(tokens.colorSurfaceContainerHighest());
         drawable.setCornerRadius(ResUtil.dp2px(6));
-        drawable.setStroke(ResUtil.dp2px(1), Color.parseColor("#DADCE0"));
+        drawable.setStroke(ResUtil.dp2px(1), tokens.colorOutline());
         return drawable;
     }
 
     private GradientDrawable reportBackground() {
+        ThemeTokens tokens = ThemeDialogSemantics.tokens();
         GradientDrawable drawable = new GradientDrawable();
-        drawable.setColor(Color.parseColor("#F8F9FA"));
+        drawable.setColor(tokens.colorSurfaceContainerHigh());
         drawable.setCornerRadius(ResUtil.dp2px(6));
-        drawable.setStroke(ResUtil.dp2px(1), Color.parseColor("#E0E3E7"));
+        drawable.setStroke(ResUtil.dp2px(1), tokens.colorOutlineVariant());
         return drawable;
     }
 
@@ -228,6 +233,7 @@ public final class CodecCapabilityDialog {
         String keyword = search == null || search.getText() == null ? "" : search.getText().toString();
         reportText = mode == MODE_CURRENT ? CodecCapabilityInspector.buildCurrentMediaReport(activity, player, keyword) : CodecCapabilityInspector.buildDeviceReport(activity, player, keyword, mode);
         renderReport(reportText);
+        if (dialog != null && dialog.getWindow() != null) ThemeDialogSemantics.bindLegacyDialog(dialog.getWindow().getDecorView());
         if (resetPosition) resetScrollAndFocus();
     }
 
@@ -266,9 +272,10 @@ public final class CodecCapabilityDialog {
     }
 
     private void addHeader(String text) {
+        ThemeTokens tokens = ThemeDialogSemantics.tokens();
         MaterialTextView header = new MaterialTextView(activity);
         header.setText(text);
-        header.setTextColor(Color.parseColor("#5F6368"));
+        header.setTextColor(tokens.colorOnSurfaceVariant());
         header.setTextSize(13);
         header.setGravity(Gravity.CENTER_VERTICAL);
         header.setSingleLine(true);
@@ -323,9 +330,10 @@ public final class CodecCapabilityDialog {
     }
 
     private void styleItem(MaterialButton item, boolean selected, boolean related, boolean risk, boolean focused) {
-        int textColor = risk ? Color.parseColor("#A50E0E") : selected ? Color.parseColor("#174EA6") : related ? Color.parseColor("#137333") : Color.parseColor("#202124");
-        int bgColor = risk ? Color.parseColor("#FCE8E6") : selected ? Color.parseColor("#D2E3FC") : related ? Color.parseColor("#E6F4EA") : focused ? Color.parseColor("#F8F9FA") : Color.WHITE;
-        int strokeColor = focused ? Color.parseColor("#202124") : risk ? Color.parseColor("#D93025") : selected ? Color.parseColor("#1A73E8") : related ? Color.parseColor("#34A853") : Color.parseColor("#DADCE0");
+        ThemeTokens tokens = ThemeDialogSemantics.tokens();
+        int textColor = risk ? tokens.colorOnErrorContainer() : selected ? tokens.colorOnPrimaryContainer() : related ? tokens.colorOnSuccessContainer() : tokens.colorOnSurface();
+        int bgColor = risk ? tokens.colorErrorContainer() : selected ? tokens.colorPrimaryContainer() : related ? tokens.colorSuccessContainer() : focused ? tokens.colorPrimaryContainer() : tokens.colorSurfaceContainerHigh();
+        int strokeColor = focused ? tokens.colorFocus() : risk ? tokens.colorError() : selected ? tokens.colorPrimary() : related ? tokens.colorSuccess() : tokens.colorOutlineVariant();
         item.setTextColor(ColorStateList.valueOf(textColor));
         item.setBackgroundTintList(ColorStateList.valueOf(bgColor));
         item.setStrokeColor(ColorStateList.valueOf(strokeColor));

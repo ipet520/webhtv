@@ -63,8 +63,8 @@ public class SearchActivity extends BaseActivity implements WordAdapter.OnClickL
     private static final int SCOPE_POPUP_ITEM_HEIGHT_DP = 52;
     private static final int SCOPE_POPUP_ITEM_GAP_DP = 2;
     private static final int SCOPE_POPUP_MAX_ITEMS = 7;
-    private static final int SCOPE_POPUP_MIN_WIDTH_DP = 184;
     private static final int SCOPE_POPUP_PADDING_DP = 8;
+    private static final int SCOPE_POPUP_ITEM_HORIZONTAL_PADDING_DP = 20;
 
     private ActivitySearchBinding mBinding;
     private RecordAdapter mRecordAdapter;
@@ -339,12 +339,9 @@ public class SearchActivity extends BaseActivity implements WordAdapter.OnClickL
         scroll.setBackgroundResource(R.drawable.shape_search_scope_popup);
         scroll.setOverScrollMode(View.OVER_SCROLL_NEVER);
         scroll.addView(content, new ScrollView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-        int width = Math.max(ResUtil.getTextWidth(getString(R.string.search_scope_all), 18), ResUtil.getTextWidth(getString(R.string.search_scope_current), 18));
-        for (String group : groups) width = Math.max(width, ResUtil.getTextWidth(group, 18));
         int itemHeight = ResUtil.dp2px(SCOPE_POPUP_ITEM_HEIGHT_DP);
         int itemGap = ResUtil.dp2px(SCOPE_POPUP_ITEM_GAP_DP);
-        int popupWidth = Math.max(ResUtil.dp2px(SCOPE_POPUP_MIN_WIDTH_DP), width + ResUtil.dp2px(56));
-        popupWidth = Math.min(Math.max(anchor.getWidth(), popupWidth), ResUtil.getScreenWidth() - ResUtil.dp2px(48));
+        int popupWidth = scopePopupWidth(anchor, groups);
         int rowHeight = itemHeight + itemGap * 2;
         int popupHeight = Math.min((groups.size() + 2) * rowHeight + padding * 2, SCOPE_POPUP_MAX_ITEMS * rowHeight + padding * 2);
         PopupWindow popup = new PopupWindow(scroll, popupWidth, popupHeight, true);
@@ -355,7 +352,26 @@ public class SearchActivity extends BaseActivity implements WordAdapter.OnClickL
         popup.setOutsideTouchable(true);
         popup.setElevation(ResUtil.dp2px(12));
         popup.setOnDismissListener(anchor::requestFocus);
+        com.fongmi.android.tv.theme.ThemeController.bindPopupWindow(popup);
         popup.showAsDropDown(anchor, anchor.getWidth() - popupWidth, ResUtil.dp2px(8), Gravity.NO_GRAVITY);
+    }
+
+    private int scopePopupWidth(View anchor, List<String> groups) {
+        com.google.android.material.textview.MaterialTextView measureView = new com.google.android.material.textview.MaterialTextView(this);
+        measureView.setSingleLine(true);
+        measureView.setIncludeFontPadding(false);
+        measureView.setTextSize(18);
+        float maxActualTextWidth = Math.max(
+                measureView.getPaint().measureText(getString(R.string.search_scope_all)),
+                measureView.getPaint().measureText(getString(R.string.search_scope_current)));
+        for (String group : groups) maxActualTextWidth = Math.max(maxActualTextWidth, measureView.getPaint().measureText(group));
+        int textWidth = (int) Math.ceil(maxActualTextWidth);
+        int itemPadding = ResUtil.dp2px(SCOPE_POPUP_ITEM_HORIZONTAL_PADDING_DP);
+        int rowMargin = ResUtil.dp2px(SCOPE_POPUP_ITEM_GAP_DP);
+        int outerPadding = ResUtil.dp2px(SCOPE_POPUP_PADDING_DP);
+        int desiredWidth = textWidth + itemPadding * 2 + rowMargin * 2 + outerPadding * 2;
+        int popupWidth = desiredWidth;
+        return Math.min(Math.max(anchor.getWidth(), popupWidth), ResUtil.getScreenWidth() - ResUtil.dp2px(48));
     }
 
     private void addScopeItem(LinearLayout parent, String text, boolean selected, Runnable action) {
@@ -363,14 +379,15 @@ public class SearchActivity extends BaseActivity implements WordAdapter.OnClickL
         view.setText(text);
         view.setTextColor(ContextCompat.getColorStateList(this, R.color.selector_search_scope_text));
         view.setTextSize(18);
-        view.setGravity(Gravity.CENTER_VERTICAL);
+        view.setGravity(Gravity.CENTER);
         view.setSingleLine(true);
         view.setEllipsize(TextUtils.TruncateAt.END);
         view.setIncludeFontPadding(false);
         view.setFocusable(true);
         view.setSelected(selected);
         view.setBackgroundResource(R.drawable.selector_search_scope_item);
-        int padding = ResUtil.dp2px(20);
+        com.fongmi.android.tv.theme.ThemeController.bindThemeBinding(view, R.string.theme_binding_search_scope_item);
+        int padding = ResUtil.dp2px(SCOPE_POPUP_ITEM_HORIZONTAL_PADDING_DP);
         view.setPadding(padding, 0, padding, 0);
         view.setOnClickListener(v -> action.run());
         int gap = ResUtil.dp2px(SCOPE_POPUP_ITEM_GAP_DP);

@@ -44,6 +44,9 @@ import com.fongmi.android.tv.bean.DanmakuMatchCache;
 import com.fongmi.android.tv.bean.DanmakuTitle;
 import com.fongmi.android.tv.player.PlayerManager;
 import com.fongmi.android.tv.setting.Setting;
+import com.fongmi.android.tv.theme.ThemeController;
+import com.fongmi.android.tv.theme.ThemeDialogSemantics;
+import com.fongmi.android.tv.theme.ThemeTokens;
 import com.fongmi.android.tv.title.MediaTitleLearningExample;
 import com.fongmi.android.tv.title.MediaTitleLearningStore;
 import com.fongmi.android.tv.ui.custom.CustomRecyclerView;
@@ -140,6 +143,8 @@ public final class DanmakuSearchInputDialog extends DialogFragment implements Ca
         dialog.setCanceledOnTouchOutside(true);
         dialog.setOnShowListener(d -> {
             bindEvents();
+            ThemeController.bindDialog(dialog);
+            ThemeDialogSemantics.bindLegacyDialog(dialog.getWindow() == null ? null : dialog.getWindow().getDecorView());
             if (Util.isLeanback()) search.requestFocus();
             else Util.showKeyboard(input);
         });
@@ -204,8 +209,8 @@ public final class DanmakuSearchInputDialog extends DialogFragment implements Ca
         edit.setBackground(null);
         edit.setPadding(0, 0, 0, 0);
         edit.setGravity(Gravity.CENTER_VERTICAL);
-        edit.setTextColor(Color.parseColor("#202124"));
-        edit.setHintTextColor(Color.parseColor("#6F7782"));
+        edit.setTextColor(ThemeDialogSemantics.tokens().colorOnSurface());
+        edit.setHintTextColor(ThemeDialogSemantics.tokens().colorOnSurfaceVariant());
         edit.setTextSize(18);
         edit.setHint(R.string.search_keyword);
         edit.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_WORDS | InputType.TYPE_TEXT_FLAG_AUTO_CORRECT | InputType.TYPE_TEXT_FLAG_AUTO_COMPLETE);
@@ -220,7 +225,7 @@ public final class DanmakuSearchInputDialog extends DialogFragment implements Ca
         LinearLayout root = new LinearLayout(requireContext());
         root.setOrientation(LinearLayout.VERTICAL);
         root.setPadding(dp(18), dp(16), dp(18), dp(16));
-        root.setBackground(round(Color.WHITE, 24, Color.TRANSPARENT));
+        root.setBackground(ThemeDialogSemantics.panel(requireContext(), 24));
         root.addView(createHeader(), new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(36)));
         root.addView(createSearchRow(), new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
 
@@ -250,7 +255,7 @@ public final class DanmakuSearchInputDialog extends DialogFragment implements Ca
     private LinearLayout createHeader() {
         MaterialTextView title = new MaterialTextView(requireContext());
         title.setText(R.string.play_search);
-        title.setTextColor(Color.parseColor("#202124"));
+        ThemeDialogSemantics.title(title);
         title.setTextSize(22);
         title.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
         title.setGravity(Gravity.CENTER_VERTICAL);
@@ -267,7 +272,7 @@ public final class DanmakuSearchInputDialog extends DialogFragment implements Ca
         close.setPadding(0, 0, 0, 0);
         close.setCornerRadius(dp(17));
         close.setBackgroundTintList(ColorStateList.valueOf(Color.TRANSPARENT));
-        close.setTextColor(Color.parseColor("#5F6368"));
+        close.setTextColor(ThemeDialogSemantics.tokens().colorOnSurfaceVariant());
         close.setOnClickListener(v -> dismiss());
 
         LinearLayout row = new LinearLayout(requireContext());
@@ -284,7 +289,7 @@ public final class DanmakuSearchInputDialog extends DialogFragment implements Ca
         inputBox.setOrientation(LinearLayout.HORIZONTAL);
         inputBox.setGravity(Gravity.CENTER_VERTICAL);
         inputBox.setPadding(dp(14), 0, dp(14), 0);
-        inputBox.setBackground(round(Color.parseColor("#F8FAFD"), 12, Color.parseColor("#DADCE0")));
+        inputBox.setBackground(ThemeDialogSemantics.input(requireContext(), false));
         inputBox.addView(input, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.MATCH_PARENT));
 
         search = actionButton(getString(R.string.play_search), true);
@@ -294,7 +299,7 @@ public final class DanmakuSearchInputDialog extends DialogFragment implements Ca
         search.setIconResource(R.drawable.ic_action_search);
         search.setIconGravity(MaterialButton.ICON_GRAVITY_TEXT_START);
         search.setIconPadding(dp(4));
-        search.setIconTint(ColorStateList.valueOf(Color.WHITE));
+        search.setIconTint(ColorStateList.valueOf(ThemeDialogSemantics.tokens().colorOnPrimary()));
         search.setMinHeight(dp(56));
         search.setMinimumHeight(dp(56));
         search.setCornerRadius(dp(12));
@@ -330,7 +335,7 @@ public final class DanmakuSearchInputDialog extends DialogFragment implements Ca
 
         empty = new TextView(requireContext());
         empty.setGravity(Gravity.CENTER);
-        empty.setTextColor(Color.parseColor("#5F6368"));
+        empty.setTextColor(ThemeDialogSemantics.tokens().colorOnSurfaceVariant());
         empty.setTextSize(14);
         empty.setVisibility(GONE);
         empty.setMinHeight(dp(72));
@@ -338,7 +343,7 @@ public final class DanmakuSearchInputDialog extends DialogFragment implements Ca
 
         progress = new CircularProgressIndicator(requireContext());
         progress.setIndeterminate(true);
-        progress.setIndicatorColor(Color.parseColor("#0B57D0"));
+        progress.setIndicatorColor(ThemeDialogSemantics.tokens().colorPrimary());
         progress.setIndicatorSize(dp(32));
         progress.setTrackThickness(dp(2));
         progress.setVisibility(GONE);
@@ -529,37 +534,25 @@ public final class DanmakuSearchInputDialog extends DialogFragment implements Ca
         button.setCornerRadius(dp(8));
         button.setFocusable(true);
         button.setFocusableInTouchMode(true);
-        if (primary) {
-            button.setBackgroundTintList(buttonBackground("#C7DBFF", "#DCEAFF", "#EDF4FF", "#F3F6FA"));
-            button.setTextColor(buttonText("#0B57D0", "#174EA6", "#8AA8D8"));
-            button.setStrokeColor(buttonStroke("#0B57D0", "#AECBFA", "#E8EAED"));
-            button.setStrokeWidth(dp(2));
-        } else {
-            button.setBackgroundTintList(buttonBackground("#E4EEFF", "#F1F4F8", "#FFFFFF", "#F3F6FA"));
-            button.setTextColor(buttonText("#174EA6", "#202124", "#9AA0A6"));
-            button.setStrokeColor(buttonStroke("#0B57D0", "#DADCE0", "#E8EAED"));
-            button.setStrokeWidth(dp(1));
-        }
+        if (primary) ThemeDialogSemantics.primary(button);
+        else ThemeDialogSemantics.secondary(button);
         return button;
     }
 
     private void styleSearchButton(MaterialButton button) {
-        button.setBackgroundTintList(buttonBackground("#0B57D0", "#174EA6", "#174EA6", "#E8EAED"));
-        button.setTextColor(buttonText("#FFFFFF", "#FFFFFF", "#9AA0A6"));
-        button.setStrokeColor(buttonStroke("#FFFFFF", "#174EA6", "#E8EAED"));
-        button.setStrokeWidth(dp(2));
+        ThemeDialogSemantics.primary(button);
     }
 
     private ColorStateList buttonBackground(String focused, String selected, String normal, String disabled) {
         return new ColorStateList(
-                new int[][]{new int[]{android.R.attr.state_pressed}, new int[]{android.R.attr.state_focused}, new int[]{android.R.attr.state_selected}, new int[]{-android.R.attr.state_enabled}, new int[]{}},
-                new int[]{Color.parseColor(focused), Color.parseColor(focused), Color.parseColor(selected), Color.parseColor(disabled), Color.parseColor(normal)});
+                new int[][]{new int[]{-android.R.attr.state_enabled}, new int[]{android.R.attr.state_pressed}, new int[]{android.R.attr.state_focused}, new int[]{android.R.attr.state_selected}, new int[]{}},
+                new int[]{Color.parseColor(disabled), Color.parseColor(focused), Color.parseColor(focused), Color.parseColor(selected), Color.parseColor(normal)});
     }
 
     private ColorStateList buttonText(String focused, String normal, String disabled) {
         return new ColorStateList(
-                new int[][]{new int[]{android.R.attr.state_focused}, new int[]{android.R.attr.state_selected}, new int[]{-android.R.attr.state_enabled}, new int[]{}},
-                new int[]{Color.parseColor(focused), Color.parseColor(focused), Color.parseColor(disabled), Color.parseColor(normal)});
+                new int[][]{new int[]{-android.R.attr.state_enabled}, new int[]{android.R.attr.state_focused}, new int[]{android.R.attr.state_selected}, new int[]{}},
+                new int[]{Color.parseColor(disabled), Color.parseColor(focused), Color.parseColor(focused), Color.parseColor(normal)});
     }
 
     private ColorStateList buttonStroke(String focused, String normal, String disabled) {
@@ -746,7 +739,7 @@ public final class DanmakuSearchInputDialog extends DialogFragment implements Ca
 
             private void bind(Header header) {
                 button.setText(DanmakuTitle.headerTitle(header.title, header.items.size(), header.expanded));
-                button.setTextColor(Color.parseColor("#174EA6"));
+                button.setTextColor(ThemeDialogSemantics.tokens().colorPrimary());
                 button.setBackground(headerBackground(button.getContext()));
             }
 
@@ -810,16 +803,19 @@ public final class DanmakuSearchInputDialog extends DialogFragment implements Ca
 
         private static Drawable rowBackground(Context context, boolean selected) {
             StateListDrawable drawable = new StateListDrawable();
-            drawable.addState(new int[]{android.R.attr.state_focused}, round(context, Color.parseColor("#DCEAFF"), Color.parseColor("#0B57D0"), 2));
-            if (selected) drawable.addState(new int[]{android.R.attr.state_selected}, round(context, Color.parseColor("#EAF2FF"), Color.parseColor("#0B57D0"), 2));
-            drawable.addState(new int[]{}, round(context, selected ? Color.parseColor("#EAF2FF") : Color.parseColor("#F8FAFD"), selected ? Color.parseColor("#AECBFA") : Color.parseColor("#E3E7EE"), 1));
+            ThemeTokens tokens = ThemeDialogSemantics.tokens();
+            drawable.addState(new int[]{-android.R.attr.state_enabled}, round(context, tokens.colorSurfaceContainerLow(), tokens.colorOutlineVariant(), 1));
+            drawable.addState(new int[]{android.R.attr.state_focused}, round(context, tokens.colorPrimaryContainer(), tokens.colorFocus(), 2));
+            if (selected) drawable.addState(new int[]{android.R.attr.state_selected}, round(context, tokens.colorPrimaryContainer(), tokens.colorOutline(), 2));
+            drawable.addState(new int[]{}, round(context, selected ? tokens.colorPrimaryContainer() : tokens.colorSurfaceContainer(), selected ? tokens.colorOutline() : tokens.colorOutlineVariant(), 1));
             return drawable;
         }
 
         private static ColorStateList rowTextColor(boolean selected) {
+            ThemeTokens tokens = ThemeDialogSemantics.tokens();
             return new ColorStateList(
-                    new int[][]{new int[]{android.R.attr.state_focused}, new int[]{android.R.attr.state_selected}, new int[]{}},
-                    new int[]{Color.parseColor("#0B57D0"), Color.parseColor("#174EA6"), selected ? Color.parseColor("#174EA6") : Color.parseColor("#202124")});
+                    new int[][]{new int[]{-android.R.attr.state_enabled}, new int[]{android.R.attr.state_focused}, new int[]{android.R.attr.state_selected}, new int[]{}},
+                    new int[]{tokens.colorOnSurfaceVariant(), tokens.colorPrimary(), tokens.colorOnPrimaryContainer(), selected ? tokens.colorOnPrimaryContainer() : tokens.colorOnSurface()});
         }
 
         private static GradientDrawable round(Context context, int color, int stroke, int strokeWidth) {
@@ -832,10 +828,11 @@ public final class DanmakuSearchInputDialog extends DialogFragment implements Ca
 
         private static Drawable headerBackground(Context context) {
             GradientDrawable content = new GradientDrawable();
-            content.setColor(Color.parseColor("#EAF2FF"));
+            ThemeTokens tokens = ThemeDialogSemantics.tokens();
+            content.setColor(tokens.colorPrimaryContainer());
             content.setCornerRadius(dp(context, 8));
-            content.setStroke(dp(context, 1), Color.parseColor("#AECBFA"));
-            return new RippleDrawable(ColorStateList.valueOf(Color.parseColor("#1A0B57D0")), content, null);
+            content.setStroke(dp(context, 1), tokens.colorOutline());
+            return new RippleDrawable(ColorStateList.valueOf(tokens.colorFocus()), content, null);
         }
 
         private static int dp(Context context, int value) {

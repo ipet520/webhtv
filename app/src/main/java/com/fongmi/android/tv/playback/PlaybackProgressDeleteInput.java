@@ -49,6 +49,10 @@ public class PlaybackProgressDeleteInput {
     public boolean deleted;
     @SerializedName("deletedAt")
     public long deletedAt;
+    public boolean exact;
+    public HistoryRecordRef recordRef;
+    // Set only by the native, explicitly confirmed/frozen GROUP service.
+    transient boolean confirmedGroup;
 
     public PlaybackProgressDeleteInput normalize() {
         historyKey = safe(historyKey);
@@ -86,6 +90,9 @@ public class PlaybackProgressDeleteInput {
         input.event = event;
         input.deleted = deleted;
         input.deletedAt = deletedAt;
+        input.exact = exact;
+        input.recordRef = recordRef;
+        input.confirmedGroup = confirmedGroup;
         return input;
     }
 

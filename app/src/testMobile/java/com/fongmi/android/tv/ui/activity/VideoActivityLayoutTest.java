@@ -1306,6 +1306,42 @@ public class VideoActivityLayoutTest {
     }
 
     @Test
+    public void leanbackPlaybackLoadingIgnoresStaleReadyBeforeNewPlayerStarts() throws Exception {
+        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
+        String getPlayer = methodBody(source, "private void getPlayer(Flag flag, Episode episode)", "private void setPlayer(Result result)");
+        String request = methodBody(source, "private void beginPlayerContentRequest(String key, String flag, String episode)", "private boolean isShortDramaSource()");
+        String setPlayer = methodBody(source, "private void setPlayer(Result result)", "private int danmakuTmdbId()");
+        String state = methodBody(source, "protected void onStateChanged(int state)", "public void onMediaItemTransition");
+        String error = methodBody(source, "protected void onError(String msg)", "protected void onReload(String msg)");
+        int startPlayer = setPlayer.indexOf("startPlayer(getHistoryKey(), result");
+        int markStarted = setPlayer.indexOf("mPlaybackPlayerStarted = true;");
+
+        assertTrue("a new TV episode request must enter the loading state before the player result arrives",
+                getPlayer.contains("beginPlayerContentRequest(getKey(), playFlag, episode.getUrl());")
+                        && getPlayer.contains("showProgress();")
+                        && request.contains("mPlaybackRequestActive = true;")
+                        && request.contains("mPlaybackPlayerStarted = false;"));
+        assertTrue("the new player session must be marked started before startPlayer can synchronously emit READY",
+                markStarted >= 0 && startPlayer > markStarted);
+        assertTrue("a stale READY callback must not hide the new episode loading spinner before startPlayer",
+                state.contains("if (mPlaybackRequestActive && !mPlaybackPlayerStarted) break;")
+                        && state.indexOf("mPlaybackRequestActive = false;") > state.indexOf("if (mPlaybackRequestActive && !mPlaybackPlayerStarted) break;"));
+        assertTrue("playback errors must clear the request guard together with the loading overlay",
+                error.contains("mPlaybackRequestActive = false;")
+                        && error.contains("mPlaybackPlayerStarted = false;")
+                        && error.contains("showError(msg);"));
+        // 早退分支同样必须释放守卫：同一结果已在播时不会再走 startPlayer，没有新的 READY 回调，
+        // 守卫留下就等于「画面在动、圈不走」——两个清除点都被它自己挡下。
+        int duplicateResultReturn = setPlayer.indexOf("if (result == mAppliedPlayerResult && !player().isEmpty())");
+        assertTrue("the duplicate-result early return must release the loading guard", duplicateResultReturn >= 0);
+        String duplicateResultBranch = setPlayer.substring(duplicateResultReturn, setPlayer.indexOf("mAppliedPlayerResult = result;", duplicateResultReturn));
+        assertTrue("a duplicate result that is already playing has no later READY callback, so it must clear the guard itself",
+                duplicateResultBranch.contains("mPlaybackRequestActive = false;")
+                        && duplicateResultBranch.contains("mPlaybackPlayerStarted = false;"));
+    }
+
+    @Test
     public void introSkipCallbackWaitsForReadyBeforeSeeking() throws Exception {
         Path mobilePath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
         Path leanbackPath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
@@ -1444,20 +1480,28 @@ public class VideoActivityLayoutTest {
         int arrayKey = source.indexOf("private boolean onArrayKey(KeyEvent event)");
         int arrayKeyEnd = source.indexOf("private boolean onEpisodeKey(KeyEvent event)", arrayKey);
         String arrayKeyBody = arrayKey >= 0 && arrayKeyEnd > arrayKey ? source.substring(arrayKey, arrayKeyEnd) : "";
-        assertTrue("segment DPAD down must explicitly focus the current episode", eventBody.contains("mArrayAdapter.setOnKeyListener((view, keyCode, event) -> onArrayKey(event));")
+        assertTrue("segment DPAD down must explicitly hand focus to the declared lower target", eventBody.contains("mArrayAdapter.setOnKeyListener((view, keyCode, event) -> onArrayKey(event));")
                 && eventBody.contains("mBinding.array.setOnKeyListener((view, keyCode, event) -> onArrayKey(event));")
                 && arrayKeyBody.contains("!KeyUtil.isActionDown(event) || !KeyUtil.isDownKey(event)")
-                && arrayKeyBody.contains("selectEpisodeSegment(position, true);"));
+                // 分段行向下必须先落到集数表头（“选集 · 第 N 季”），不能直接跳进选集列表；
+                // 装载分段不抢焦点，否则遥控会跳过季度按钮（用户报告的问题）。
+                && arrayKeyBody.contains("selectEpisodeSegment(position, false);")
+                && arrayKeyBody.indexOf("focusEpisodeHeaderTool(View.FOCUS_DOWN)")
+                < arrayKeyBody.indexOf("scrollToEpisode(getSelectedEpisodePosition(mEpisodeAdapter.getItems()), true)"));
         assertTrue("segment focus handoff must preserve history fallback when no episode is marked selected", source.contains("if (requestEpisodeFocus) scrollToEpisode(getSelectedEpisodePosition(mEpisodeAdapter.getItems()), true);"));
 
         Path arrayAdapterPath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "adapter", "ArrayAdapter.java"));
         String arrayAdapter = new String(Files.readAllBytes(arrayAdapterPath), StandardCharsets.UTF_8);
         Path segmentSelectorPath = findLeanbackResPath().resolve(Path.of("drawable", "selector_video_item.xml"));
         String segmentSelector = new String(Files.readAllBytes(segmentSelectorPath), StandardCharsets.UTF_8);
-        assertTrue("original detail modes must keep the active episode range highlighted after focus moves to an episode", source.contains("mArrayAdapter.setSelectedPosition(position);")
+        assertTrue("original detail modes must keep the active episode range highlighted after focus moves to an episode", source.contains("selectEpisodeSegmentPosition(position);")
+                && source.contains("private void selectEpisodeSegmentPosition(int position)")
+                && source.contains("mArrayAdapter.setSelectedPosition(position);")
                 && arrayAdapter.contains("setActivated(position == selectedPosition)")
                 && segmentSelector.contains("android:state_activated=\"true\"")
-                && segmentSelector.contains("#2CC56F"));
+                // 当前生效态的颜色已从主题 colorPrimary 收敛到统一语义 token，
+                // 取值集中在 app/src/main/res/values/colors.xml。
+                && segmentSelector.contains("android:color=\"?attr/tvCurrentRing\""));
     }
 
     @Test
@@ -2422,7 +2466,7 @@ public class VideoActivityLayoutTest {
         assertTrue("playback page range focus must replace the visible episode items",
                 showSegment >= 0
                         && activity.indexOf("List<Episode> episodes = getFlag().getEpisodes();", showSegment) > showSegment
-                        && activity.indexOf("List<Episode> items = episodes.subList(start, end);", showSegment) > showSegment
+                        && activity.indexOf("List<Episode> items = new ArrayList<>(episodes.subList(start, end));", showSegment) > showSegment
                         && activity.indexOf("mEpisodeAdapter.addAll(items);", showSegment) > showSegment
                         && activity.indexOf("mEpisodeGridAdapter.addAll(items);", showSegment) > showSegment);
 
@@ -3331,13 +3375,15 @@ public class VideoActivityLayoutTest {
             assertTrue(sourcePath + " must share canonical episode progress when TMDB history aggregation is enabled",
                     selection.replaceAll("\\s+", " ").contains("boolean shareEpisodeProgress = crossSource || isResumeFromHistory() || Setting.isHistoryAggregationEffective();"));
             assertTrue(sourcePath + " must keep the original episode identity when aggregation and history resume are disabled",
-                    selection.replaceAll("\\s+", " ").contains("shareEpisodeProgress ? historyEpisode.matchesPlayback(mHistory.getEpisode()) : episode.matches(mHistory.getEpisode())"));
+                    selection.replaceAll("\\s+", " ").contains("shareEpisodeProgress ? historyEpisode.matchesPlayback(mHistory.getEpisode(), versionAware) : episode.matches(mHistory.getEpisode())"));
             assertTrue(sourcePath + " must ignore source-line differences when shared progress is enabled",
                     selection.contains("boolean compatibleFlag = shareEpisodeProgress || TextUtils.equals(mHistory.getVodFlag(), flag.getFlag());"));
             assertTrue(sourcePath + " must preserve progress when a history source refresh changes only the episode URL",
-                    selection.contains("historyEpisode.matchesPlayback(mHistory.getEpisode())"));
+                    selection.contains("boolean versionAware = flag.containsEpisodeUrl(mHistory.getEpisode());")
+                            && selection.contains("historyEpisode.matchesPlayback(mHistory.getEpisode(), versionAware)"));
             assertTrue(sourcePath + " must use the same tolerant episode identity when playback updates history",
-                    update.contains("historyEpisode.matchesPlayback(mHistory.getEpisode())"));
+                    update.contains("boolean versionAware = getFlag().containsEpisodeUrl(mHistory.getEpisode());")
+                            && update.contains("historyEpisode.matchesPlayback(mHistory.getEpisode(), versionAware)"));
             if (source.contains("private void updateFastTmdbPlaybackHistory(Flag flag, Episode episode)")) {
                 String fast = methodBody(source, "private void updateFastTmdbPlaybackHistory(Flag flag, Episode episode)", "private void resetDetailForNewIntent()");
                 assertTrue(sourcePath + " fast TMDB playback must honor the aggregation progress-sharing switch",
@@ -3383,19 +3429,25 @@ public class VideoActivityLayoutTest {
         int field = source.indexOf("private Runnable mSeekProgressFallback;");
         int init = source.indexOf("mSeekProgressFallback = this::hideSeekProgressIfReady;");
         int started = source.indexOf("protected void onSeekStarted()");
-        int show = source.indexOf("showProgress();", started);
-        int remove = source.indexOf("App.removeCallbacks(mSeekProgressFallback);", show);
-        int post = source.indexOf("App.post(mSeekProgressFallback, 500);", remove);
+        int pending = source.indexOf("mSeekProgressPending = true;", started);
+        int show = source.indexOf("showProgress();", pending);
+        int arm = source.indexOf("App.post(mSeekProgressFallback, SEEK_PROGRESS_MIN_VISIBLE_MS);", show);
         int helper = source.indexOf("private void hideSeekProgressIfReady()");
-        int readyGuard = source.indexOf("player().getPlaybackState() != Player.STATE_READY", helper);
-        int reveal = source.indexOf("showPlaybackContent();", readyGuard);
+        int gate = source.indexOf("if (!canHideSeekProgress()) return;", helper);
+        int close = source.indexOf("mSeekProgressPending = false;", gate);
+        int reveal = source.indexOf("showPlaybackContent();", close);
+        int stale = source.indexOf("private void hidePlaybackProgressIfStale()");
+        int staleGate = source.indexOf("if (!canHideSeekProgress()) return;", stale);
         int destroy = source.indexOf("protected void onDestroy()");
         int destroyRemove = source.indexOf("mSeekProgressFallback", destroy);
 
         assertTrue(sourcePath + " is missing mSeekProgressFallback", field >= 0);
         assertTrue("seek fallback runnable must be initialized", init > field);
-        assertTrue("seek must show loading before scheduling the READY fallback", show > started && remove > show && post > remove);
-        assertTrue("seek fallback must only clear loading once playback is READY", readyGuard > helper && reveal > readyGuard);
+        // 窗口必须先于 showProgress() 打开：它内部立刻投递的网速 ticker 是本次症状的直接执行者。
+        assertTrue("seek must open the pending window before showing loading", started > 0 && pending > started && show > pending);
+        assertTrue("seek must arm the minimum-visible timer after showing loading", arm > show);
+        assertTrue("seek fallback must only clear loading through the seek gate", gate > helper && close > gate && reveal > close);
+        assertTrue("the traffic-ticker fallback must respect the same seek gate", staleGate > stale);
         assertTrue("seek fallback callback must be removed on destroy", destroyRemove > destroy);
     }
 
@@ -3452,7 +3504,8 @@ public class VideoActivityLayoutTest {
             assertTrue(sourcePath + " must persist the identity-first adapter index with quarterly progress",
                     body.contains("mFlagAdapter.indexOf(flag)")
                             && body.contains("TmdbUIAdapter.flagKey(flag, index)")
-                            && body.contains("mHistory.setSourceBindingKey(flagKey)"));
+                            && body.contains("mHistory.setSourceBindingKey(flagKey)")
+                            && body.contains("syncHistory()"));
             assertTrue(sourcePath + " must recover the stable index before the TMDB adapter is bound",
                     body.contains("TmdbUIAdapter.flagIndex(mVod.getFlags(), flag)"));
         }

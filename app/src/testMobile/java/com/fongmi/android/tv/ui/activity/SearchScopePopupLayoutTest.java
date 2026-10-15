@@ -22,7 +22,8 @@ public class SearchScopePopupLayoutTest {
         assertTrue("search result menu must use the shared popup surface", collect.contains("R.drawable.shape_search_scope_popup"));
         assertTrue("search input menu must use the shared item selector", search.contains("R.drawable.selector_search_scope_item"));
         assertTrue("search result menu must use the shared item selector", collect.contains("R.drawable.selector_search_scope_item"));
-        assertTrue("popup surface must use the TV glass treatment", popup.contains("<gradient"));
+        assertTrue("popup surface must use the active theme surface", popup.contains("colorSurfaceContainerHigh"));
+        assertTrue("focused popup items must use the active primary semantic", item.contains("colorPrimary"));
         assertTrue("popup items must define a focused state", item.contains("state_focused"));
         assertTrue("popup items must define a selected state", item.contains("state_selected"));
         assertFalse("search input menu must not restore the opaque white panel", search.contains("setBackgroundColor(0xFFFFFFFF)"));

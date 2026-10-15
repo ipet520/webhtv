@@ -8,6 +8,7 @@
     android:background="@drawable/shape_vod_list"
     android:focusable="true"
     android:focusableInTouchMode="true"
+    android:tag="webhtv:focus-stroke:1.5dp"
     android:foreground="@drawable/selector_vod">
 
     <com.google.android.material.imageview.ShapeableImageView
@@ -17,7 +18,7 @@
         android:layout_alignParentStart="true"
         android:layout_alignParentTop="true"
         android:layout_alignParentBottom="true"
-        android:background="@color/black_20"
+        android:background="?attr/colorSurfaceContainer"
         android:scaleType="centerCrop"
         app:shapeAppearanceOverlay="@style/Vod.Grid.Large" />
 
@@ -32,7 +33,7 @@
         android:marqueeRepeatLimit="marquee_forever"
         android:maxWidth="80dp"
         android:singleLine="true"
-        android:textColor="@color/white"
+        android:textColor="?attr/webhtvColorOnWallpaper"
         android:textSize="12sp"
         android:visibility="gone"
         tools:text="Site"
@@ -54,7 +55,7 @@
             android:ellipsize="marquee"
             android:marqueeRepeatLimit="marquee_forever"
             android:singleLine="true"
-            android:textColor="@color/white"
+            android:textColor="?attr/webhtvColorOnWallpaper"
             android:textSize="18sp"
             tools:text="Movie title" />
 
@@ -66,7 +67,7 @@
             android:ellipsize="marquee"
             android:marqueeRepeatLimit="marquee_forever"
             android:singleLine="true"
-            android:textColor="@color/white"
+            android:textColor="?attr/webhtvColorOnWallpaper"
             android:textSize="15sp"
             tools:text="1080P | 125 min" />
 

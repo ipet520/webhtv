@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:alpha="0.45" android:color="?attr/webhtvColorPlayerControlMuted" android:state_enabled="false" />
+    <item android:color="?attr/webhtvColorPlayerControlActive" android:state_pressed="true" />
+    <item android:color="?attr/webhtvColorPlayerControlActive" android:state_activated="true" />
+    <item android:color="?attr/webhtvColorPlayerControlActive" android:state_selected="true" />
+    <item android:color="?attr/webhtvColorPlayerControlActive" android:state_focused="true" />
+    <item android:color="?attr/webhtvColorPlayerControlMuted" />
+</selector>

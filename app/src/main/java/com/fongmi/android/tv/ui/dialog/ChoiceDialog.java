@@ -29,6 +29,10 @@ import androidx.fragment.app.FragmentActivity;
 import androidx.fragment.app.FragmentManager;
 
 import com.fongmi.android.tv.R;
+import com.fongmi.android.tv.theme.ThemeController;
+import com.fongmi.android.tv.theme.ThemeDialogSemantics;
+import com.fongmi.android.tv.theme.ThemeEditorUi;
+import com.fongmi.android.tv.theme.ThemeTokens;
 import com.fongmi.android.tv.ui.helper.TmdbSeasonResolver;
 import com.fongmi.android.tv.utils.ResUtil;
 import com.fongmi.android.tv.utils.Util;
@@ -52,6 +56,7 @@ public final class ChoiceDialog extends DialogFragment {
     private int selected = -1;
     private boolean multi;
     private boolean showCancel = true;
+    private boolean useDohCancelColors;
     private boolean dismissOnChoice = true;
     private OnChoice choice;
     private OnApply apply;
@@ -141,6 +146,10 @@ public final class ChoiceDialog extends DialogFragment {
         showSingle(activity.getSupportFragmentManager(), activity.getString(titleRes), items, selected, choice);
     }
 
+    public static void showSingleDoh(FragmentActivity activity, int titleRes, CharSequence[] items, int selected, OnChoice choice) {
+        showSingle(activity.getSupportFragmentManager(), activity.getString(titleRes), items, selected, true, choice, true);
+    }
+
     public static void showSingleNoCancel(Fragment fragment, int titleRes, CharSequence[] items, int selected, OnChoice choice) {
         showSingle(fragment.getChildFragmentManager(), fragment.getString(titleRes), items, selected, false, choice);
     }
@@ -154,11 +163,16 @@ public final class ChoiceDialog extends DialogFragment {
     }
 
     private static void showSingle(FragmentManager manager, CharSequence title, CharSequence[] items, int selected, boolean showCancel, OnChoice choice) {
+        showSingle(manager, title, items, selected, showCancel, choice, false);
+    }
+
+    private static void showSingle(FragmentManager manager, CharSequence title, CharSequence[] items, int selected, boolean showCancel, OnChoice choice, boolean useDohCancelColors) {
         ChoiceDialog dialog = new ChoiceDialog();
         dialog.title = title;
         dialog.items = items == null ? new CharSequence[0] : Arrays.copyOf(items, items.length);
         dialog.selected = selected;
         dialog.showCancel = showCancel;
+        dialog.useDohCancelColors = useDohCancelColors;
         dialog.choice = choice;
         dialog.show(manager, ChoiceDialog.class.getSimpleName());
     }
@@ -239,6 +253,7 @@ public final class ChoiceDialog extends DialogFragment {
         Dialog dialog = new Dialog(requireContext());
         dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
         dialog.setContentView(createView(LayoutInflater.from(requireContext())));
+        ThemeController.bindDialog(dialog);
         dialog.setCanceledOnTouchOutside(true);
         return dialog;
     }
@@ -259,6 +274,8 @@ public final class ChoiceDialog extends DialogFragment {
         window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
         window.setAttributes(params);
         window.setLayout(params.width, params.height);
+        ThemeController.bindDialog(dialog);
+        ThemeDialogSemantics.bindLegacyDialog(window.getDecorView());
         window.getDecorView().post(() -> {
             adaptListHeight(window);
             if (Util.isLeanback()) window.getDecorView().post(this::focusSelectedItem);
@@ -384,14 +401,15 @@ public final class ChoiceDialog extends DialogFragment {
         if (showCancel && !multi && items != null && items.length > 0 && negative == null) negative = getString(R.string.dialog_negative);
         LinearLayout root = new LinearLayout(requireContext());
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setBackgroundResource(R.drawable.shape_shell_proxy_dialog);
+        ThemeTokens tokens = ThemeController.current();
+        root.setBackground(ThemeEditorUi.shape(requireContext(), tokens.colorSurfaceContainerHigh(), 0, 0, 22));
         int vertical = dp(24);
         int horizontal = dp(actionCount() >= 3 ? 18 : 24);
         root.setPadding(horizontal, vertical, horizontal, vertical);
 
         MaterialTextView titleView = new MaterialTextView(requireContext());
         titleView.setText(title);
-        titleView.setTextColor(Color.parseColor("#202124"));
+        titleView.setTextColor(ThemeDialogSemantics.tokens().colorOnSurface());
         titleView.setTextSize(18);
         titleView.setGravity(Gravity.CENTER_VERTICAL);
         titleView.setSingleLine(false);
@@ -406,7 +424,7 @@ public final class ChoiceDialog extends DialogFragment {
     private void addMessage(LinearLayout root) {
         MaterialTextView messageView = new MaterialTextView(requireContext());
         messageView.setText(message);
-        messageView.setTextColor(Color.parseColor("#5F6368"));
+        messageView.setTextColor(ThemeDialogSemantics.tokens().colorOnSurfaceVariant());
         messageView.setTextSize(14);
         messageView.setLineSpacing(dp(2), 1f);
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
@@ -480,17 +498,20 @@ public final class ChoiceDialog extends DialogFragment {
     }
 
     private void styleItem(MaterialButton button, int position) {
+        ThemeTokens tokens = ThemeDialogSemantics.tokens();
         if (!itemEnabled(position)) {
-            button.setTextColor(ColorStateList.valueOf(Color.parseColor("#9AA0A6")));
-            button.setBackgroundTintList(ColorStateList.valueOf(Color.parseColor("#F1F3F4")));
-            button.setStrokeColor(ColorStateList.valueOf(Color.parseColor("#E0E0E0")));
+            button.setTextColor(ColorStateList.valueOf(tokens.colorOnSurfaceVariant()));
+            button.setBackgroundTintList(ColorStateList.valueOf(tokens.colorSurfaceContainerHighest()));
+            button.setStrokeColor(ColorStateList.valueOf(tokens.colorOutlineVariant()));
             return;
         }
         boolean on = itemSelected(position);
         boolean focused = button.isFocused();
-        int text = focused ? Color.WHITE : on ? Color.parseColor("#174EA6") : Color.parseColor("#202124");
-        int bg = focused ? Color.parseColor("#1A73E8") : on ? Color.parseColor("#E8F0FE") : Color.WHITE;
-        int stroke = focused ? Color.parseColor("#174EA6") : on ? Color.parseColor("#8AB4F8") : Color.parseColor("#DADCE0");
+        int text = focused ? tokens.colorOnPrimary() : on ? tokens.colorOnPrimaryContainer() : tokens.colorOnSurface();
+        int bg = focused ? tokens.colorPrimary() : on ? tokens.colorPrimaryContainer() : tokens.colorSurfaceContainerHigh();
+        int stroke = focused
+                ? useDohCancelColors ? tokens.colorOnPrimary() : tokens.colorFocus()
+                : on ? tokens.colorPrimary() : tokens.colorOutlineVariant();
         button.setTextColor(ColorStateList.valueOf(text));
         button.setBackgroundTintList(ColorStateList.valueOf(bg));
         button.setStrokeColor(ColorStateList.valueOf(stroke));
@@ -582,11 +603,37 @@ public final class ChoiceDialog extends DialogFragment {
         button.setBackgroundTintList(ContextCompat.getColorStateList(requireContext(), primary ? R.color.dialog_primary_button_bg : R.color.dialog_outlined_button_bg));
         button.setStrokeColor(ContextCompat.getColorStateList(requireContext(), R.color.dialog_outlined_button_stroke));
         button.setStrokeWidth(primary ? 0 : dp(1));
+        if (Util.isLeanback() && useDohCancelColors && !primary) applyDohCancelColors(button);
         button.setOnClickListener(listener);
         LinearLayout.LayoutParams params = compact ? new LinearLayout.LayoutParams(0, dp(40), 1) : new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(40));
         params.leftMargin = first ? 0 : dp(compact ? 6 : 12);
         button.setLayoutParams(params);
         return button;
+    }
+
+    public static void applyDohCancelColors(MaterialButton button) {
+        if (button == null) return;
+        ColorStateList normalBackground = ContextCompat.getColorStateList(button.getContext(), R.color.dialog_outlined_button_bg);
+        ColorStateList normalText = ContextCompat.getColorStateList(button.getContext(), R.color.dialog_outlined_button_text);
+        ThemeTokens tokens = ThemeDialogSemantics.tokens();
+        int[][] states = {
+                {-android.R.attr.state_enabled},
+                {android.R.attr.state_focused},
+                {android.R.attr.state_pressed},
+                {}
+        };
+        button.setBackgroundTintList(new ColorStateList(states, new int[]{
+                normalBackground.getColorForState(new int[]{-android.R.attr.state_enabled}, normalBackground.getDefaultColor()),
+                tokens.colorPrimaryContainer(),
+                normalBackground.getColorForState(new int[]{android.R.attr.state_pressed}, normalBackground.getDefaultColor()),
+                normalBackground.getDefaultColor()
+        }));
+        button.setTextColor(new ColorStateList(states, new int[]{
+                normalText.getColorForState(new int[]{-android.R.attr.state_enabled}, normalText.getDefaultColor()),
+                tokens.colorPrimary(),
+                normalText.getColorForState(new int[]{android.R.attr.state_pressed}, normalText.getDefaultColor()),
+                normalText.getDefaultColor()
+        }));
     }
 
     private int dp(int value) {

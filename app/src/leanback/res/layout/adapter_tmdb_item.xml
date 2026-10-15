@@ -49,7 +49,7 @@
                 android:paddingEnd="8dp"
                 android:paddingBottom="3dp"
                 android:text="@string/detail_tmdb_current_match"
-                android:textColor="?attr/colorPrimary"
+                android:textColor="?attr/colorOnPrimaryContainer"
                 android:textSize="14sp"
                 android:textStyle="bold"
                 android:visibility="gone" />

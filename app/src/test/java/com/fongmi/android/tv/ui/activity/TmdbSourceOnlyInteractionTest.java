@@ -13,7 +13,7 @@ public class TmdbSourceOnlyInteractionTest {
 
     @Test
     public void standaloneSourceOnlyHidesRematchAndRemoteRatings() throws Exception {
-        String source = Files.readString(root().resolve(Path.of("app", "src", "main", "java", "com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java")), StandardCharsets.UTF_8);
+        String source = Files.readString(root().resolve(Path.of("app", "src", "main", "java", "com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java")), StandardCharsets.UTF_8).replace("\r\n", "\n");
 
         assertTrue(source.contains("private void applySourceOnlyActionVisibility()"));
         assertTrue(source.contains("binding.rematch.setVisibility(View.GONE);"));
@@ -61,7 +61,7 @@ public class TmdbSourceOnlyInteractionTest {
     }
 
     private static String read(String flavor) throws Exception {
-        return Files.readString(root().resolve(Path.of("app", "src", flavor, "java", "com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java")), StandardCharsets.UTF_8);
+        return Files.readString(root().resolve(Path.of("app", "src", flavor, "java", "com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java")), StandardCharsets.UTF_8).replace("\r\n", "\n");
     }
 
     private static Path root() {

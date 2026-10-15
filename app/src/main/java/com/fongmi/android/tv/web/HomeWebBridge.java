@@ -157,7 +157,8 @@ public class HomeWebBridge {
                 case "app.openLive" -> openLive();
                 case "app.openKeep" -> openKeep();
                 case "app.openSetting" -> openSetting();
-                case "app.history" -> history();
+                case "app.history" -> history(payload);
+                case "app.historyDelete" -> com.fongmi.android.tv.playback.WebHomeHistoryService.delete(payload).toString();
                 case "pan.check" -> checkLinks(payload);
                 case "pan.play" -> playPan(payload);
                 case "cache.get" -> quote(AppCache.get(cacheKey(payload)));
@@ -270,6 +271,17 @@ public class HomeWebBridge {
     }
 
     private String playVod(JsonObject payload) {
+        if ("history_exact".equals(Json.safeString(payload, "intent"))) {
+            com.fongmi.android.tv.playback.HistoryRecordRef ref = payload.has("historyRecordRef")
+                    ? App.gson().fromJson(payload.get("historyRecordRef"), com.fongmi.android.tv.playback.HistoryRecordRef.class) : null;
+            History selected = com.fongmi.android.tv.playback.WebHomeHistoryService.resolve(ref, true);
+            if (!selected.getSiteKey().equals(Json.safeString(payload, "siteKey"))
+                    || !selected.getVodId().equals(Json.safeString(payload, "vodId"))) throw new IllegalArgumentException("历史播放来源与引用不一致");
+            String resumePayload = ref.resumePayload(selected);
+            App.post(() -> controller.prepareNativePlayback(() -> VideoActivity.startHistoryExact(activity, selected, resumePayload)));
+            return "{\"accepted\":true,\"version\":1}";
+        }
+        if (!TextUtils.isEmpty(Json.safeString(payload, "intent"))) throw new IllegalArgumentException("不支持的播放意图");
         String requestedSiteKey = Json.safeString(payload, "siteKey");
         Site contentSite = controller.getContentSite();
         if (controller.isGlobalTheme()) contentSite = activeSite(payload);
@@ -461,7 +473,11 @@ public class HomeWebBridge {
         return "{}";
     }
 
-    private String history() {
+    private String history(JsonObject payload) {
+        if ("independent".equals(Json.safeString(payload, "mode"))) {
+            if (!payload.has("version") || payload.get("version").getAsInt() != 1) throw new IllegalArgumentException("不支持的历史契约版本");
+            return com.fongmi.android.tv.playback.WebHomeHistoryService.read().toString();
+        }
         return App.gson().toJson(History.get());
     }
 

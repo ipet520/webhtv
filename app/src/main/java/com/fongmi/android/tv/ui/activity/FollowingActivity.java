@@ -9,6 +9,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 
@@ -19,7 +20,6 @@ import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
-import androidx.recyclerview.widget.RecyclerView;
 
 import com.fongmi.android.tv.App;
 import com.fongmi.android.tv.R;
@@ -39,19 +39,19 @@ import com.fongmi.android.tv.following.FollowingStore;
 import com.fongmi.android.tv.following.FollowingUpdateCoordinator;
 import com.fongmi.android.tv.following.FollowingUpdatePolicy;
 import com.fongmi.android.tv.setting.Setting;
+import com.fongmi.android.tv.theme.ThemeController;
+import com.fongmi.android.tv.theme.WebHtvAlertDialogBuilder;
 import com.fongmi.android.tv.ui.adapter.FollowingAdapter;
+import com.fongmi.android.tv.ui.custom.CustomWallView;
 import com.fongmi.android.tv.ui.custom.SpaceItemDecoration;
 import com.fongmi.android.tv.utils.Notify;
 import com.fongmi.android.tv.utils.PermissionUtil;
 import com.fongmi.android.tv.utils.Task;
 import com.fongmi.android.tv.utils.Util;
-import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Set;
 
 public class FollowingActivity extends AppCompatActivity implements FollowingAdapter.Listener {
 
@@ -62,7 +62,6 @@ public class FollowingActivity extends AppCompatActivity implements FollowingAda
     private static final int FILTER_ENDED = 3;
     private static final int FILTER_FAILED = 4;
     private static final int FILTER_COUNT = 5;
-    private static final long VISIBLE_READ_DELAY_MS = 800;
     private static final Comparator<Following> LIST_ORDER = Comparator
             .comparing((Following item) -> !item.hasUpdate)
             .thenComparing(Comparator.comparingInt((Following item) -> item.unwatchedCount).reversed())
@@ -73,9 +72,8 @@ public class FollowingActivity extends AppCompatActivity implements FollowingAda
     private FollowingAdapter adapter;
     private String focusIdentity;
     private String pendingNotifyIdentity;
-    private final Set<String> readPending = new HashSet<>();
-    private final Runnable visibleReadRunnable = this::markVisibleReadNow;
     private int filterIndex = FILTER_ALL;
+    private int loadGeneration;
     private final ActivityResultLauncher<String> notificationPermission = registerForActivityResult(
             new ActivityResultContracts.RequestPermission(), granted -> {
                 if (pendingNotifyIdentity == null) return;
@@ -108,31 +106,48 @@ public class FollowingActivity extends AppCompatActivity implements FollowingAda
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         setTheme(R.style.Theme_App);
         super.onCreate(savedInstanceState);
+        // This page predates the shared BaseActivity, so it must opt into the same
+        // appearance contract by hand: resolve the persisted tokens before the first
+        // content view, then bind the tree once it exists and again after initView().
+        ThemeController.applyFromPreferences(this);
         if (!FollowingSettings.isEnabled()) {
             Notify.show(R.string.following_enabled_hint);
             finish();
             return;
         }
+        if (savedInstanceState != null) {
+            filterIndex = Math.max(FILTER_ALL, Math.min(FILTER_COUNT - 1,
+                    savedInstanceState.getInt("following_filter_index", FILTER_ALL)));
+        }
         binding = ActivityFollowingBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
+        ThemeController.bindTheme(binding.getRoot());
+        addWallpaper();
         focusIdentity = getIntent().getStringExtra(EXTRA_IDENTITY_KEY);
         FollowingNotifier.createChannel();
         FollowingScheduler.ensurePeriodic(this);
         initView();
+        ThemeController.bindTheme(binding.getRoot());
         FollowingScheduler.enqueueDueNow(this);
+    }
+
+    /**
+     * 与其它内容页保持一致：全局壁纸作为页面背景，壁纸视图插在内容根视图之下。
+     * 页面根布局保持透明，顶栏与卡片用半透明面板承载文字，动效跟随全局壁纸设置。
+     */
+    private void addWallpaper() {
+        ViewGroup content = findViewById(android.R.id.content);
+        if (content == null || content.getChildCount() == 0) return;
+        content.addView(new CustomWallView(this, null), 0,
+                new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
     }
 
     private void initView() {
         binding.recycler.setLayoutManager(new LinearLayoutManager(this));
         binding.recycler.addItemDecoration(new SpaceItemDecoration(1, 8));
         binding.recycler.setAdapter(adapter = new FollowingAdapter(this));
-        binding.recycler.addOnScrollListener(new RecyclerView.OnScrollListener() {
-            @Override
-            public void onScrollStateChanged(@NonNull RecyclerView recyclerView, int newState) {
-                if (newState == RecyclerView.SCROLL_STATE_IDLE) scheduleVisibleRead();
-            }
-        });
         binding.check.setOnClickListener(view -> checkAll());
+        binding.readAll.setOnClickListener(view -> markAllRead());
         binding.filter.setOnClickListener(view -> {
             filterIndex = (filterIndex + 1) % FILTER_COUNT;
             load();
@@ -148,23 +163,35 @@ public class FollowingActivity extends AppCompatActivity implements FollowingAda
     }
 
     @Override
+    protected void onSaveInstanceState(@NonNull Bundle outState) {
+        outState.putInt("following_filter_index", filterIndex);
+        super.onSaveInstanceState(outState);
+    }
+
+    @Override
     public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
         if (hasFocus) Util.hideSystemUI(this);
     }
 
     private void load() {
+        if (binding == null || isFinishing() || isDestroyed()) return;
+        int generation = ++loadGeneration;
+        int selectedFilter = filterIndex;
         binding.loading.setVisibility(View.VISIBLE);
         Task.execute(() -> {
             List<Following> following = FollowingStore.list();
             List<FollowingAdapter.Row> rows = new ArrayList<>();
             for (Following item : following) {
-                if (!matchesFilter(item)) continue;
+                if (!matchesFilter(item, selectedFilter)) continue;
                 rows.add(new FollowingAdapter.Row(item, FollowingStore.preferredSource(item.identityKey)));
             }
             rows.sort((left, right) -> LIST_ORDER.compare(left.following, right.following));
             int unread = FollowingStore.unreadCount();
-            App.post(() -> render(rows, unread));
+            App.post(() -> {
+                if (generation != loadGeneration || binding == null || isFinishing() || isDestroyed()) return;
+                render(rows, unread);
+            });
         });
     }
 
@@ -177,7 +204,6 @@ public class FollowingActivity extends AppCompatActivity implements FollowingAda
         binding.recycler.setVisibility(rows.isEmpty() ? View.GONE : View.VISIBLE);
         binding.summary.setText(getString(R.string.following_summary, rows.size(), unread));
         adapter.setItems(rows);
-        scheduleVisibleRead();
         int index = TextUtils.isEmpty(focusIdentity) ? -1 : adapter.indexOf(focusIdentity);
         if (index >= 0) {
             binding.recycler.post(() -> {
@@ -187,35 +213,18 @@ public class FollowingActivity extends AppCompatActivity implements FollowingAda
         }
     }
 
-    private void scheduleVisibleRead() {
-        if (binding == null) return;
-        binding.recycler.removeCallbacks(visibleReadRunnable);
-        binding.recycler.postDelayed(visibleReadRunnable, VISIBLE_READ_DELAY_MS);
-    }
-
-    private void markVisibleReadNow() {
-        if (binding == null || isFinishing() || isDestroyed()) return;
-        RecyclerView.LayoutManager manager = binding.recycler.getLayoutManager();
-        if (!(manager instanceof LinearLayoutManager linear)) return;
-        int first = linear.findFirstVisibleItemPosition();
-        int last = linear.findLastVisibleItemPosition();
+    private void markAllRead() {
         List<String> keys = new ArrayList<>();
-        for (int i = first; i <= last; i++) {
-            FollowingAdapter.Row row = adapter.rowAt(i);
-            if (row == null || !row.following.hasUpdate || readPending.contains(row.following.identityKey)) continue;
-            keys.add(row.following.identityKey);
+        for (FollowingAdapter.Row row : adapter.getItems()) {
+            if (row.following.hasUpdate && !TextUtils.isEmpty(row.following.identityKey)) keys.add(row.following.identityKey);
         }
         markReadNow(keys);
     }
 
     private void markReadNow(List<String> keys) {
         if (keys == null || keys.isEmpty()) return;
-        List<String> pending = new ArrayList<>();
-        for (String key : keys) if (!TextUtils.isEmpty(key) && readPending.add(key)) pending.add(key);
-        if (pending.isEmpty()) return;
-        adapter.markReadLocally(pending);
-        FollowingPlaybackBridge.markReadAllAsync(pending, error -> {
-            readPending.removeAll(pending);
+        adapter.markReadLocally(keys);
+        FollowingPlaybackBridge.markReadAllAsync(keys, error -> {
             if (error != null) load();
             else refreshUnreadSummary();
         });
@@ -228,8 +237,8 @@ public class FollowingActivity extends AppCompatActivity implements FollowingAda
         });
     }
 
-    private boolean matchesFilter(Following item) {
-        return switch (filterIndex) {
+    private boolean matchesFilter(Following item, int filter) {
+        return switch (filter) {
             case FILTER_UPDATES -> item.hasUpdate || item.unwatchedCount > 0;
             case FILTER_UNWATCHED -> item.unwatchedCount > 0;
             case FILTER_ENDED -> FollowingMetadataSnapshot.ENDED.equals(item.officialStatus)
@@ -263,9 +272,8 @@ public class FollowingActivity extends AppCompatActivity implements FollowingAda
                 return;
             }
             FollowingUpdateCoordinator coordinator = new FollowingUpdateCoordinator();
-            int limit = Math.min(5, items.size());
             boolean success = false;
-            for (int i = 0; i < limit; i++) success |= coordinator.checkNow(items.get(i).identityKey, true);
+            for (Following item : items) success |= coordinator.checkNow(item.identityKey, true);
             boolean finalSuccess = success;
             App.post(() -> {
                 if (binding == null) return;
@@ -286,7 +294,7 @@ public class FollowingActivity extends AppCompatActivity implements FollowingAda
         token.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
         form.addView(url, new LinearLayout.LayoutParams(-1, -2));
         form.addView(token, new LinearLayout.LayoutParams(-1, -2));
-        new MaterialAlertDialogBuilder(this)
+        new WebHtvAlertDialogBuilder(this)
                 .setTitle(R.string.following_server_import)
                 .setView(form)
                 .setNegativeButton(R.string.dialog_negative, null)
@@ -352,7 +360,7 @@ public class FollowingActivity extends AppCompatActivity implements FollowingAda
             if (candidate.currentEpisodes > 0) message.append(" · E").append(candidate.currentEpisodes);
         }
         if (candidates.size() > limit) message.append("\n… +").append(candidates.size() - limit);
-        new MaterialAlertDialogBuilder(this)
+        new WebHtvAlertDialogBuilder(this)
                 .setTitle(R.string.following_server_preview_title)
                 .setMessage(message)
                 .setNegativeButton(R.string.dialog_negative, null)
@@ -375,7 +383,6 @@ public class FollowingActivity extends AppCompatActivity implements FollowingAda
     @Override
     public void onOpenDetail(Following item, FollowingSource source) {
         if (item == null) return;
-        markReadNow(List.of(item.identityKey));
         StringBuilder message = new StringBuilder();
         int released = FollowingUpdatePolicy.releasedEpisode(item);
         message.append(released > 0 ? getString(R.string.following_official, released) : getString(R.string.following_official_unknown));
@@ -395,7 +402,7 @@ public class FollowingActivity extends AppCompatActivity implements FollowingAda
                 getString(R.string.following_change_source),
                 getString(R.string.following_cancel)
         };
-        new MaterialAlertDialogBuilder(this)
+        new WebHtvAlertDialogBuilder(this)
                 .setTitle(item.vodName)
                 .setMessage(message)
                 .setNegativeButton(R.string.dialog_close, null)
@@ -417,7 +424,7 @@ public class FollowingActivity extends AppCompatActivity implements FollowingAda
             App.post(() -> {
                 if (isFinishing() || isDestroyed()) return;
                 if (history != null) {
-                    TmdbDetailActivity.startFromHistory(this, history);
+                    VideoActivity.startFromFollowingHistory(this, history);
                     return;
                 }
                 FollowingSource target = preferred(item, source);
@@ -516,7 +523,8 @@ public class FollowingActivity extends AppCompatActivity implements FollowingAda
 
     @Override
     public void onRead(Following item) {
-        if (item != null) markReadNow(List.of(item.identityKey));
+        if (item == null || TextUtils.isEmpty(item.identityKey)) return;
+        markReadNow(List.of(item.identityKey));
     }
 
     @Override
@@ -544,7 +552,7 @@ public class FollowingActivity extends AppCompatActivity implements FollowingAda
 
     @Override
     public void onDelete(Following item) {
-        new MaterialAlertDialogBuilder(this, R.style.ThemeOverlay_WebHTV_FollowingConfirmDialog)
+        new WebHtvAlertDialogBuilder(this, R.style.Theme_WebHTV_Dialog)
                 .setTitle(R.string.following_delete_title)
                 .setMessage(R.string.following_delete_message)
                 .setNegativeButton(R.string.dialog_negative, null)

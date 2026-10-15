@@ -576,9 +576,13 @@ public class TmdbUIAdapterTest {
         int coreEpisodeState = source.indexOf("episodeMetadataLoaded = vod == null || item == null || !item.isTv();", coreLoaded);
         int firstRefresh = source.indexOf("notifyVodChanged(vod, generation, RefreshEvent.Type.VOD_CORE);", coreEpisodeState);
         int episodeMethod = source.indexOf("private void loadEpisodeTitlesAsync(Vod vod, TmdbItem item, int generation, int metadataGeneration, int selectedSeason)");
-        int episodeComplete = source.indexOf("finishEpisodeMetadataLoad(vod, generation, metadataGeneration, selectedSeason);", episodeMethod);
-        int completionMethod = source.indexOf("private void finishEpisodeMetadataLoad(Vod vod, int generation, int metadataGeneration, Integer selectedSeason)", episodeComplete);
-        int markComplete = source.indexOf("episodeMetadataLoaded = true;", completionMethod);
+        int episodeHandoff = source.indexOf("completeEpisodeMetadataOnMainThread(vod, generation, metadataGeneration, selectedSeason);", episodeMethod);
+        int completionMethod = source.indexOf("private void completeEpisodeMetadataOnMainThread(Vod vod, int generation, int metadataGeneration, Integer selectedSeason)", episodeHandoff);
+        int mainDispatch = source.indexOf("activity.runOnUiThread(() -> {", completionMethod);
+        int structuralSort = source.indexOf("TmdbEpisodeSorter.sort(target);", mainDispatch);
+        int episodeComplete = source.indexOf("finishEpisodeMetadataLoad(vod, generation, metadataGeneration, selectedSeason);", structuralSort);
+        int finishMethod = source.indexOf("private void finishEpisodeMetadataLoad(Vod vod, int generation, int metadataGeneration, Integer selectedSeason)");
+        int markComplete = source.indexOf("episodeMetadataLoaded = true;", finishMethod);
         int completionRefresh = source.indexOf("notifyVodChanged(vod, generation, RefreshEvent.Type.VOD_EPISODE_TITLES);", markComplete);
         int failureMethod = source.indexOf("private void notifyLoadComplete(Vod vod, int generation)");
         int failureComplete = source.indexOf("episodeMetadataLoaded = true;", failureMethod);
@@ -587,7 +591,10 @@ public class TmdbUIAdapterTest {
         assertTrue(sourcePath + " should track episode metadata independently from core detail", field >= 0 && getter > field);
         assertTrue("starting a new TMDB load should clear episode metadata completion", reset > resetMethod);
         assertTrue("the first core-detail refresh must keep TV episode metadata pending", coreLoaded > coreMethod && coreEpisodeState > coreLoaded && firstRefresh > coreEpisodeState);
-        assertTrue("episode loading should always publish a terminal completion refresh", episodeComplete > episodeMethod && completionMethod > episodeComplete && markComplete > completionMethod && completionRefresh > markComplete);
+        assertTrue("episode loading should sort on main before publishing its terminal completion refresh",
+                episodeHandoff > episodeMethod && completionMethod > episodeHandoff && mainDispatch > completionMethod
+                        && structuralSort > mainDispatch && episodeComplete > structuralSort && markComplete > finishMethod
+                        && completionRefresh > markComplete);
         assertTrue("TMDB skip/failure should also release the episode placeholder", failureComplete > failureMethod && failureRefresh > failureComplete);
     }
 
@@ -725,9 +732,12 @@ public class TmdbUIAdapterTest {
                         && hydrateBody.contains("getTmdbVodContent()")
                         && hydrateBody.contains("mBinding.content.setTag(content);"));
         assertTrue("direct TMDB playback should consume colorful detail's cached TMDB detail for synopsis",
-                source.contains("TmdbDetailCache.take(getIntent().getStringExtra(TmdbDetailCache.EXTRA_KEY), getTmdbItem())")
+                source.contains("TmdbDetailCache.take(getIntent().getStringExtra(TmdbDetailCache.EXTRA_KEY), getTmdbItem(), currentTmdbLanguage())")
                         && source.contains("cachedTmdbOverview(detail)")
-                        && source.contains("cachedTmdbOverviewForLanguage(translations, \"zh-CN\")"));
+                        // The overview now goes through TmdbService's unified language
+                        // policy; the per-call zh-CN fallback chain was replaced by it
+                        // (see TmdbDetailDirectPlayTransitionSourceTest).
+                        && source.contains("translatedOverview(detail, currentTmdbConfig())"));
         assertTrue("fast hydration must keep direct colorful-detail playback on the native right-panel layout",
                 hydrateBody.contains("if (isTmdbMode() && !isIntentTmdbPlayback())")
                         && hydrateBody.contains("mBinding.tmdbOverview.setSingleLine(false);")
@@ -817,8 +827,10 @@ public class TmdbUIAdapterTest {
         Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int method = source.indexOf("private void playDefaultPlayback()");
-        int put = source.indexOf("TmdbDetailCache.put(playbackTmdbItem(), matchedTmdbDetail, detailCastItems)", method);
-        if (put < 0) put = source.indexOf("TmdbDetailCache.put(item, matchedTmdbDetail, detailCastItems)", method);
+        // The cache key carries the request language, so match the call prefix and
+        // tolerate the trailing language argument added by the display-identity fix.
+        int put = source.indexOf("TmdbDetailCache.put(playbackTmdbItem(), matchedTmdbDetail, detailCastItems", method);
+        if (put < 0) put = source.indexOf("TmdbDetailCache.put(item, matchedTmdbDetail, detailCastItems", method);
         int start = source.indexOf("VideoActivity.startDirectTmdb", put);
         int keyArg = source.indexOf("tmdbDetailCacheKey", start);
         int fastTitles = source.indexOf("fastPlaybackEpisodeTitles()", start);

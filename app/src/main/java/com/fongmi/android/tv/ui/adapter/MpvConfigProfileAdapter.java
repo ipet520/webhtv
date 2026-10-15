@@ -1,18 +1,19 @@
 package com.fongmi.android.tv.ui.adapter;
 
 import android.content.res.ColorStateList;
-import android.graphics.Color;
 import android.view.LayoutInflater;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
 
 import androidx.annotation.NonNull;
+import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.fongmi.android.tv.databinding.AdapterMpvConfigProfileBinding;
 import com.fongmi.android.tv.R;
 import com.fongmi.android.tv.player.mpv.MpvConfigStore;
+import com.fongmi.android.tv.theme.ThemeDialogSemantics;
 import com.fongmi.android.tv.utils.Util;
 
 import java.text.DateFormat;
@@ -61,15 +62,17 @@ public class MpvConfigProfileAdapter extends RecyclerView.Adapter<MpvConfigProfi
         MpvConfigStore.ConfigProfile profile = items.get(position);
         boolean disabled = scripts && !profile.scriptEnabled;
         holder.binding.name.setText(profile.name);
-        holder.binding.name.setTextColor(Color.parseColor(disabled ? "#8A8D91" : "#202124"));
+        holder.binding.name.setTextColor(ContextCompat.getColorStateList(holder.binding.name.getContext(), R.color.selector_mpv_profile_text));
         holder.binding.detail.setText(detail(profile));
-        holder.binding.detail.setTextColor(Color.parseColor(disabled ? "#9AA0A6" : "#80868B"));
+        holder.binding.detail.setTextColor(ContextCompat.getColorStateList(holder.binding.detail.getContext(), R.color.selector_mpv_profile_detail_text));
         holder.binding.active.setVisibility(scripts || profile.active ? View.VISIBLE : View.GONE);
         holder.binding.active.setText(scripts
                 ? (disabled ? R.string.setting_disable : R.string.setting_enable) : R.string.mpv_config_in_use);
-        holder.binding.active.setTextColor(Color.parseColor(scripts ? (disabled ? "#6F7378" : "#137333") : "#0B57D0"));
+        holder.binding.active.setTextColor(scripts && disabled
+                ? ThemeDialogSemantics.tokens().colorOnSurfaceVariant()
+                : ThemeDialogSemantics.tokens().colorOnPrimaryContainer());
         holder.binding.active.setBackgroundTintList(scripts
-                ? ColorStateList.valueOf(Color.parseColor(disabled ? "#E8EAED" : "#E6F4EA")) : null);
+                ? ColorStateList.valueOf(disabled ? ThemeDialogSemantics.tokens().colorSurfaceContainerLow() : ThemeDialogSemantics.tokens().colorPrimaryContainer()) : null);
         holder.binding.root.setBackgroundResource(disabled
                 ? R.drawable.selector_mpv_script_disabled_card : R.drawable.selector_mpv_profile_card);
         holder.binding.root.setSelected(!scripts && profile.active);

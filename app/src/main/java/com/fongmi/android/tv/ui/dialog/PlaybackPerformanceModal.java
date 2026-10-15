@@ -15,6 +15,8 @@ import android.widget.LinearLayout;
 import android.widget.ScrollView;
 
 import com.fongmi.android.tv.R;
+import com.fongmi.android.tv.theme.ThemeController;
+import com.fongmi.android.tv.theme.ThemeTokens;
 import com.fongmi.android.tv.utils.ResUtil;
 import com.fongmi.android.tv.utils.Util;
 import com.google.android.material.button.MaterialButton;
@@ -24,14 +26,6 @@ import java.util.function.IntConsumer;
 
 /** Programmatic modal surfaces shared by playback performance settings. */
 final class PlaybackPerformanceModal {
-
-    private static final int COLOR_TEXT = Color.rgb(32, 33, 36);
-    private static final int COLOR_SECONDARY = Color.rgb(95, 99, 104);
-    private static final int COLOR_BLUE = Color.rgb(26, 115, 232);
-    private static final int COLOR_BLUE_TEXT = Color.rgb(23, 78, 166);
-    private static final int COLOR_BLUE_LIGHT = Color.rgb(232, 240, 254);
-    private static final int COLOR_STROKE = Color.rgb(196, 199, 197);
-    private static final int COLOR_BLUE_STROKE = Color.rgb(138, 180, 248);
 
     private PlaybackPerformanceModal() {
     }
@@ -80,7 +74,7 @@ final class PlaybackPerformanceModal {
     private static Shell createShell(
             Context context,
             CharSequence title) {
-        Dialog dialog = new Dialog(context, R.style.Theme_WebHTV_LightDialog);
+        Dialog dialog = new Dialog(context, R.style.Theme_WebHTV_Dialog);
         LinearLayout root = new LinearLayout(context);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setBackgroundResource(R.drawable.shape_shell_proxy_dialog);
@@ -92,7 +86,7 @@ final class PlaybackPerformanceModal {
         titleBar.setGravity(Gravity.CENTER_VERTICAL);
         MaterialTextView titleView = new MaterialTextView(context);
         titleView.setText(title);
-        titleView.setTextColor(COLOR_TEXT);
+        titleView.setTextColor(ThemeController.current().colorOnSurface());
         titleView.setTextSize(18);
         titleView.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
         titleView.setGravity(Gravity.CENTER_VERTICAL);
@@ -158,7 +152,7 @@ final class PlaybackPerformanceModal {
             CharSequence message) {
         MaterialTextView view = new MaterialTextView(context);
         view.setText(message);
-        view.setTextColor(COLOR_SECONDARY);
+        view.setTextColor(ThemeController.current().colorOnSurfaceVariant());
         view.setTextSize(14);
         view.setLineSpacing(dp(context, 3), 1f);
         view.setTextIsSelectable(false);
@@ -187,9 +181,7 @@ final class PlaybackPerformanceModal {
         button.setCornerRadius(dp(context, 6));
         button.setFocusable(true);
         button.setFocusableInTouchMode(Util.isLeanback());
-        styleListButton(button, selected, false);
-        button.setOnFocusChangeListener((view, focused) ->
-                styleListButton(button, selected, focused));
+        styleListButton(button, selected);
         button.setOnClickListener(view -> action.run());
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, dp(context, 50));
@@ -199,18 +191,38 @@ final class PlaybackPerformanceModal {
 
     private static void styleListButton(
             MaterialButton button,
-            boolean selected,
-            boolean focused) {
-        int text = focused ? Color.WHITE
-                : selected ? COLOR_BLUE_TEXT : COLOR_TEXT;
-        int background = focused ? COLOR_BLUE
-                : selected ? COLOR_BLUE_LIGHT : Color.WHITE;
-        int stroke = focused || selected ? COLOR_BLUE : COLOR_STROKE;
-        button.setTextColor(ColorStateList.valueOf(text));
-        button.setBackgroundTintList(ColorStateList.valueOf(background));
-        button.setStrokeColor(ColorStateList.valueOf(stroke));
-        button.setStrokeWidth(dp(button.getContext(),
-                focused || selected ? 2 : 1));
+            boolean selected) {
+        ThemeTokens tokens = ThemeController.legacyInteractionTokens();
+        int[][] states = new int[][]{
+                {-android.R.attr.state_enabled},
+                {android.R.attr.state_pressed},
+                {android.R.attr.state_focused},
+                {android.R.attr.state_selected},
+                {}
+        };
+        button.setSelected(selected);
+        button.setTextColor(new ColorStateList(states, new int[]{
+                tokens.colorOnSurfaceVariant(),
+                tokens.colorOnPrimary(),
+                tokens.colorOnPrimary(),
+                tokens.colorOnPrimaryContainer(),
+                tokens.colorOnSurface()
+        }));
+        button.setBackgroundTintList(new ColorStateList(states, new int[]{
+                tokens.colorSurfaceContainerLow(),
+                tokens.colorPrimary(),
+                tokens.colorPrimary(),
+                tokens.colorPrimaryContainer(),
+                tokens.colorSurfaceContainerHighest()
+        }));
+        button.setStrokeColor(new ColorStateList(states, new int[]{
+                tokens.colorOutlineVariant(),
+                tokens.colorFocus(),
+                tokens.colorFocus(),
+                tokens.colorOutline(),
+                tokens.colorOutlineVariant()
+        }));
+        button.setStrokeWidth(dp(button.getContext(), 1));
     }
 
     private static void addFooterButton(
@@ -252,24 +264,36 @@ final class PlaybackPerformanceModal {
         button.setFocusable(true);
         button.setFocusableInTouchMode(Util.isLeanback());
         button.setCornerRadius(dp(context, 6));
-        styleActionButton(button, primary, false);
-        button.setOnFocusChangeListener((view, focused) ->
-                styleActionButton(button, primary, focused));
+        styleActionButton(button, primary);
         button.setOnClickListener(view -> action.run());
         return button;
     }
 
     private static void styleActionButton(
             MaterialButton button,
-            boolean primary,
-            boolean focused) {
-        boolean filled = primary || focused;
-        button.setTextColor(ColorStateList.valueOf(
-                filled ? Color.WHITE : COLOR_BLUE_TEXT));
-        button.setBackgroundTintList(ColorStateList.valueOf(
-                filled ? COLOR_BLUE : Color.WHITE));
-        button.setStrokeColor(ColorStateList.valueOf(
-                filled ? COLOR_BLUE : COLOR_BLUE_STROKE));
+            boolean primary) {
+        ThemeTokens tokens = ThemeController.legacyInteractionTokens();
+        int[][] states = new int[][]{
+                {-android.R.attr.state_enabled},
+                {android.R.attr.state_pressed},
+                {android.R.attr.state_focused},
+                {}
+        };
+        int defaultText = primary ? tokens.colorOnPrimary() : tokens.colorOnSurfaceVariant();
+        int activeText = tokens.colorOnPrimary();
+        int defaultBackground = primary ? tokens.colorPrimary() : tokens.colorSurfaceContainerHighest();
+        int activeBackground = tokens.colorPrimary();
+        int defaultStroke = primary ? tokens.colorPrimary() : tokens.colorOutlineVariant();
+        int activeStroke = tokens.colorFocus();
+        button.setTextColor(new ColorStateList(states, new int[]{
+                tokens.colorOnSurfaceVariant(), activeText, activeText, defaultText
+        }));
+        button.setBackgroundTintList(new ColorStateList(states, new int[]{
+                tokens.colorSurfaceContainerLow(), activeBackground, activeBackground, defaultBackground
+        }));
+        button.setStrokeColor(new ColorStateList(states, new int[]{
+                tokens.colorOutlineVariant(), activeStroke, activeStroke, defaultStroke
+        }));
         button.setStrokeWidth(dp(button.getContext(), 1));
     }
 
@@ -293,23 +317,30 @@ final class PlaybackPerformanceModal {
         button.setFocusable(true);
         button.setFocusableInTouchMode(Util.isLeanback());
         button.setCornerRadius(dp(context, 6));
-        styleCloseButton(button, false);
-        button.setOnFocusChangeListener((view, focused) ->
-                styleCloseButton(button, focused));
+        styleCloseButton(button);
         button.setOnClickListener(view -> action.run());
         return button;
     }
 
     private static void styleCloseButton(
-            MaterialButton button,
-            boolean focused) {
-        button.setTextColor(ColorStateList.valueOf(
-                focused ? Color.WHITE : COLOR_SECONDARY));
-        button.setBackgroundTintList(ColorStateList.valueOf(
-                focused ? COLOR_BLUE : Color.WHITE));
-        button.setStrokeColor(ColorStateList.valueOf(
-                focused ? COLOR_BLUE : COLOR_STROKE));
-        button.setStrokeWidth(dp(button.getContext(), focused ? 1 : 0));
+            MaterialButton button) {
+        ThemeTokens tokens = ThemeController.legacyInteractionTokens();
+        int[][] states = new int[][]{
+                {-android.R.attr.state_enabled},
+                {android.R.attr.state_pressed},
+                {android.R.attr.state_focused},
+                {}
+        };
+        button.setTextColor(new ColorStateList(states, new int[]{
+                tokens.colorOnSurfaceVariant(), tokens.colorOnPrimary(), tokens.colorOnPrimary(), tokens.colorOnSurfaceVariant()
+        }));
+        button.setBackgroundTintList(new ColorStateList(states, new int[]{
+                tokens.colorSurfaceContainerLow(), tokens.colorPrimary(), tokens.colorPrimary(), tokens.colorSurfaceContainerHighest()
+        }));
+        button.setStrokeColor(new ColorStateList(states, new int[]{
+                tokens.colorOutlineVariant(), tokens.colorFocus(), tokens.colorFocus(), tokens.colorOutlineVariant()
+        }));
+        button.setStrokeWidth(dp(button.getContext(), 1));
     }
 
     private static int dp(Context context, int value) {

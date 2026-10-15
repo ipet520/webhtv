@@ -48,6 +48,7 @@ import com.fongmi.android.tv.web.ext.WebHomeExtensionRegistry;
 import com.google.common.net.HttpHeaders;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonArray;
+import com.google.gson.JsonParser;
 
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
@@ -151,6 +152,7 @@ public class HomeWebController {
     private volatile boolean bridgeReady;
     private volatile boolean sdkReady;
     private volatile boolean paused;
+    private boolean pendingHistoryChanged;
     private volatile boolean destroyed;
 
     public HomeWebController(Activity activity, WebView webView, Listener listener) {
@@ -925,6 +927,7 @@ public class HomeWebController {
         active = this;
         webView.setVisibility(View.VISIBLE);
         focusWebView("show");
+        dispatchPendingHistoryChanged();
         consumeExtensionReload();
     }
 
@@ -1138,6 +1141,13 @@ public class HomeWebController {
         client.addProperty("density", density);
         root.add("client", client);
 
+        // Read-only semantic token snapshot for built-in and remote WebTheme
+        // pages. ThemeWebBridge is the single source of truth and Web pages
+        // must consume these variables without writing back to native state.
+        root.add("tokens", JsonParser.parseString(
+                com.fongmi.android.tv.theme.ThemeWebBridge.snapshotJson(
+                        com.fongmi.android.tv.theme.ThemeController.current())).getAsJsonObject());
+
         Site contentSite = page.site();
         if (contentSite == null) contentSite = VodConfig.get().getHome();
         JsonObject source = new JsonObject();
@@ -1184,6 +1194,7 @@ public class HomeWebController {
         }
         webView.onResume();
         recoverAfterResume();
+        dispatchPendingHistoryChanged();
         consumeExtensionReload();
     }
 
@@ -1587,6 +1598,21 @@ public class HomeWebController {
         });
     }
 
+    public void dispatchHistoryChanged() {
+        if (destroyed) return;
+        if (paused || !bridgeReady || !isVisible()) {
+            pendingHistoryChanged = true;
+            return;
+        }
+        dispatchLifecycle("fmhistorychange", "{version:1}");
+    }
+
+    private void dispatchPendingHistoryChanged() {
+        if (!pendingHistoryChanged || destroyed || paused || !bridgeReady || !isVisible()) return;
+        pendingHistoryChanged = false;
+        dispatchLifecycle("fmhistorychange", "{version:1}");
+    }
+
     private boolean isCurrentPageFinish(WebView view, String url) {
         return !destroyed && view == webView && isCurrentPageFinish(url, view.getUrl());
     }
@@ -1787,6 +1813,7 @@ public class HomeWebController {
             if (destroyed || current != webView || !isThemeRuntimeCurrent(currentTarget, generation)) return;
             sdkReady = true;
             injectExtensions(WebHomeExtension.RUN_AT_END);
+            dispatchPendingHistoryChanged();
             current.postDelayed(() -> {
                 if (destroyed || current != webView || !isThemeRuntimeCurrent(currentTarget, generation)) return;
                 injectExtensions(WebHomeExtension.RUN_AT_IDLE);
@@ -2086,7 +2113,8 @@ public class HomeWebController {
                       openLive:()=>invoke('app.openLive',{}),
                       openKeep:()=>invoke('app.openKeep',{}),
                       openSetting:()=>invoke('app.openSetting',{}),
-                      history:()=>invoke('app.history',{})
+                      history:(options)=>invoke('app.history',options||{}),
+                      historyDelete:(options)=>invoke('app.historyDelete',options||{})
                     },
                     pan,
                     ext,
@@ -2120,6 +2148,7 @@ public class HomeWebController {
                     openKeep:window.fongmi.app.openKeep,
                     openSetting:window.fongmi.app.openSetting,
                     history:window.fongmi.app.history,
+                    historyDelete:window.fongmi.app.historyDelete,
                     themeInfo:window.fongmi.theme.info,
                     openDetail:window.fongmi.navigation.openDetail,
                     openNativeDetail:window.fongmi.navigation.openNativeDetail,

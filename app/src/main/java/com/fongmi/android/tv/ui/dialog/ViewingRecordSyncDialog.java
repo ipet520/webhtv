@@ -25,6 +25,9 @@ import com.fongmi.android.tv.playback.PlaybackRemoteSyncStore;
 import com.fongmi.android.tv.playback.PlaybackWebhookStore;
 import com.fongmi.android.tv.playback.RemoteSyncConfig;
 import com.fongmi.android.tv.playback.ViewingRecordSyncStore;
+import com.fongmi.android.tv.theme.ThemeDialogSemantics;
+import com.fongmi.android.tv.theme.ThemeTokens;
+import com.fongmi.android.tv.theme.WebHtvAlertDialogBuilder;
 import com.fongmi.android.tv.utils.ResUtil;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
@@ -57,7 +60,7 @@ public class ViewingRecordSyncDialog extends BaseAlertDialog {
 
     @Override
     protected MaterialAlertDialogBuilder getBuilder() {
-        return new MaterialAlertDialogBuilder(requireActivity(), R.style.ThemeOverlay_WebHTV_LightDialog).setView(getBinding().getRoot());
+        return new WebHtvAlertDialogBuilder(requireActivity(), R.style.ThemeOverlay_WebHTV_Dialog).setView(getBinding().getRoot());
     }
 
     @Override
@@ -136,6 +139,7 @@ public class ViewingRecordSyncDialog extends BaseAlertDialog {
                 getString(R.string.playback_webhook_summary, PlaybackWebhookStore.activeCount(), PlaybackWebhookStore.totalCount()),
                 R.string.playback_webhook_manage,
                 view -> PlaybackWebhookDialog.show(requireActivity(), this::render)));
+        ThemeDialogSemantics.bindLegacyDialog(binding.getRoot());
     }
 
     private View sectionTitle(int text) {
@@ -215,7 +219,7 @@ public class ViewingRecordSyncDialog extends BaseAlertDialog {
     private MaterialTextView text(String value, int sp, int color, boolean bold) {
         MaterialTextView view = new MaterialTextView(requireContext());
         view.setText(value);
-        view.setTextColor(color);
+        view.setTextColor(ThemeDialogSemantics.textColor(color));
         view.setTextSize(sp);
         view.setSingleLine(false);
         if (bold) view.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
@@ -230,7 +234,8 @@ public class ViewingRecordSyncDialog extends BaseAlertDialog {
         button.setMinimumHeight(dp(36));
         button.setPadding(dp(6), 0, dp(6), 0);
         ColorStateList bg = ContextCompat.getColorStateList(requireContext(), tonal ? R.color.dialog_tonal_button_bg : R.color.dialog_outlined_button_bg);
-        ColorStateList fg = danger ? ColorStateList.valueOf(Color.parseColor("#B3261E")) : ContextCompat.getColorStateList(requireContext(), tonal ? R.color.dialog_tonal_button_text : R.color.dialog_outlined_button_text);
+        ThemeTokens tokens = ThemeDialogSemantics.tokens();
+        ColorStateList fg = danger ? ColorStateList.valueOf(tokens.colorError()) : ContextCompat.getColorStateList(requireContext(), tonal ? R.color.dialog_tonal_button_text : R.color.dialog_outlined_button_text);
         button.setBackgroundTintList(bg);
         button.setTextColor(fg);
         if (!tonal) {
@@ -241,9 +246,10 @@ public class ViewingRecordSyncDialog extends BaseAlertDialog {
     }
 
     private GradientDrawable rowBackground() {
+        ThemeTokens tokens = ThemeDialogSemantics.tokens();
         GradientDrawable drawable = new GradientDrawable();
-        drawable.setColor(Color.parseColor("#F5F6F7"));
-        drawable.setStroke(dp(1), Color.parseColor("#DADCE0"));
+        drawable.setColor(tokens.colorSurfaceContainerHigh());
+        drawable.setStroke(dp(1), tokens.colorOutlineVariant());
         drawable.setCornerRadius(dp(6));
         return drawable;
     }

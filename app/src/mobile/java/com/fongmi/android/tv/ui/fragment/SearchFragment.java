@@ -24,6 +24,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.LinearLayoutCompat;
+import androidx.core.content.ContextCompat;
 import androidx.core.view.MenuProvider;
 import androidx.fragment.app.FragmentManager;
 import androidx.fragment.app.FragmentTransaction;
@@ -39,6 +40,8 @@ import com.fongmi.android.tv.bean.Word;
 import com.fongmi.android.tv.databinding.FragmentSearchBinding;
 import com.fongmi.android.tv.impl.Callback;
 import com.fongmi.android.tv.setting.Setting;
+import com.fongmi.android.tv.theme.ThemeController;
+import com.fongmi.android.tv.theme.ThemeDialogSemantics;
 import com.fongmi.android.tv.setting.SiteGroupOrderStore;
 import com.fongmi.android.tv.ui.adapter.HotWordAdapter;
 import com.fongmi.android.tv.ui.adapter.RecordAdapter;
@@ -71,6 +74,9 @@ public class SearchFragment extends BaseFragment implements MenuProvider, WordAd
     private static final int MENU_SCOPE_CURRENT = 2;
     private static final int MENU_SCOPE_GROUP_OFFSET = 100;
     private static final int SCOPE_POPUP_ITEM_HEIGHT = 44;
+    private static final int SCOPE_POPUP_ITEM_GAP = 4;
+    private static final int SCOPE_POPUP_OUTER_GAP = 4;
+    private static final int SCOPE_POPUP_ITEM_HORIZONTAL_PADDING = 18;
     private static final int SCOPE_POPUP_MAX_ITEMS = 8;
     private static final int HOT_LIMIT = 10;
 
@@ -332,7 +338,9 @@ public class SearchFragment extends BaseFragment implements MenuProvider, WordAd
         scroll.setOverScrollMode(View.OVER_SCROLL_NEVER);
         LinearLayoutCompat content = new LinearLayoutCompat(requireContext());
         content.setOrientation(LinearLayoutCompat.VERTICAL);
-        content.setPadding(0, ResUtil.dp2px(6), 0, ResUtil.dp2px(6));
+        int outerGap = ResUtil.dp2px(SCOPE_POPUP_OUTER_GAP);
+        int verticalPadding = ResUtil.dp2px(6);
+        content.setPadding(outerGap, verticalPadding, outerGap, verticalPadding);
         scroll.addView(content, new ScrollView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         addScopePopupItem(content, getString(R.string.search_scope_all), MENU_SCOPE_ALL, groups);
         addScopePopupItem(content, getString(R.string.search_scope_current), MENU_SCOPE_CURRENT, groups);
@@ -341,47 +349,61 @@ public class SearchFragment extends BaseFragment implements MenuProvider, WordAd
         scopePopup.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
         scopePopup.setOutsideTouchable(true);
         scopePopup.setElevation(ResUtil.dp2px(6));
+        com.fongmi.android.tv.theme.ThemeController.bindPopupWindow(scopePopup);
         scopePopup.showAsDropDown(anchor, anchor.getWidth() - width, 0);
     }
 
     private GradientDrawable getScopePopupBackground() {
-        GradientDrawable drawable = new GradientDrawable();
-        drawable.setColor(Color.WHITE);
-        drawable.setCornerRadius(ResUtil.dp2px(6));
-        return drawable;
+        return ThemeDialogSemantics.popup(requireContext(), 6);
     }
 
     private int getScopePopupWidth(List<String> groups) {
-        int width = Math.max(ResUtil.getTextWidth(getString(R.string.search_scope_all), 16), ResUtil.getTextWidth(getString(R.string.search_scope_current), 16));
-        for (String group : groups) width = Math.max(width, ResUtil.getTextWidth(group, 16));
-        int contentWidth = width + ResUtil.dp2px(36);
+        MaterialTextView measureView = new MaterialTextView(requireContext());
+        measureView.setSingleLine(true);
+        measureView.setIncludeFontPadding(false);
+        measureView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
+        float maxActualTextWidth = Math.max(
+                measureView.getPaint().measureText(getString(R.string.search_scope_all)),
+                measureView.getPaint().measureText(getString(R.string.search_scope_current)));
+        for (String group : groups) maxActualTextWidth = Math.max(maxActualTextWidth, measureView.getPaint().measureText(group));
+        int textWidth = (int) Math.ceil(maxActualTextWidth);
+        int itemPadding = ResUtil.dp2px(SCOPE_POPUP_ITEM_HORIZONTAL_PADDING);
+        int outerGap = ResUtil.dp2px(SCOPE_POPUP_OUTER_GAP);
+        int contentWidth = textWidth + itemPadding * 2 + outerGap * 2;
         int maxWidth = ResUtil.getScreenWidth(requireContext()) - ResUtil.dp2px(32);
         return Math.min(contentWidth, maxWidth);
     }
 
     private int getScopePopupHeight(int itemCount) {
         int itemHeight = ResUtil.dp2px(SCOPE_POPUP_ITEM_HEIGHT);
-        int padding = ResUtil.dp2px(12);
-        int contentHeight = itemCount * itemHeight + padding;
-        int maxHeight = Math.min(ResUtil.getScreenHeight(requireContext()) - mBinding.toolbar.getHeight() - ResUtil.dp2px(32), SCOPE_POPUP_MAX_ITEMS * itemHeight + padding);
-        return Math.min(contentHeight, Math.max(itemHeight + padding, maxHeight));
+        int itemGap = ResUtil.dp2px(SCOPE_POPUP_ITEM_GAP);
+        int verticalPadding = ResUtil.dp2px(12);
+        int gapCount = Math.max(0, itemCount - 1);
+        int contentHeight = itemCount * itemHeight + gapCount * itemGap + verticalPadding;
+        int maxGapCount = Math.max(0, SCOPE_POPUP_MAX_ITEMS - 1);
+        int maxHeight = Math.min(ResUtil.getScreenHeight(requireContext()) - mBinding.toolbar.getHeight() - ResUtil.dp2px(32), SCOPE_POPUP_MAX_ITEMS * itemHeight + maxGapCount * itemGap + verticalPadding);
+        return Math.min(contentHeight, Math.max(itemHeight + verticalPadding, maxHeight));
     }
 
     private void addScopePopupItem(LinearLayoutCompat content, String text, int itemId, List<String> groups) {
         MaterialTextView view = new MaterialTextView(requireContext());
         view.setText(text);
         view.setSingleLine(true);
-        view.setGravity(Gravity.CENTER_VERTICAL);
+        view.setGravity(Gravity.CENTER);
         view.setIncludeFontPadding(false);
-        view.setTextColor(0xFF202124);
+        view.setTextColor(ContextCompat.getColorStateList(requireContext(), R.color.selector_theme_sheet_text));
         view.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
-        view.setPadding(ResUtil.dp2px(18), 0, ResUtil.dp2px(18), 0);
-        view.setBackgroundResource(getSelectableItemBackground());
+        int itemPadding = ResUtil.dp2px(SCOPE_POPUP_ITEM_HORIZONTAL_PADDING);
+        view.setPadding(itemPadding, 0, itemPadding, 0);
+        view.setBackgroundResource(R.drawable.selector_theme_sheet_button);
+        com.fongmi.android.tv.theme.ThemeController.bindThemeBinding(view, R.string.theme_binding_theme_sheet_button);
         view.setOnClickListener(v -> {
             if (scopePopup != null) scopePopup.dismiss();
             onScopeSelected(itemId, groups);
         });
-        content.addView(view, new LinearLayoutCompat.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ResUtil.dp2px(SCOPE_POPUP_ITEM_HEIGHT)));
+        LinearLayoutCompat.LayoutParams params = new LinearLayoutCompat.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ResUtil.dp2px(SCOPE_POPUP_ITEM_HEIGHT));
+        params.topMargin = content.getChildCount() == 0 ? 0 : ResUtil.dp2px(SCOPE_POPUP_ITEM_GAP);
+        content.addView(view, params);
     }
 
     private int getSelectableItemBackground() {

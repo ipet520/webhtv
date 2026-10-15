@@ -7,11 +7,12 @@
     android:layout_height="48dp"
     android:layout_marginBottom="8dp"
     android:addStatesFromChildren="true"
-    android:background="@drawable/selector_git_cloud_card"
+    android:background="@drawable/selector_settings_card"
     android:descendantFocusability="afterDescendants"
     android:gravity="center_vertical"
     android:orientation="horizontal"
     android:paddingStart="12dp"
+    android:tag="@string/theme_binding_settings_card"
     android:paddingEnd="8dp">
 
     <com.google.android.material.textview.MaterialTextView
@@ -21,7 +22,7 @@
         android:layout_weight="1"
         android:ellipsize="end"
         android:singleLine="true"
-        android:textColor="#202124"
+        android:textColor="?attr/colorOnSurface"
         android:textSize="15sp"
         tools:text="倍速" />
 
@@ -35,6 +36,7 @@
         android:padding="8dp"
         android:scaleType="center"
         android:src="@drawable/ic_player_button_visible"
+        android:tag="@string/theme_binding_dialog_switch"
         app:tint="@color/dialog_tonal_button_text" />
 
     <com.google.android.material.button.MaterialButton

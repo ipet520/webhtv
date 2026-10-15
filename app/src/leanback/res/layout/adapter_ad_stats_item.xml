@@ -11,6 +11,7 @@
     android:paddingStart="16dp"
     android:paddingTop="10dp"
     android:paddingEnd="16dp"
+    android:tag="@string/theme_binding_ad_stats_item"
     android:paddingBottom="10dp">
 
     <com.google.android.material.textview.MaterialTextView
@@ -22,7 +23,8 @@
         android:ellipsize="end"
         android:maxLines="1"
         android:text="站点名称"
-        android:textColor="@color/dialog_outlined_button_text"
+        android:duplicateParentState="true"
+        android:textColor="@color/selector_ad_stats_item_text"
         android:textSize="15sp" />
 
     <com.google.android.material.textview.MaterialTextView
@@ -32,7 +34,8 @@
         android:layout_gravity="center_vertical"
         android:layout_marginEnd="16dp"
         android:text="默认"
-        android:textColor="#5F6368"
+        android:duplicateParentState="true"
+        android:textColor="@color/selector_ad_stats_item_text"
         android:textSize="12sp"
         android:visibility="gone" />
 
@@ -44,7 +47,8 @@
         android:minWidth="48dp"
         android:text="0"
         android:textAlignment="textEnd"
-        android:textColor="@color/dialog_outlined_button_text"
+        android:duplicateParentState="true"
+        android:textColor="@color/selector_ad_stats_item_text"
         android:textSize="14sp"
         android:textStyle="bold" />
 

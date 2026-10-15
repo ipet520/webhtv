@@ -6,6 +6,7 @@
     android:background="@drawable/shape_vod_list"
     android:focusable="true"
     android:focusableInTouchMode="true"
+    android:tag="webhtv:focus-stroke:1.5dp"
     android:foreground="@drawable/selector_vod">
 
     <androidx.appcompat.widget.LinearLayoutCompat
@@ -27,7 +28,7 @@
             android:layout_height="wrap_content"
             android:layout_marginEnd="16dp"
             android:singleLine="true"
-            android:textColor="@color/white"
+            android:textColor="?attr/webhtvColorOnWallpaper"
             android:textSize="16sp"
             tools:text="Download" />
 

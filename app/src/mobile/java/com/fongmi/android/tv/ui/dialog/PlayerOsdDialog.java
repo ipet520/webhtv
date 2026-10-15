@@ -19,6 +19,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.fongmi.android.tv.R;
 import com.fongmi.android.tv.databinding.AdapterPlayerOsdBinding;
 import com.fongmi.android.tv.databinding.DialogPlayerOsdBinding;
+import com.fongmi.android.tv.theme.ThemeController;
 import com.fongmi.android.tv.utils.ResUtil;
 
 import java.util.Arrays;
@@ -80,6 +81,7 @@ public final class PlayerOsdDialog extends DialogFragment {
         window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
         window.setAttributes(params);
         window.setLayout(params.width, params.height);
+        ThemeController.bindDialog(dialog);
     }
 
     private void initView() {

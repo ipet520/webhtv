@@ -23,6 +23,8 @@ import com.fongmi.android.tv.databinding.DialogOneKeySyncBinding;
 import com.fongmi.android.tv.remote.RemoteStore;
 import com.fongmi.android.tv.server.Server;
 import com.fongmi.android.tv.setting.Setting;
+import com.fongmi.android.tv.theme.ThemeDialogSemantics;
+import com.fongmi.android.tv.theme.ThemeTokens;
 import com.fongmi.android.tv.ui.adapter.SyncDeviceAdapter;
 import com.fongmi.android.tv.ui.custom.SpaceItemDecoration;
 import com.fongmi.android.tv.utils.NsdDeviceDiscovery;
@@ -270,10 +272,11 @@ public class OneKeySyncDialog extends BaseBottomSheetDialog implements SyncDevic
     }
 
     private void updateDirectionCard(com.google.android.material.card.MaterialCardView card, TextView role, boolean sender) {
-        card.setCardBackgroundColor(Color.parseColor(sender ? "#E8F0FE" : "#F8FAFD"));
+        ThemeTokens tokens = ThemeDialogSemantics.tokens();
+        card.setCardBackgroundColor(sender ? tokens.colorPrimaryContainer() : tokens.colorSurfaceContainerHigh());
         card.setStrokeColor(Color.TRANSPARENT);
         card.setStrokeWidth(0);
-        role.setTextColor(Color.parseColor(sender ? "#174EA6" : "#5F6368"));
+        role.setTextColor(sender ? tokens.colorOnPrimaryContainer() : tokens.colorOnSurfaceVariant());
     }
 
     @Override

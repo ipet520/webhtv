@@ -65,6 +65,9 @@ public class TmdbHeaderView {
     private static final int COLOR_NATIVE_BACKGROUND = 0xFF0F141A;
     private static final int COLOR_CINEMA_BACKGROUND = 0xFF0F141A;
     private static final int COLOR_PROFILE_BACKGROUND = 0xFFEAF5F1;
+    private static final int COLOR_PROFILE_FOREGROUND = 0xFF12202D;
+    private static final int COLOR_PROFILE_SECONDARY = 0xCC12202D;
+    private static final int COLOR_PROFILE_MUTED = 0x9912202D;
     private static final int COLOR_FUSION_BACKDROP_TEXT = 0xFFFFFFFF;
     private static final int COLOR_FUSION_BACKDROP_TEXT_SECONDARY = 0xE6FFFFFF;
     private static final int COLOR_FUSION_BACKDROP_WATERMARK = 0x99FFFFFF;
@@ -1470,6 +1473,11 @@ public class TmdbHeaderView {
         chip.setOrientation(androidx.appcompat.widget.LinearLayoutCompat.VERTICAL);
         chip.setGravity(android.view.Gravity.CENTER);
         chip.setPadding(28, 14, 28, 14);
+        // “评分与数据”卡片必须可被遥控/键盘选中：此前是纯装饰 LinearLayout，
+        // 上下键会整行跳过，与 TV 播放页保持同一行为。
+        chip.setFocusable(true);
+        chip.setFocusableInTouchMode(false);
+        chip.setClickable(true);
 
         android.graphics.drawable.GradientDrawable background = new android.graphics.drawable.GradientDrawable();
         background.setCornerRadius(ResUtil.dp2px(6));
@@ -1501,7 +1509,26 @@ public class TmdbHeaderView {
         boolean lightChrome = isLightDetailChrome() || (fusion && !isDarkDetailTheme());
         boolean lightSurface = !backdropSurfaceMode && lightChrome;
         styleSourceRatingChip(chip, fusion, lightChrome, lightSurface);
+        chip.setOnFocusChangeListener((view, focused) -> {
+            if (focused) applyUnifiedRatingChipFocus(view);
+            else styleSourceRatingChip((ViewGroup) view, Setting.isFusionDetailPage(),
+                    isLightDetailChrome() || (Setting.isFusionDetailPage() && !isDarkDetailTheme()),
+                    !backdropSurfaceMode && (isLightDetailChrome() || (Setting.isFusionDetailPage() && !isDarkDetailTheme())));
+        });
         return chip;
+    }
+
+    /**
+     * 统一焦点环：3dp @color/tv_item_focus_ring，与 selector_video_item.xml 同一套取值。
+     * 失焦时由 styleSourceRatingChip 恢复当前主题的常态外观，不改变既有亮/暗/融合配色。
+     */
+    private void applyUnifiedRatingChipFocus(View chip) {
+        if (!(chip instanceof ViewGroup group)) return;
+        android.graphics.drawable.GradientDrawable background = new android.graphics.drawable.GradientDrawable();
+        background.setColor(backdropSurfaceMode ? COLOR_BACKDROP_SURFACE_CONTROL_BG : 0x26FFFFFF);
+        background.setCornerRadius(ResUtil.dp2px(6));
+        background.setStroke(ResUtil.dp2px(3), activity.getColor(R.color.tv_item_focus_ring));
+        group.setBackground(background);
     }
 
     private void styleRatingChipContainer(ViewGroup container) {
@@ -1559,13 +1586,17 @@ public class TmdbHeaderView {
         boolean dark = style == Setting.DETAIL_STYLE_NATIVE || (cinema && !light);
         setCinemaRows(cinema, cinema, light);
         int background = cinema ? TmdbCinemaTheme.palette(light).background() : dark ? COLOR_NATIVE_BACKGROUND : COLOR_PROFILE_BACKGROUND;
-        int primary = dark ? 0xFFFFFFFF : 0xFF15222B;
-        int secondary = dark ? 0xFFC8D2DC : 0xFF40555E;
-        int watermark = dark ? 0xFF6B7785 : 0xFF7E938A;
+        TmdbCinemaTheme.Palette cinemaPalette = cinema ? TmdbCinemaTheme.palette(light) : null;
+        int primary = cinema ? cinemaPalette.primary()
+                : style == Setting.DETAIL_STYLE_PROFILE ? COLOR_PROFILE_FOREGROUND : COLOR_FUSION_BACKDROP_TEXT;
+        int secondary = cinema ? cinemaPalette.secondary()
+                : style == Setting.DETAIL_STYLE_PROFILE ? COLOR_PROFILE_SECONDARY : COLOR_FUSION_BACKDROP_TEXT_SECONDARY;
+        int watermark = cinema ? cinemaPalette.muted()
+                : style == Setting.DETAIL_STYLE_PROFILE ? COLOR_PROFILE_MUTED : COLOR_FUSION_BACKDROP_WATERMARK;
         headerRoot.setBackgroundColor(background);
         setTextColor(R.id.tmdbOverview, secondary);
-        setTextColor(R.id.tmdbMeta, dark ? 0xFFC8D2DC : 0xFFE4F3EE);
-        setTextColor(R.id.tmdbGenres, dark ? 0xFF9AA7B4 : 0xFFD5EAE3);
+        setTextColor(R.id.tmdbMeta, secondary);
+        setTextColor(R.id.tmdbGenres, secondary);
         setTextColor(R.id.tmdbCastLabel, primary);
         setTextColor(R.id.tmdbCrewLabel, primary);
         setTextColor(R.id.tmdbPhotosLabel, primary);
@@ -2061,9 +2092,7 @@ public class TmdbHeaderView {
             return;
         }
         if (style == Setting.DETAIL_STYLE_NATIVE) {
-            button.setTextColor(ContextCompat.getColor(activity, R.color.tmdb_action_button_text));
-            button.setStrokeColor(ColorStateList.valueOf(ContextCompat.getColor(activity, R.color.tmdb_action_button_stroke)));
-            button.setBackgroundTintList(ColorStateList.valueOf(ContextCompat.getColor(activity, R.color.tmdb_action_button_bg)));
+            applySemanticActionButton(button);
             return;
         }
         boolean cinema = style == Setting.DETAIL_STYLE_CINEMA;
@@ -2074,9 +2103,20 @@ public class TmdbHeaderView {
             button.setBackgroundTintList(ColorStateList.valueOf(palette.card()));
             return;
         }
-        button.setTextColor(cinema ? 0xFFE9F0F5 : 0xFF16372F);
-        button.setStrokeColor(ColorStateList.valueOf(cinema ? 0x66FFFFFF : 0x663C7D6B));
-        button.setBackgroundTintList(ColorStateList.valueOf(cinema ? 0x26FFFFFF : 0xD9FFFFFF));
+        if (!cinema) {
+            applySemanticActionButton(button);
+            return;
+        }
+        button.setTextColor(0xFFE9F0F5);
+        button.setStrokeColor(ColorStateList.valueOf(0x66FFFFFF));
+        button.setBackgroundTintList(ColorStateList.valueOf(0x26FFFFFF));
+    }
+
+    private void applySemanticActionButton(MaterialButton button) {
+        button.setTextColor(ContextCompat.getColorStateList(activity, R.color.tmdb_action_button_text));
+        button.setStrokeColor(ContextCompat.getColorStateList(activity, R.color.tmdb_action_button_stroke));
+        button.setBackgroundTintList(ContextCompat.getColorStateList(activity, R.color.tmdb_action_button_bg));
+        com.fongmi.android.tv.theme.ThemeController.bindThemeBinding(button, R.string.theme_binding_tmdb_action_button_stroke);
     }
 
     /**

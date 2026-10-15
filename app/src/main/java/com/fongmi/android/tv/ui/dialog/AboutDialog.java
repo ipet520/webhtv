@@ -13,6 +13,7 @@ import android.view.Window;
 import android.view.WindowManager;
 
 import androidx.appcompat.app.AlertDialog;
+import androidx.core.content.ContextCompat;
 import androidx.fragment.app.FragmentActivity;
 
 import com.fongmi.android.tv.App;
@@ -21,6 +22,7 @@ import com.fongmi.android.tv.R;
 import com.fongmi.android.tv.databinding.DialogAboutBinding;
 import com.fongmi.android.tv.databinding.DialogGithubProxyBinding;
 import com.fongmi.android.tv.setting.Setting;
+import com.fongmi.android.tv.theme.WebHtvAlertDialogBuilder;
 import com.fongmi.android.tv.ui.adapter.GithubProxyAdapter;
 import com.fongmi.android.tv.utils.AppVersion;
 import com.fongmi.android.tv.utils.GithubProxy;
@@ -28,6 +30,7 @@ import com.fongmi.android.tv.utils.Notify;
 import com.fongmi.android.tv.utils.ResUtil;
 import com.fongmi.android.tv.utils.Task;
 import com.fongmi.android.tv.utils.Util;
+import com.google.android.material.button.MaterialButton;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.github.catvod.net.OkHttp;
 
@@ -46,6 +49,11 @@ public final class AboutDialog {
 
     public static void show(FragmentActivity activity, Runnable updateAction) {
         DialogAboutBinding binding = DialogAboutBinding.inflate(LayoutInflater.from(activity));
+        if (Util.isLeanback()) {
+            applyDohCancelStyle(binding.checkUpdate);
+            applyDohCancelStyle(binding.githubProxy);
+            applyDohCancelStyle(binding.confirm);
+        }
         binding.version.setText(activity.getString(R.string.about_version, AppVersion.fullName(), BuildConfig.FLAVOR_mode, BuildConfig.FLAVOR_abi));
 
         Dialog dialog = new Dialog(activity);
@@ -63,12 +71,19 @@ public final class AboutDialog {
         binding.githubProxy.setOnClickListener(v -> showGithubProxy(activity));
         dialog.setCanceledOnTouchOutside(false);
         dialog.show();
+        com.fongmi.android.tv.theme.ThemeController.bindDialog(dialog);
         configureWindow(activity, dialog, binding);
         binding.confirm.requestFocus();
     }
 
+    private static void applyDohCancelStyle(MaterialButton button) {
+        ChoiceDialog.applyDohCancelColors(button);
+        button.setStrokeColor(ContextCompat.getColorStateList(button.getContext(), R.color.dialog_outlined_button_stroke));
+        button.setStrokeWidth(ResUtil.dp2px(1));
+    }
+
     private static void showGithubProxy(FragmentActivity activity) {
-        MaterialAlertDialogBuilder builder = new MaterialAlertDialogBuilder(activity, R.style.Theme_WebHTV_LightDialog);
+        MaterialAlertDialogBuilder builder = new WebHtvAlertDialogBuilder(activity, R.style.Theme_WebHTV_Dialog);
         Context context = builder.getContext();
         DialogGithubProxyBinding binding = DialogGithubProxyBinding.inflate(LayoutInflater.from(context));
         GithubProxyAdapter adapter = new GithubProxyAdapter(new GithubProxyAdapter.OnClickListener() {
