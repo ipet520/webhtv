@@ -1,4 +1,4 @@
-﻿# 播放器上游依赖增量合并评估（持续整理）
+# 播放器上游依赖增量合并评估（持续整理）
 
 审计日期：2026-08-20（Asia/Shanghai）
 
@@ -49,7 +49,7 @@
 | `E-SP8` | Exo 性能/播放行为 | 基于现有短剧源设置的单实例队列连播、下一集预解析与受控预加载 | **代码实施及 beta 合并后复评通过**：`2b22c5240d52a8c2054299326f44fee6743ab26f` / `recovery/E-SP8/20260911201514-2b22c5240d52`；实验默认策略不变，连续切集双端设备验收与正式放量尚未完成；不变更依赖 | [E-SP8-exo-short-drama-queue.md](E-SP8-exo-short-drama-queue.md) |
 | `C20` | common / 追更刷新策略 | App 前台使用时将常规追更检查间隔缩短为 15 分钟，并提高前台到期批量；后台 6 小时兜底和已完结/计划中低频策略保持不变 | **已实现**：聚焦策略单测 5/5 与 Mobile/Leanback arm64 Java 编译通过，待 task guard 原子提交和恢复标签 | [C20-foreground-following-refresh.md](C20-foreground-following-refresh.md) |
 | `C52` | common / 固定 beta 增量同步 | 将 `cb82755a..29d52ab` 的适用修复语义整合到本地稳定基线，保护本地 UI/Theme/播放/TMDB 合同 | **固定范围整合及定向验证完成**：保留本地语义并吸收适用增量；验证记录见唯一任务文档 | [C52-beta-sync-integration-20261009.md](C52-beta-sync-integration-20261009.md) |
-
+| `C53` | common / 固定 beta 增量同步 | 将 29d52ab..93ea56a 固定范围的适用修复移植到独立 App 分支，保留本地 Theme/Focus/Playback/TMDB 合同 | 审计完成、选择性移植进行中：263 提交完整分类，固定范围及 95 个候选见唯一任务文档 | [C53-beta-sync-integration-20261019.md](C53-beta-sync-integration-20261019.md) |
 `C1` 是跨播放器真实输入验收维度，不单独形成代码任务或文档；它写入对应的 E/P 任务文档。`E-SP3` 已在 `fongmi-sync` 完成 App/Media3 合并，保留既有 `E4-J1`/`E6-1`/`E7-1`/`E7-2 + C3` 能力；`E9-3` 与已完成的 `P1` 现已共同进入集成树，后续按既定顺序处理 P2 阶段。
 
 ## 目标与决策顺序
