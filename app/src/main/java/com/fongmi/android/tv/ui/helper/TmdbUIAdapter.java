@@ -231,7 +231,14 @@ public class TmdbUIAdapter {
             }
             if (keyed != null && (TextUtils.isEmpty(requestedEpisodeUrl)
                     || containsEpisodeUrl(keyed, requestedEpisodeUrl))) return keyed;
-            return uniqueFlagForEpisodeUrl(flags, requestedEpisodeUrl);
+            Flag unique = uniqueFlagForEpisodeUrl(flags, requestedEpisodeUrl);
+            if (unique != null) return unique;
+            // A stable key can still identify the selected line after its episode URL changes
+            // because the source refreshed or signed the URL. Keep that line when its name agrees;
+            // returning null here lets the caller silently fall back to the first line.
+            if (keyed != null && !TextUtils.isEmpty(requestedFlagName)
+                    && TextUtils.equals(requestedFlagName, keyed.getFlag())) return keyed;
+            return null;
         }
         if (!TextUtils.isEmpty(requestedEpisodeUrl)) {
             for (Flag flag : flags) {

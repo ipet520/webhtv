@@ -390,3 +390,11 @@ Merge 提交用 combined diff 检查冲突解决路径；合并分支中的独�
 - PASS: Mobile and Leanback focused HLS notice/pipeline/Exo tests, 17 each; 0 failures, 0 errors, 0 skipped. The HLS-related MPV tests in the broader Mobile invocation also passed (8 tests).
 - The first combined Mobile+Leanback Gradle invocation ran 4,915 Mobile tests and failed 5 tests (2 skipped): `MpvFontConfigTest.writeIfChanged_replacesStaleConfigurationAndCleansTemporaryFile` (IOException committing fontconfig), `MpvHlsCacheCoordinatorTest.successfulCommitPublishesCompleteFileAndReleasesReservation` (assertion), `LiveActivitySourceFallbackSourceTest.eachFetchReplacesPreviousBufferingTimeout` and `.failedAttemptIsReleasedOnlyWhenReplacementStartsBuffering` (source assertions), and `ThemeBaseWiringTest.controlSheetButtonTextStaysPaletteIndependent` (source assertion). Leanback's selected task and the isolated Mobile HLS rerun passed. These failures are recorded as observed; no baseline comparison was performed, and they are not evidence of full Mobile suite success.
 - Task guard session: `C53-HLS-NOTICE-01`; source, tests, and verification evidence for this checkpoint are listed above.
+
+### Checkpoint 3: TMDB stable route key
+
+- Source: `98250b22e4377e66131e2e8b08a528b100792569` (`fix(tmdb): 稳定键命中线路后不再因集URL失配退回第一条`).
+- If a stored stable route key still resolves to a current line but the episode URL changed, selection now keeps that line when its name matches. A stale key with no matching name remains unresolved, preserving the caller's existing preference/history fallback rather than guessing.
+- Added regressions for refreshed/signed episode URLs and stale-key/name mismatch. No TMDB concurrency, episode metadata, detail-screen, or history behavior changed.
+- PASS: `TmdbUIAdapterTest` in Mobile debug variant; 61 tests, 0 failures/errors/skips. This class is in the Mobile test source set.
+- Task guard session: `C53-TMDB-ROUTE-KEY-01`; source, tests, and verification evidence for this checkpoint are listed above.

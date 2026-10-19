@@ -96,6 +96,24 @@ public class TmdbUIAdapterTest {
     }
 
     @Test
+    public void matchedStableFlagKeySurvivesRefreshedEpisodeUrl() {
+        Flag firstLine = Flag.create("线路1", "E1$one");
+        Flag chosenLine = Flag.create("线路4", "E1$four-old");
+
+        assertSame(chosenLine, TmdbUIAdapter.selectPlaybackFlag(
+                List.of(firstLine, chosenLine), "线路4#1", "E1$four-new", "线路4"));
+    }
+
+    @Test
+    public void staleStableFlagKeyWithUnmatchedNameStaysUnresolved() {
+        Flag firstLine = Flag.create("线路1", "E1$one");
+        Flag secondLine = Flag.create("线路2", "E1$two");
+
+        assertNull(TmdbUIAdapter.selectPlaybackFlag(
+                List.of(firstLine, secondLine), "线路2#9", "E1$gone", "线路2"));
+    }
+
+    @Test
     public void explicitMultiSeasonSegmentsApplySecondSeasonMetadata() {
         List<Episode> source = List.of(
                 Episode.create("S01E01", "s1e1"),
