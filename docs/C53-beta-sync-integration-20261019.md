@@ -407,3 +407,11 @@ Merge 提交用 combined diff 检查冲突解决路径；合并分支中的独�
 - PASS: `TmdbDetailDirectPlayTransitionSourceTest` in Mobile and Leanback debug variants; 4 tests per variant, 0 failures/errors/skips.
 - No change to resume positions, History handoff, TMDB request concurrency, or the actual player/kernel selection.
 - Task guard session: `C53-TMDB-INLINE-LOADING-01`; source, tests, and verification evidence for this checkpoint are listed above.
+
+### Checkpoint 5: Leanback discarded player results
+
+- Sources: `4319403502a64ad8064781f4e88f21391e6abc77` clears loading guards when a result arrives before detail binding; `d7b9439201cef70c9229b98c7356e0a7397103eb` covers canceled requests delivered as a null result. Both cases are present in the final target tree.
+- `VideoActivity.setPlayer` now clears `mPlaybackRequestActive` and `mPlaybackPlayerStarted` on the null-result and drop-before-detail-ready returns. Neither branch can start the player or receive a later READY callback, so both guards otherwise leave the spinner permanently blocked.
+- Added source-contract checks for both early-return paths while retaining the existing stale-READY/duplicate-result coverage.
+- PASS: `VideoActivityLayoutTest` Mobile debug variant; 154 tests, 0 failures/errors/skips. The class reads the Leanback production source. Leanback compilation is recorded with the final variant builds.
+- Task guard session: `C53-LEANBACK-DISCARDED-RESULT-01`; source, tests, and verification evidence for this checkpoint are listed above.

@@ -3076,7 +3076,14 @@ private boolean runtimeSourceOnly;
     }
 
     private void setPlayer(Result result) {
-        if (result == null || isFinishing() || isDestroyed()) return;
+        // A null result means the player-content request was canceled and no later READY callback
+        // will arrive to clear the loading guards.
+        if (result == null) {
+            mPlaybackRequestActive = false;
+            mPlaybackPlayerStarted = false;
+            return;
+        }
+        if (isFinishing() || isDestroyed()) return;
         SpiderDebug.log("video-flow", "player finish cost=%dms useParse=%s multi=%s msg=%s", System.currentTimeMillis() - playerStartTime, result.shouldUseParse(), result.getUrl().isMulti(), result.getMsg());
         if (service() == null) {
             mPendingPlayer = result;
@@ -3088,6 +3095,10 @@ private boolean runtimeSourceOnly;
             return;
         }
         if (!canApplyPlayerResult()) {
+            // This result is discarded before playback starts, so there will be no READY callback
+            // to clear the request guard.
+            mPlaybackRequestActive = false;
+            mPlaybackPlayerStarted = false;
             SpiderDebug.log("video-flow", "drop player result before detail ready key=%s id=%s", getKey(), getId());
             return;
         }

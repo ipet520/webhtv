@@ -1331,6 +1331,22 @@ public class VideoActivityLayoutTest {
                 error.contains("mPlaybackRequestActive = false;")
                         && error.contains("mPlaybackPlayerStarted = false;")
                         && error.contains("showError(msg);"));
+        int nullResultReturn = setPlayer.indexOf("if (result == null)");
+        assertTrue("the canceled-result branch must exist", nullResultReturn >= 0);
+        int finishingCheck = setPlayer.indexOf("if (isFinishing() || isDestroyed())", nullResultReturn);
+        String nullResultBranch = setPlayer.substring(nullResultReturn, finishingCheck);
+        assertTrue("a canceled request has no later result callback, so it must clear its guards itself",
+                nullResultBranch.contains("mPlaybackRequestActive = false;")
+                        && nullResultBranch.contains("mPlaybackPlayerStarted = false;")
+                        && nullResultBranch.contains("return;"));
+        int notReadyReturn = setPlayer.indexOf("if (!canApplyPlayerResult())");
+        assertTrue("the drop-before-detail-ready branch must exist", notReadyReturn >= 0);
+        int duplicateResult = setPlayer.indexOf("if (result == mAppliedPlayerResult", notReadyReturn);
+        String notReadyBranch = setPlayer.substring(notReadyReturn, duplicateResult);
+        assertTrue("a dropped result has no READY callback, so it must clear its guards itself",
+                notReadyBranch.contains("mPlaybackRequestActive = false;")
+                        && notReadyBranch.contains("mPlaybackPlayerStarted = false;")
+                        && notReadyBranch.contains("return;"));
         // 早退分支同样必须释放守卫：同一结果已在播时不会再走 startPlayer，没有新的 READY 回调，
         // 守卫留下就等于「画面在动、圈不走」——两个清除点都被它自己挡下。
         int duplicateResultReturn = setPlayer.indexOf("if (result == mAppliedPlayerResult && !player().isEmpty())");
