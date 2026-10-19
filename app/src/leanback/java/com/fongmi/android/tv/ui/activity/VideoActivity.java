@@ -2753,7 +2753,7 @@ private boolean runtimeSourceOnly;
             mTmdbUIAdapter.setActiveFlag(getFlag());
             if (sourceState == TmdbSourceState.RENDERABLE && sourceBundle != null) {
                 SpiderDebug.log("tmdb-tv", "source-first load vodTitle=%s tmdbId=%d media=%s sourceOnly=%s", item.getName(), sourceBundle.item().getTmdbId(), sourceBundle.item().getMediaType(), runtimeSourceOnly);
-                mTmdbUIAdapter.loadSource(sourceBundle, item, sourcePayload);
+                mTmdbUIAdapter.loadSource(sourceBundle, item, sourcePayload, mFastTmdbDetailCache);
             } else {
                 com.fongmi.android.tv.bean.TmdbItem tmdbItem = getTmdbItem();
                 if (tmdbItem != null) {

@@ -524,6 +524,7 @@ public class TmdbUIAdapter {
         TmdbDetailCache.Entry cached = takeTmdbDetailCache(item);
         if (cached != null) {
             detailPrefetch.cancel();
+            seedSeasonEpisodes(cached);
             backgroundTasks.submit(() -> loadDetailSync(vod, cached.getItem(), cached.getDetail(), cached.getCast(), generation));
             return;
         }
@@ -589,6 +590,7 @@ public class TmdbUIAdapter {
         detailPrefetch.cancel();
         this.tmdbItem = item;
         saveMatch(vod, item);
+        seedSeasonEpisodes(cached);
         backgroundTasks.submit(() -> loadDetailSync(vod, cached.getItem(), cached.getDetail(), cached.getCast(), generation));
     }
 
@@ -597,8 +599,15 @@ public class TmdbUIAdapter {
      * initial gaps are filled from TMDB; complete source data stays offline and lazy capabilities remain on demand.
      */
     public void loadSource(TmdbBundle bundle, Vod sourceVod, TmdbSourcePayload payload) {
+        loadSource(bundle, sourceVod, payload, null);
+    }
+
+    public void loadSource(TmdbBundle bundle, Vod sourceVod, TmdbSourcePayload payload,
+                           TmdbDetailCache.Entry cachedDetail) {
         if (bundle == null || bundle.item() == null || bundle.detail() == null || sourceVod == null) return;
         refreshRuntimeConfig();
+        TmdbDetailCache.Entry episodeHandoff = cachedDetail == null
+                ? takeTmdbDetailCache(bundle.item()) : cachedDetail;
         String sourceTitle = sourceCacheTitle;
         int generation = resetLoadState();
         sourceOnly = !tmdbConfig.isReady();
@@ -607,13 +616,35 @@ public class TmdbUIAdapter {
         cancelActivePrefetch();
         detailPrefetch.cancel();
         applySourceBundle(bundle, sourceVod, payload);
+        seedSeasonEpisodes(episodeHandoff);
         TmdbSourceCapabilityPlanner.Plan plan = TmdbSourceCapabilityPlanner.plan(bundle, payload, TmdbSourceCapabilityPlanner.UiState.initialScreen(), TmdbLanguagePolicy.requestLanguage(tmdbConfig));
         boolean fillInitial = !sourceOnly && plan.hasInitialNetworkGaps();
         SpiderDebug.log("tmdb", "source loaded title=%s media=%s id=%d seasons=%d sourceOnly=%s fill=%s missing=%s",
                 tmdbItem.getTitle(), tmdbItem.getMediaType(), tmdbItem.getTmdbId(), seasonOptions.size(), sourceOnly, fillInitial, plan.missing());
         notifyVodChanged(sourceVod, generation, RefreshEvent.Type.VOD_CORE);
         notifyLoadComplete(sourceVod, generation);
+        if (tmdbItem != null && tmdbItem.isTv()) {
+            scheduleStartupEpisodeLoad(sourceVod, tmdbItem, generation);
+        }
         if (fillInitial) backgroundTasks.submit(() -> fillInitialSourceGaps(bundle, sourceVod, payload, plan, generation));
+    }
+
+    private void seedSeasonEpisodes(TmdbDetailCache.Entry cached) {
+        TmdbItem cachedItem = cached == null ? null : cached.getItem();
+        if (cachedItem == null || tmdbItem == null
+                || cachedItem.getTmdbId() != tmdbItem.getTmdbId()
+                || !TextUtils.equals(cachedItem.getMediaType(), tmdbItem.getMediaType())) return;
+        Map<Integer, List<TmdbEpisode>> episodes = cached.getSeasonEpisodes();
+        if (episodes == null || episodes.isEmpty()) return;
+        int seeded = 0;
+        for (Map.Entry<Integer, List<TmdbEpisode>> entry : episodes.entrySet()) {
+            Integer season = entry.getKey();
+            List<TmdbEpisode> values = entry.getValue();
+            if (season == null || season < 0 || values == null || values.isEmpty()) continue;
+            String key = seasonEpisodeKey(tmdbItem, season);
+            if (seasonEpisodeCache.putIfAbsent(key, List.copyOf(values)) == null) seeded++;
+        }
+        if (seeded > 0) SpiderDebug.log("tmdb", "season episodes source=detail-handoff seasons=%d", seeded);
     }
 
     private void applySourceBundle(TmdbBundle bundle, Vod sourceVod, TmdbSourcePayload payload) {
@@ -1720,7 +1751,7 @@ public class TmdbUIAdapter {
      */
     private List<TmdbEpisode> seasonEpisodes(TmdbItem item, int seasonNumber) throws Exception {
         if (item == null || seasonNumber < 0) return List.of();
-        String key = item.getTmdbId() + "|" + item.getMediaType() + "|" + seasonNumber;
+        String key = seasonEpisodeKey(item, seasonNumber);
         List<TmdbEpisode> cached = seasonEpisodeCache.get(key);
         if (cached != null) {
             SpiderDebug.log("tmdb", "season episodes source=memory season=%d count=%d", seasonNumber, cached.size());
@@ -1738,9 +1769,27 @@ public class TmdbUIAdapter {
     }
 
     private Integer currentEpisodeMetadataSeason() {
-        if (seasonResolution == null || seasonResolution.getStatus() != TmdbSeasonResolver.Status.RESOLVED) return null;
-        Integer selectedSeason = seasonResolution.getSelectedSeason();
-        return selectedSeason != null && selectedSeason >= 0 ? selectedSeason : null;
+        if (seasonResolution != null && seasonResolution.getStatus() == TmdbSeasonResolver.Status.RESOLVED) {
+            Integer selectedSeason = seasonResolution.getSelectedSeason();
+            if (selectedSeason != null && selectedSeason >= 0) return selectedSeason;
+        }
+        return soleOrdinarySeason();
+    }
+
+    private Integer soleOrdinarySeason() {
+        if (isMultiSliceResolution()) return null;
+        if (seasonResolution != null) {
+            TmdbSeasonResolver.Source source = seasonResolution.getSource();
+            if (source != TmdbSeasonResolver.Source.REQUEST && source != TmdbSeasonResolver.Source.NONE) return null;
+        }
+        if (seasonOptions == null || seasonOptions.isEmpty()) return null;
+        Integer sole = null;
+        for (SeasonOption option : seasonOptions) {
+            if (option == null || option.getSeasonNumber() <= 0) continue;
+            if (sole != null) return null;
+            sole = option.getSeasonNumber();
+        }
+        return sole;
     }
 
     private boolean isMultiSliceResolution() {

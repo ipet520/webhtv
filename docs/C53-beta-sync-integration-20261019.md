@@ -518,6 +518,8 @@ Merge 提交用 combined diff 检查冲突解决路径；合并分支中的独�
 - 备选：维持重复请求；照搬上游会与本地解析器、source bundle、手动扁平列表和多段剧规则冲突；选择适配方案——在已验证详情快照中携带防御性拷贝的 season map，沿用现有 key、TMDB ID、媒体类型、语言及代次验证，仅在已解析结果缺失且恰有一个普通正片季、且解析来源为 REQUEST/NONE 时采用单季兜底。不得覆盖用户手动选择、显式冲突或 MULTI_SLICE。
 - 验收：缓存隔离/消费一次、季号与集号正确、快照可防变更、无多余请求、单季合法兜底、多季/特别篇/手动扁平选择不错误绑定；保留原 TMDB 并发和播放详情行为。TV 真机选集与追更状态需补验。
 - 证据：上游实现及测试（Grade A）；本地 `TmdbDetailActivity` / `TmdbUIAdapter` 的缓存、resolver 和异步代次实现（Grade A）；TMDB API 的实时请求结果随站源数据变化，设备/账户场景无法由静态证据覆盖。
+- 实际比较与实施：上游 `d5ceea9682e07fe80eab0bc765d3be86b642fabd` 的防御性季集快照与本地数据模型兼容，`TmdbEpisode` 字段不可变；采用其缓存字段、同键 seed、source bundle 启动绑定，并保留旧 3/4 参数 `put` 与 3 参数 `loadSource` 入口。相较上游目标树，本地 source-first TV 路径会提前取走 `mFastTmdbDetailCache`，且 Mobile 路径不会提前取；因此 Leanback 现在显式把已验证 Entry 传给 `loadSource`，Mobile 则由 adapter 从 Intent 消费一次。source bundle 自带的同季列表优先，handoff 只补缺失季，避免覆盖站源 payload。单季兜底按上游后续最终源白名单实施：仅 REQUEST/NONE 且一个正片季；MANUAL_FLAT、TITLE/EXPLICIT 冲突、多季和 MULTI_SLICE 不兜底。
+- 定向验证：Leanback `TmdbDetailCacheTest` 12/12、`TmdbUIAdapterSourceOnlyTest` 3/3、`TmdbSourceAdapterTest` 4/4、`EpisodeListConcurrencyContractTest` 2/2；Mobile `TmdbDetailCacheTest` 12/12、`TmdbUIAdapterTest` 61/61、`TmdbSeasonResolverTest` 34/34、`TmdbEpisodeWiringTest` 9/9、`EpisodeSeasonSegmentsTest` 8/8、`CrossSeasonEpisodeMappingTest` 10/10、`TmdbDetailGenerationTest` 1/1。自动化通过不替代 TV/Mobile 真机上的详情直达、换源、追更与跨季播放验收。
 
 ### 决策单元：Leanback 详情与遥控焦点
 
