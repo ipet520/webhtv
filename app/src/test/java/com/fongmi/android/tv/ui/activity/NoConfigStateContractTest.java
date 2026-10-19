@@ -1,7 +1,11 @@
 package com.fongmi.android.tv.ui.activity;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
+
+import com.fongmi.android.tv.event.StateEvent;
 
 import org.junit.Test;
 
@@ -55,9 +59,15 @@ public class NoConfigStateContractTest {
     @Test
     public void stateEventKeepsNoConfigSeparateFromFailureAndEmptyResults() throws Exception {
         String event = read("app/src/main/java/com/fongmi/android/tv/event/StateEvent.java");
-        assertTrue(event.contains("new StateEvent(Type.NO_CONFIG)"));
-        assertTrue(event.contains("EMPTY, PROGRESS, CONTENT, NO_CONFIG"));
-        assertFalse(event.contains("message"));
+        assertTrue(event.contains("new StateEvent(Type.NO_CONFIG, null)"));
+        assertTrue(event.contains("EMPTY, PROGRESS, CONTENT, NO_CONFIG, ERROR"));
+        assertTrue(event.contains("new StateEvent(Type.ERROR, message)"));
+        StateEvent noConfig = new StateEvent(StateEvent.Type.NO_CONFIG);
+        StateEvent error = new StateEvent(StateEvent.Type.ERROR, "configuration failed");
+        assertEquals(StateEvent.Type.NO_CONFIG, noConfig.type());
+        assertNull(noConfig.message());
+        assertEquals(StateEvent.Type.ERROR, error.type());
+        assertEquals("configuration failed", error.message());
     }
 
     @Test
