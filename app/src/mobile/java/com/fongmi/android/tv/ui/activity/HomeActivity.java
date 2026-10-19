@@ -69,7 +69,7 @@ import com.google.gson.JsonObject;
 import org.greenrobot.eventbus.Subscribe;
 import org.greenrobot.eventbus.ThreadMode;
 
-public class HomeActivity extends BaseActivity implements NavigationBarView.OnItemSelectedListener, WebHomeChromeController.Host {
+public class HomeActivity extends BaseActivity implements NavigationBarView.OnItemSelectedListener, WebHomeChromeController.Host, VodFragment.ConfigRetry {
 
     public static final String EXTRA_NAV_POSITION = "nav_position";
     private static final String STATE_RETURN_VOD_FROM_ENHANCE = "returnVodFromEnhance";
@@ -186,6 +186,12 @@ public class HomeActivity extends BaseActivity implements NavigationBarView.OnIt
         changeFragment(position <= 0 ? 0 : position);
     }
 
+    @Override
+    public void retryConfig() {
+        StateEvent.progress();
+        initConfig();
+    }
+
     private void initConfig() {
         if (CrashRestartMode.consume()) {
             checkAction(getIntent());
@@ -215,7 +221,7 @@ public class HomeActivity extends BaseActivity implements NavigationBarView.OnIt
             public void error(String msg) {
                 resetVodChrome();
                 checkAction(getIntent());
-                StateEvent.empty();
+                StateEvent.error(msg);
                 Notify.show(msg);
             }
         };

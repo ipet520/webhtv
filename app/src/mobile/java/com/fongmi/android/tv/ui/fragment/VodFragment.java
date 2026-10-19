@@ -1,5 +1,6 @@
 package com.fongmi.android.tv.ui.fragment;
 
+import android.app.Activity;
 import android.net.Uri;
 import android.view.LayoutInflater;
 import android.view.Menu;
@@ -190,6 +191,7 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
         mBinding.type.post(this::updateTypeMoreVisible);
         setFabVisible(0);
         updateToolbarMenu();
+        hideState();
         hideProgress();
         showContent();
     }
@@ -381,6 +383,7 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
 
     private void homeContent() {
         requestNormalChrome();
+        hideState();
         showProgress();
         if (mWeb != null) mWeb.hide();
         updateToolbarMenu();
@@ -435,6 +438,7 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
     }
 
     private void showNoConfig() {
+        hideState();
         hideProgress();
         mBinding.empty.text.setText(R.string.home_no_config_title);
         mBinding.empty.description.setText(R.string.home_no_config_description);
@@ -481,15 +485,41 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
     public void onStateEvent(StateEvent event) {
         switch (event.type()) {
             case EMPTY:
+                hideState();
                 hideProgress();
                 break;
             case PROGRESS:
+                hideState();
                 showProgress();
+                break;
+            case CONTENT:
+                hideState();
                 break;
             case NO_CONFIG:
                 showNoConfig();
                 break;
+            case ERROR:
+                hideProgress();
+                showError(event.message());
+                break;
         }
+    }
+
+    private void showError(String message) {
+        mBinding.state.setVisibility(View.VISIBLE);
+        Activity activity = getActivity();
+        View.OnClickListener retry = activity instanceof ConfigRetry
+                ? view -> ((ConfigRetry) activity).retryConfig()
+                : null;
+        mBinding.state.showError(R.string.error_config_load, message, R.string.error_retry, retry);
+    }
+
+    private void hideState() {
+        mBinding.state.setVisibility(View.GONE);
+    }
+
+    public interface ConfigRetry {
+        void retryConfig();
     }
 
     @Subscribe(threadMode = ThreadMode.MAIN)
