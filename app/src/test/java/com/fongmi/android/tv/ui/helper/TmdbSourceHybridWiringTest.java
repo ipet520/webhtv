@@ -42,11 +42,16 @@ public class TmdbSourceHybridWiringTest {
         String mobile = read("src/mobile/java/com/fongmi/android/tv/ui/activity/VideoActivity.java");
         String leanback = read("src/leanback/java/com/fongmi/android/tv/ui/activity/VideoActivity.java");
 
-        for (String source : new String[]{mobile, leanback}) {
-            int sourceFirst = source.indexOf("sourceState == TmdbSourceState.RENDERABLE && sourceBundle != null");
-            int loadSource = source.indexOf("mTmdbUIAdapter.loadSource(sourceBundle, item, sourcePayload);", sourceFirst);
-            assertTrue(sourceFirst > 0 && loadSource > sourceFirst);
-        }
+        assertSourceFirst(mobile, "mTmdbUIAdapter.loadSource(sourceBundle, item, sourcePayload);");
+        assertSourceFirst(leanback,
+                "mTmdbUIAdapter.loadSource(sourceBundle, item, sourcePayload, mFastTmdbDetailCache);");
+    }
+
+    private static void assertSourceFirst(String source, String expectedCall) {
+        int sourceFirst = source.indexOf("sourceState == TmdbSourceState.RENDERABLE && sourceBundle != null");
+        int loadSource = source.indexOf(expectedCall, sourceFirst);
+        assertTrue("renderable source must be handed to the appropriate cache-safe loadSource overload",
+                sourceFirst > 0 && loadSource > sourceFirst);
     }
 
     private static String read(String path) throws Exception {

@@ -543,6 +543,12 @@ Merge 提交用 combined diff 检查冲突解决路径；合并分支中的独�
 - 修复：保留原 run selector 断言并新增同样的 click selector 断言，未放宽或删除任何断言。没有修改焦点边框颜色、图标、按钮尺寸、导航关系或主题 Token。
 - 验证：Leanback `ThemeGlobalSemanticContractTest` 13/13；`com.fongmi.android.tv.lab.*` 31/31，全部通过。静态/自动化结果不代表遥控器真机操作已通过；仍需在 TV 上检查运行按钮被禁用时的视觉、D-pad 进入/离开命令卡片及命令详情焦点返回。
 
+### 复核：C53 TMDB source-wiring 测试契约
+
+- Leanback 全量任务中 `VideoActivityRuntimeModeWiringTest.detailLoadUsesRuntimePolicyAndLoadsSourceWithoutNetwork` 与 `TmdbSourceHybridWiringTest.bothFlavorsPreferRenderableSourceBeforeNormalMatching` 失败。两项断言把 Leanback `loadSource` 固定写成旧的 3 参数签名；C53 为保留已提前消费的 `mFastTmdbDetailCache.Entry`，实际明确调用 4 参数重载。Mobile 仍走 3 参数入口，并在 adapter 内消费缓存一次。
+- 根因是源码契约测试未跟随已审查的可选 Entry handoff 签名，不是运行时 source 顺序错误。测试现逐端锁定对应参数，并继续要求 `RENDERABLE` 判定先于 `loadSource`；没有删断言或允许任意重载。
+- Leanback 全量首次结果：4196 tests，2 failures、2 skipped；两个失败均为上述签名匹配。修正后将分别复跑两项回归并重新执行完整测试，最终计数以复跑记录为准。该结论仍需完整复跑确认。
+
 ### 复评：同版本号更新排序
 
 - 上游来源：`d8c9bdc650115daf21d9ea1abfa3efb7d8f0535a`。本地 `Update.hasUpdate()` 原逻辑把 `code != VERSION_CODE` 或标签不同都当作可更新；当前构建 versionCode 为 560，而上游回归样例中的 stable `v5.6.0-202609221328` 与 beta `v5.6.0-beta-202610091755` 可同 code，较旧 stable 会被推荐给更新的 beta 安装，之后又反向重复。更高 schema/version 包可被覆盖，构成现有升级链路缺陷。

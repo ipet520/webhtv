@@ -48,7 +48,11 @@ public class VideoActivityRuntimeModeWiringTest {
             assertTrue(flavor + " must resolve runtime policy from normalized source data",
                     setDetail.contains("DetailRuntimeModePolicy.resolve(new DetailRuntimeModePolicy.Input("));
             assertTrue(setDetail.contains("runtimeSourceOnly = decision.sourceOnly();"));
-            assertTrue(setDetail.contains("mTmdbUIAdapter.loadSource(sourceBundle, item, sourcePayload);"));
+            String expectedSourceLoad = flavor.equals("leanback")
+                    ? "mTmdbUIAdapter.loadSource(sourceBundle, item, sourcePayload, mFastTmdbDetailCache);"
+                    : "mTmdbUIAdapter.loadSource(sourceBundle, item, sourcePayload);";
+            assertTrue(flavor + " must hand off source data through its cache-safe loadSource path",
+                    setDetail.contains(expectedSourceLoad));
             assertTrue(setDetail.contains("sourceState == TmdbSourceState.RENDERABLE && sourceBundle != null"));
         }
     }
