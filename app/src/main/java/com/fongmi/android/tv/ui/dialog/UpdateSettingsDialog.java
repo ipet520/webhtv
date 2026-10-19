@@ -16,6 +16,7 @@ import androidx.fragment.app.FragmentActivity;
 import com.fongmi.android.tv.R;
 import com.fongmi.android.tv.databinding.DialogUpdateSettingsBinding;
 import com.fongmi.android.tv.setting.Setting;
+import com.fongmi.android.tv.theme.ThemeController;
 import com.fongmi.android.tv.update.OciMirror;
 import com.fongmi.android.tv.update.UpdateSource;
 import com.fongmi.android.tv.update.UpdateUrl;
@@ -42,6 +43,7 @@ public final class UpdateSettingsDialog {
         render(activity, binding, state);
         dialog.setCanceledOnTouchOutside(false);
         dialog.show();
+        ThemeController.bindDialog(dialog);
         configureWindow(activity, dialog, binding);
         configureTvFocus(binding, state);
     }

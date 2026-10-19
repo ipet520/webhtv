@@ -11,7 +11,9 @@
         <shape android:shape="rectangle">
             <solid android:color="?attr/colorPrimaryContainer" />
             <corners android:radius="8dp" />
-            <stroke android:width="2dp" android:color="@color/webhtv_color_focus" />
+            <stroke
+                android:width="@dimen/webhtv_focus_ring_width"
+                android:color="?attr/tvFocusRing" />
         </shape>
     </item>
     <item android:state_pressed="true">
