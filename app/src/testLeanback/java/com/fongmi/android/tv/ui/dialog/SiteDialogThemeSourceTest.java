@@ -42,4 +42,15 @@ public class SiteDialogThemeSourceTest {
         assertFalse(helper.contains("#381E72"));
         assertFalse(helper.contains("#6750A4"));
     }
+
+    @Test
+    public void siteRowsDeclareHorizontalPaddingOnTheViewNotOnlyTheBackground() throws Exception {
+        for (String layout : new String[]{"adapter_site.xml", "adapter_site_switch.xml"}) {
+            String source = read("app/src/leanback/res/layout/" + layout);
+            assertTrue(layout + " start padding must be on the view",
+                    source.contains("android:paddingStart=\"14dp\""));
+            assertTrue(layout + " end padding must be on the view",
+                    source.contains("android:paddingEnd=\"14dp\""));
+        }
+    }
 }
