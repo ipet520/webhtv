@@ -65,26 +65,59 @@ public class PlayerManagerLifecycleSourceTest {
     }
 
     @Test
-    public void exoBufferingStateArmsOnlyTheExoStallWatchdog() throws Exception {
-        String source = readPlayerManager();
-        int buffering = source.indexOf("} else if (state == Player.STATE_BUFFERING) {");
-        int nextBranch = source.indexOf("\n            } else {", buffering);
-        assertTrue("state listener must contain the buffering branch", buffering >= 0);
-        assertTrue("state listener buffering branch must have a closing boundary", nextBranch > buffering);
-        int arm = source.indexOf("if (isExo()) armBufferingStallWatchdog();", buffering);
-        assertTrue("entering Exo BUFFERING must start only the Exo stall watchdog", arm > buffering && arm < nextBranch);
-        assertTrue("watchdog arming must be restricted to Exo playback",
-                source.contains("if (!isExo() || player == null || spec == null) return;"));
-        assertTrue("watchdog polling must stop for non-Exo playback",
-                source.contains("if (!isExo() || player == null || spec == null) {"));
-        assertTrue("seeking must only re-arm the stall watchdog for Exo playback",
-                source.contains("player.seekTo(time);\n        cancelBufferingStallWatchdog();\n        if (isExo()) armBufferingStallWatchdog();"));
-        int polling = source.indexOf("private void checkBufferingStall()");
-        int observe = source.indexOf("bufferingStallWatchdog.observe(", polling);
-        int timeout = source.indexOf("bufferingStallWatchdog.shouldTimeout(", polling);
-        assertTrue("buffering polling method must exist", polling >= 0);
+    public void bufferingStateArmsSharedStallWatchdogForEveryEngine() throws Exception {
+        String source = readPlayerManager().replace("\r\n", "\n");
+        String stateListener = methodBody(source, "public void onPlaybackStateChanged(int state)");
+        String arm = methodBody(source, "private void armBufferingStallWatchdog()");
+        String polling = methodBody(source, "private void checkBufferingStall()");
+        String timeout = methodBody(source, "private void onBufferingStall(");
+
+        assertTrue("every BUFFERING transition must arm the shared watchdog",
+                stateListener.contains("} else if (state == Player.STATE_BUFFERING) {\n                armBufferingStallWatchdog();"));
+        assertFalse("the shared arming method must not exclude MPV", arm.contains("isExo()"));
+        assertFalse("the shared polling method must not exclude MPV", polling.contains("isExo()"));
+        assertTrue("seeking must re-arm the shared watchdog after the discontinuity",
+                source.contains("player.seekTo(time);\n        cancelBufferingStallWatchdog();\n        armBufferingStallWatchdog();"));
+        assertTrue("stall handling must retain the existing automatic source fallback",
+                timeout.contains("if (fallbackPlayback(e)) return;"));
+        int observe = polling.indexOf("bufferingStallWatchdog.observe(");
+        int decision = polling.indexOf("bufferingStallWatchdog.shouldTimeout(");
         assertTrue("a discontinuity must be observed before timeout is evaluated",
-                observe > polling && timeout > observe);
+                observe >= 0 && decision > observe);
+    }
+
+    @Test
+    public void engineReplacementDisarmsSharedStallWatchdogBeforeReleasingOldPlayer() throws Exception {
+        String source = readPlayerManager().replace("\r\n", "\n");
+        assertCancelledBefore(source, "public void switchDecode(PlaySpec freshSpec,",
+                "engine.release();");
+        assertCancelledBefore(source, "public void switchDecode(Result result,",
+                "engine.release();");
+        assertCancelledBefore(source, "public void preparePlayer(int type, boolean force)",
+                "engine.release();");
+        assertCancelledBefore(source, "public void switchPlayer(int type, PlaySpec freshSpec,",
+                "engine.release();");
+        assertCancelledBefore(source, "public void switchPlayer(int type, Result result,",
+                "engine.release();");
+        assertCancelledBefore(source,
+                "private void switchEngine(int type, boolean chosen, boolean notifyPrepare, int decode,",
+                "engine.release();");
+        assertCancelledBefore(source, "private void rebuildPlayer(boolean resetVideoSurface)",
+                "engine.rebuild(listener)");
+        assertCancelledBefore(source, "private boolean switchIjkRuntimeFallback(",
+                "engine.release();");
+        assertCancelledBefore(source, "private void prepareIjkRuntimeForUserPlayback(",
+                "if (engine != null) engine.release();");
+        assertCancelledBefore(source, "private boolean retryHardDecodeSwitch(",
+                "engine.release();");
+    }
+
+    private static void assertCancelledBefore(String source, String signature, String replacement) {
+        String body = methodBody(source, signature);
+        int cancel = body.indexOf("cancelBufferingStallWatchdog();");
+        int replace = body.indexOf(replacement);
+        assertTrue(signature + " must disarm the old playback episode before replacing its player",
+                cancel >= 0 && replace > cancel);
     }
 
     private static String readPlayerManager() throws IOException {

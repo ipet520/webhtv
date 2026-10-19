@@ -1,4 +1,4 @@
-package com.fongmi.android.tv.player.exo;
+package com.fongmi.android.tv.player;
 
 /**
  * Detects a player stuck in BUFFERING that is no longer making any progress.
@@ -7,10 +7,10 @@ package com.fongmi.android.tv.player.exo;
  * normal rebuffer. Only when neither the playback position nor the buffered end
  * advances is the session actually stalled.
  *
- * <p>The timeout must stay above {@code MAX_STREAMING_REBUFFER_MS} (15 s) so a
- * LoadControl that is still filling its rebuffer threshold is never killed.
+ * <p>The timeout must stay above the engine's rebuffer threshold so a player that is still
+ * filling its buffer is never killed: Exo may use 15 s, while the current MPV limit is 8 s.
  */
-public final class ExoBufferingStallWatchdog {
+public final class BufferingStallWatchdog {
 
     public static final long STALL_TIMEOUT_MS = 20_000L;
 

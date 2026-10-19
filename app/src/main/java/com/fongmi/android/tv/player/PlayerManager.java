@@ -54,7 +54,6 @@ import com.fongmi.android.tv.player.audio.PlaybackMediaSessionController;
 import com.fongmi.android.tv.player.audio.PlaybackMediaSignalHub;
 import com.fongmi.android.tv.player.cache.PlaybackDiskBufferStore;
 import com.fongmi.android.tv.player.exo.TrackUtil;
-import com.fongmi.android.tv.player.exo.ExoBufferingStallWatchdog;
 import com.fongmi.android.tv.player.exo.ExoDecoderResourceRecoveryLimiter;
 import com.fongmi.android.tv.player.exo.ExoNetworkGuardBufferPolicy;
 import com.fongmi.android.tv.player.exo.ExoNetworkGuardController;
@@ -185,8 +184,8 @@ public class PlayerManager implements ParseCallback {
     private final Runnable liveDanmakuMetricsRunnable;
     private final Runnable networkProtectionRunnable;
     private final Runnable playbackTelemetryRunnable;
-    private final ExoBufferingStallWatchdog bufferingStallWatchdog =
-            new ExoBufferingStallWatchdog();
+    private final BufferingStallWatchdog bufferingStallWatchdog =
+            new BufferingStallWatchdog();
     private final Callback callback;
     private final PlaybackMediaSignalHub mediaSignals = new PlaybackMediaSignalHub(8);
     private final PlaybackMediaClock mediaClock = new PlaybackMediaClock(500L);
@@ -1716,7 +1715,7 @@ public class PlayerManager implements ParseCallback {
         }
         player.seekTo(time);
         cancelBufferingStallWatchdog();
-        if (isExo()) armBufferingStallWatchdog();
+        armBufferingStallWatchdog();
     }
 
     public long getTextOffsetMs() {
@@ -1860,6 +1859,7 @@ public void resetTrack(int type) {
         prepareSeq++;
         resetLutRuntimeState("switch_decode_fresh", true);
         stopNativeAudioSession();
+        cancelBufferingStallWatchdog();
         engine.release();
         spec = freshSpec;
         bindPlaybackTrace();
@@ -1886,6 +1886,7 @@ public void resetTrack(int type) {
         resetLutRuntimeState("switch_decode_result", true);
         stopNativeAudioSession();
         stopParse();
+        cancelBufferingStallWatchdog();
         engine.release();
         hardDecodeSwitchRetryArmed = next == PlayerEngine.HARD;
         engine = buildEngine(playerType, next);
@@ -1949,6 +1950,7 @@ public void resetTrack(int type) {
         resetLutRuntimeState("prepare_player", true);
         stopNativeAudioSession();
         stopParse();
+        cancelBufferingStallWatchdog();
         engine.release();
         playerType = next;
         if (SpiderDebug.isEnabled()) SpiderDebug.log("player", "prepare player type=%d decode=%d", next, decode);
@@ -1973,6 +1975,7 @@ public void resetTrack(int type) {
         prepareSeq++;
         resetLutRuntimeState("switch_player_fresh", true);
         stopNativeAudioSession();
+        cancelBufferingStallWatchdog();
         engine.release();
         playerType = type;
         PlayerSetting.putActivePlayer(type);
@@ -2002,6 +2005,7 @@ public void resetTrack(int type) {
         resetLutRuntimeState("switch_player_result", true);
         stopNativeAudioSession();
         stopParse();
+        cancelBufferingStallWatchdog();
         engine.release();
         playerType = type;
         PlayerSetting.putActivePlayer(type);
@@ -2063,6 +2067,7 @@ public void resetTrack(int type) {
         prepareSeq++;
         resetLutRuntimeState("switch_player", true);
         stopNativeAudioSession();
+        cancelBufferingStallWatchdog();
         engine.release();
         playerType = type;
         if (chosen) PlayerSetting.putActivePlayer(type);
@@ -2088,6 +2093,7 @@ public void resetTrack(int type) {
 
     private void rebuildPlayer(boolean resetVideoSurface) {
         stopNativeAudioSession();
+        cancelBufferingStallWatchdog();
         player = engine.rebuild(listener);
         restoreIjkStagedBufferConfig();
         videoEffectsActive = false;
@@ -4016,6 +4022,7 @@ public void resetTrack(int type) {
             resetLutRuntimeState("ijk_runtime_fallback", true);
             stopNativeAudioSession();
             stopParse();
+            cancelBufferingStallWatchdog();
             engine.release();
             engine = replacement;
             player = replacementPlayer;
@@ -4111,6 +4118,7 @@ public void resetTrack(int type) {
         try {
             prepareSeq++;
             stopNativeAudioSession();
+            cancelBufferingStallWatchdog();
             if (engine != null) engine.release();
             engine = replacement;
             player = replacement.getPlayer();
@@ -8441,7 +8449,7 @@ public void resetTrack(int type) {
                 applyLutForCurrentItem();
                 scheduleNetworkProtection(0);
             } else if (state == Player.STATE_BUFFERING) {
-                if (isExo()) armBufferingStallWatchdog();
+                armBufferingStallWatchdog();
                 App.removeCallbacks(networkProtectionRunnable);
                 // Do not reset/disrupt the network guard here. BUFFERING is transient and
                 // clearing its trend makes repeated stalls permanently outrun the 10 s
@@ -8633,7 +8641,7 @@ public void resetTrack(int type) {
     };
 
     private void armBufferingStallWatchdog() {
-        if (!isExo() || player == null || spec == null) return;
+        if (player == null || spec == null) return;
         bufferingStallWatchdog.arm(
                 SystemClock.elapsedRealtime(),
                 Math.max(0, player.getCurrentPosition()),
@@ -8651,7 +8659,7 @@ public void resetTrack(int type) {
     }
 
     private void checkBufferingStall() {
-        if (!isExo() || player == null || spec == null) {
+        if (player == null || spec == null) {
             cancelBufferingStallWatchdog();
             return;
         }
@@ -8938,6 +8946,7 @@ public void resetTrack(int type) {
         boolean wasPlayWhenReady = player.getPlayWhenReady();
         App.removeCallbacks(runnable);
         resetLutRuntimeState("hard_decode_switch_retry", true);
+        cancelBufferingStallWatchdog();
         engine.release();
         engine = buildEngine(playerType, PlayerEngine.HARD);
         player = engine.getPlayer();

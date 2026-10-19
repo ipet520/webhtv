@@ -488,3 +488,47 @@ Merge 提交用 combined diff 检查冲突解决路径；合并分支中的独�
 - PASS: `assembleMobileArm64_v8aDebug`, `assembleLeanbackArm64_v8aDebug`, `assembleMobileArm64_v8aRelease`, and `assembleLeanbackArm64_v8aRelease`.
 - Device verification: NOT RUN. No Mobile/Leanback real-device test, playback handoff, decoder fallback, or HLS recovery run was performed.
 - The dedicated branch remains at the locally validated sync state. It is not pushed because the required full-suite regression gate did not pass.
+
+## C53 补充施工决策与实施计划（2026-10-19）
+
+### 固定工作区与回退点
+
+- 用户授权：只在隔离 App 工作树继续补充施工；不推送、不合入正式分支。
+- 工作分支：`sync/upstream-beta-20261019`；进入本阶段时 HEAD=`220976b0404867551e232dec809f26e589bad4f7`。
+- 回退锚点：`220976b0404867551e232dec809f26e589bad4f7`；每个领域独立提交，必要时按该提交单独 `git revert`。
+- 固定上游：`Silent1566/webhtv@93ea56a61df9fbe3acf0d345234f0a97c3bcfab3`，旧基线 `29d52ab2385702a9350c3099cd94dd4e54c1240f`。只按目标树行为评估，不追 beta 新提交。
+- 保护合同：原 App checkout、Suite、WebHome、未跟踪构建脚本；本工作树内的 TMDB 并发/代次、播放换源与超时、播放器所有权、主题 Token、自定义颜色及各控件 Focused/Selected/Activated/Pressed/Current 语义。
+- 执行授权依据：本次用户明确要求完成 EOF 闭环、优先修复 TV Lab 遥控、重新审查 E 候选并移植明确的既有功能 Bug；这覆盖下列有证据且未扩展为独立新功能的工作单元。
+
+### 决策单元：播放器缓冲停滞恢复（MPV 及共享状态）
+
+- 上游来源：`c2a09e7647dd6a83871b37945074853b4588141c`；相关日志候选 `a9a52e2cb7b356bd4520dbb05783b6b348c1ab0b`。均按目标最终实现及后续测试审查。
+- 本地缺口：本地 `PlayerManager.armBufferingStallWatchdog()` / `checkBufferingStall()` 明确 `!isExo()` 即退出；本地 `ExoBufferingStallWatchdog` 已完整覆盖 Exo 的位置/缓冲边界进度、seek 回退重设和 20/60/90 秒上限。`MpvPlayer.timeOutSeekBuffering()` 对活动缓存读取保留 `BUFFERING`，而 `PlaybackRecoveryMonitor` 只处理主线程心跳停止，不处理主线程仍响应但 MPV 缓冲位置冻结。
+- 上游/本地比较：目标树把原 Exo 看门狗移为引擎无关类，并将 Exo 门禁从 BUFFERING、seek 和 poll 路径移除；算法仍以当前位置、buffered end 和 loading 为输入。上游另加停滞时长日志与切换原因日志。本地既有算法更完整地处理了 seek/flush 的 discontinuity、重复回退的 90 秒 episode 上限、慢速但持续增长的缓冲，并有 22 项单元测试；所以保留本地状态算法，只做类改名与 MPV 调用接线，不复制日志聚合和切换原因诊断。
+- 备选：不变更会保留 MPV 永久加载路径；逐字照搬上游会用较简单的实现替换本地已测状态算法，并增加诊断范围；选择适配方案——复用本地监视器算法，扩大到 MPV，保留 20 秒无进度超时、loading 时 60 秒窗口、90 秒受进度约束的 episode 上限和既有 `fallbackPlayback`/超时回调。另在所有旧播放器释放或重建前取消旧 episode，避免切换内核/解码器后让旧路线的计时状态读到新 Player；新 Player 进入 BUFFERING 后重新计时。暂停时每轮重臂，READY/IDLE/ENDED、reset、timeout 和 release 都会取消。
+- 验收：进度变化、seek/flush 回退、暂停、source loading、超时、reset/release 等用例覆盖；Exo 旧测试不退化；MPV 冻结状态最终触发现有超时/自动换源链路；双端 Debug 构建和播放器定向测试通过。设备播放/网络故障场景需真机补验。
+- 证据：精确上游源及单测（Grade A）；本地 `PlayerManager`、`MpvPlayer.timeOutSeekBuffering()`、监视器及恢复路径（Grade A）；Android TV 遥控官方导航资料与此状态机无关；媒体真实网络设备测量不能由静态测试替代，需作为后续验收项。
+- 实施：类由 `player/exo/ExoBufferingStallWatchdog` 改为 `player/BufferingStallWatchdog`，既有 22 条算法断言逐项保留；四处 Exo 专属门禁移除；并在 `switchDecode`、`preparePlayer`、`switchPlayer`、IJK runtime fallback、硬解重试及 `rebuildPlayer` 的旧播放器替换前取消看门狗。错误仍走原有超时与自动换源链路。
+- 定向验证：Mobile 与 Leanback 分别运行 `PlayerManagerLifecycleSourceTest`（4 项）和 `ExoBufferingStallWatchdogTest`（22 项），均通过；Leanback/Mobile test task 均完成 Java/Kotlin 编译。一次较早的双任务 Gradle invocation 输出了与筛选范围不符的主题测试失败，后以单类命令复现并另行登记为 Lab selector 状态优先级回归，未把它归因到播放器修复。两端完整构建和设备播放仍待后续最终门槛。
+
+### 决策单元：TMDB 详情到播放页的季集交接
+
+- 上游来源：`d5ceea9682e07fe80eab0bc765d3be86b642fabd`。
+- 本地缺口：详情页持有已解析的 `tmdbSeasonEpisodes`，但当前 `TmdbDetailCache` 只交接详情、演员和语言；播放页 `TmdbUIAdapter` 因而可能再次请求同一季，失败时失去 `Episode.tmdbEpisode` 卡片绑定。当前 `TmdbDetailActivity` 已有 season resolver、并发代次和来源匹配约束，不能以新快照绕过。
+- 备选：维持重复请求；照搬上游会与本地解析器、source bundle、手动扁平列表和多段剧规则冲突；选择适配方案——在已验证详情快照中携带防御性拷贝的 season map，沿用现有 key、TMDB ID、媒体类型、语言及代次验证，仅在已解析结果缺失且恰有一个普通正片季、且解析来源为 REQUEST/NONE 时采用单季兜底。不得覆盖用户手动选择、显式冲突或 MULTI_SLICE。
+- 验收：缓存隔离/消费一次、季号与集号正确、快照可防变更、无多余请求、单季合法兜底、多季/特别篇/手动扁平选择不错误绑定；保留原 TMDB 并发和播放详情行为。TV 真机选集与追更状态需补验。
+- 证据：上游实现及测试（Grade A）；本地 `TmdbDetailActivity` / `TmdbUIAdapter` 的缓存、resolver 和异步代次实现（Grade A）；TMDB API 的实时请求结果随站源数据变化，设备/账户场景无法由静态证据覆盖。
+
+### 决策单元：Leanback 详情与遥控焦点
+
+- 上游来源：`2d4259ef7a3bb18478f301d21c3d3a388e37b46b`（详情简介/当前集），`80816a15f0b22e870a86036afb49e186d5efb9df`（seek UP 返焦）。
+- 备选：不变更保留 DIRECT 原生详情简介缺失、当前集未激活或进度条 UP 后焦点丢失的路径；直接覆盖会丢本地焦点状态语义；选择只接入缺失的预览/当前集 activated 与焦点来源记忆，不统一状态颜色、不改主题绑定、不钉死弹窗几何路径。
+- 验收：D-pad 可达全屏可见控件；UP 返还之前控件；当前集激活边框在焦点移走后保留；焦点环仍由当前主题控制，focused 与 activated 不互相覆盖；简介在 DIRECT 模式显示且音频详情收起时不残留。定向 Leanback 测试及构建通过，设备交互待实测。
+- 外部证据：Android TV 官方导航文档 `https://developer.android.com/training/tv/get-started/navigation`（2026-10-19 访问，Grade A）要求 D-pad 到达所有可见控件、必要时显式配置 nextFocus，并清楚区分焦点和选择状态；它支持修复可达性，不规定 WebHTV 的颜色/激活动画。
+
+### 其余候选的准入规则
+
+- `LOCAL_BASE..SYNC_HEAD` 既有本地修复继续作为实际基线，不因上游更新而默认替换。
+- 每个重叠候选逐项比较最终上游实现和本地生产调用链；清晰现有 Bug 以最小适配方式吸收。对只改设计间距/圆角/动画的无行为优化，若没有可验证缺陷则保持现状。新增重试入口、独立错误页、跨设备能力、后台新服务或设置项按排除功能处理；同一提交中的窄错误修复可单独抽取。
+- Room 损坏恢复需单独证明原库及 WAL/SHM 的保全与恢复原子性；自动切换默认输出需核对设备级 Surface 保护与现有稳定性闸门；Direct Boot 变更需核对凭据加密存储初始化顺序。未满足这些具体验收条件前不改数据/默认输出。
+- 学术论文对 Android UI/资源映射和应用层状态机不构成决策性证据，列为不适用；无可连接设备时不以第三方个案替代真机验收。
