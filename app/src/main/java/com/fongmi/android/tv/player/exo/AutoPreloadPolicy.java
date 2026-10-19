@@ -73,8 +73,13 @@ final class AutoPreloadPolicy {
 
         Reason hardPause = hardPauseReason(safe);
         if (hardPause != null) {
-            pause(nowMs, hardPause == Reason.REBUFFER ? WEAK_RESUME_DELAY_MS : RESUME_DELAY_MS,
-                    hardPause);
+            long delayMs = switch (hardPause) {
+                case REBUFFER -> WEAK_RESUME_DELAY_MS;
+                case FOREGROUND_EOF_RECOVERY -> Math.max(
+                        0L, EOF_YIELD_WINDOW_MS - safe.foregroundEofRecoveryAgeMs());
+                default -> RESUME_DELAY_MS;
+            };
+            pause(nowMs, delayMs, hardPause);
             return decision(safe.route());
         }
 

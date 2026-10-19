@@ -595,6 +595,28 @@ public class AutoPreloadPolicyTest {
     }
 
     @Test
+    public void foregroundEofYieldDoesNotStackResumeDelayAcrossTicks() {
+        AutoPreloadPolicy policy = new AutoPreloadPolicy();
+        for (long nowMs : new long[]{0, 5_000, 10_000, 15_000}) {
+            AutoPreloadPolicy.Decision duringYield = policy.evaluate(
+                    inputs(nowMs, PlaybackRoute.EXTERNAL_LOOPBACK_PROXY, 30_000,
+                            AutoPreloadPolicy.ThroughputEvidence.unknown(), safeSystem(),
+                            stableTrend(nowMs, 30_000), false, false, nowMs));
+            assertFalse(duringYield.enabled());
+            assertEquals("foreground-eof-recovery", duringYield.reason());
+        }
+
+        AutoPreloadPolicy.Decision afterYield = policy.evaluate(
+                inputs(20_000, PlaybackRoute.EXTERNAL_LOOPBACK_PROXY, 30_000,
+                        AutoPreloadPolicy.ThroughputEvidence.unknown(), safeSystem(),
+                        stableTrend(20_000, 30_000), false, false, 20_000));
+
+        assertTrue("the 15-second EOF window must not stack a second 10-second delay",
+                afterYield.enabled());
+        assertEquals(1, afterYield.threads());
+    }
+
+    @Test
     public void neverObservedRecoveryNeverYields() {
         // Long.MAX_VALUE is the "no recovery in this process" sentinel. A healthy session must not
         // be mistaken for a recovering one, or preload would never start at all.
