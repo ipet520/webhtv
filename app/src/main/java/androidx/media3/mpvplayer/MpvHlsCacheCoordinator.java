@@ -390,9 +390,11 @@ public final class MpvHlsCacheCoordinator {
         File meta = metaFile(file);
         File temp = new File(meta.getParentFile(), meta.getName() + "." + NEXT_TEMP_ID.incrementAndGet() + TEMP_SUFFIX);
         String value = mime == null || mime.isEmpty() ? "application/octet-stream" : mime;
-        try (OutputStream output = new java.io.FileOutputStream(temp)) {
-            byte[] bytes = value.getBytes(StandardCharsets.UTF_8);
-            output.write(bytes, 0, Math.min(bytes.length, (int) META_RESERVATION_BYTES));
+        try {
+            try (OutputStream output = new java.io.FileOutputStream(temp)) {
+                byte[] bytes = value.getBytes(StandardCharsets.UTF_8);
+                output.write(bytes, 0, Math.min(bytes.length, (int) META_RESERVATION_BYTES));
+            }
             //noinspection ResultOfMethodCallIgnored
             meta.delete();
             //noinspection ResultOfMethodCallIgnored

@@ -161,21 +161,32 @@ public class ThemeBaseWiringTest {
      *
      * <p>{@code dialog_danmaku_setting} and {@code dialog_timer} paint their option buttons
      * with {@code @color/selector_control_sheet_text} over
-     * {@code selector_player_child_sheet_button}, a dark translucent fill. The list resolves
-     * to {@code @color/white} / {@code #B3FFFFFF} plus the black selected/activated pair
-     * that matches the light selected band, so it never follows the palette. Routing it
-     * through {@code ?attr/colorOnSurface} would put near-black text on the dark sheet in
-     * day mode, exactly like the layouts above.
+     * {@code selector_player_child_sheet_button}, a dark translucent fill. Disabled,
+     * activated, selected, focused, and default labels therefore use constant light colors
+     * instead of following a palette token that could become dark on this surface.
      */
     @Test
     public void controlSheetButtonTextStaysPaletteIndependent() throws Exception {
         String selector = withoutComments(read("src/mobile/res/color/selector_control_sheet_text.xml"));
         assertFalse("the sheet button text must not follow the palette",
                 selector.contains("?attr/"));
-        assertTrue(selector.contains("@color/white"));
+        assertTrue("activated labels must stay light on the dark sheet",
+                hasStateColor(selector, "state_activated", "@color/white"));
+        assertTrue("selected labels must stay light on the dark sheet",
+                hasStateColor(selector, "state_selected", "@color/white"));
+        assertTrue("focused labels must stay light on the dark sheet",
+                hasStateColor(selector, "state_focused", "#FFFFFFFF"));
+        assertTrue("disabled labels must stay light on the dark sheet",
+                selector.contains("android:alpha=\"0.45\" android:color=\"@color/white\""));
         assertTrue(selector.contains("#B3FFFFFF"));
-        assertTrue("the selected state must stay dark on the light selected band",
-                selector.contains("#FF000000"));
+    }
+
+    private static boolean hasStateColor(String selector, String state, String color) {
+        java.util.regex.Pattern item = java.util.regex.Pattern.compile(
+                "<item(?=[^>]*android:" + state + "=\"true\")"
+                        + "(?=[^>]*android:color=\"" + java.util.regex.Pattern.quote(color)
+                        + "\")[^>]*/>");
+        return item.matcher(selector).find();
     }
 
     /** Attributes that paint a foreground onto the sheet's own dark panel. */

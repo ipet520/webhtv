@@ -71,7 +71,19 @@ final class MpvFontConfig {
                 output.flush();
                 output.getFD().sync();
             }
-            if (!temporary.renameTo(file)) throw new IOException("Unable to commit fontconfig configuration");
+            if (!temporary.renameTo(file)) {
+                // Android replaces an existing target atomically. Windows JVM tests do not,
+                // so keep the prior file until the replacement is ready and restore it if
+                // the second rename fails.
+                File backup = new File(parent, file.getName() + ".bak");
+                if (backup.exists()) backup.delete();
+                boolean moved = !file.exists() || file.renameTo(backup);
+                if (!moved || !temporary.renameTo(file)) {
+                    if (backup.exists() && !file.exists()) backup.renameTo(file);
+                    throw new IOException("Unable to commit fontconfig configuration");
+                }
+                backup.delete();
+            }
             return true;
         } finally {
             if (temporary.exists()) temporary.delete();
