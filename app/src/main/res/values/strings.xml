@@ -2907,4 +2907,7 @@
     <string name="theme_binding_git_cloud_tree_item" translatable="false">webhtv:state-priority:focused+pressed+selected;webhtv:disabled-fill:surface_container_low;webhtv:disabled-stroke:outline_variant;webhtv:disabled-stroke-width:1dp;webhtv:focused-fill:primary_container;webhtv:pressed-fill:primary_container;webhtv:focused-stroke:focus;webhtv:pressed-stroke:focus;webhtv:focused-stroke-width:2dp;webhtv:pressed-stroke-width:2dp;webhtv:selected-fill:secondary_container;webhtv:selected-stroke:outline;webhtv:selected-stroke-width:1dp</string>
     <string name="theme_binding_git_cloud_inline_focus" translatable="false">webhtv:state-priority:focused+pressed;webhtv:disabled-fill:surface_container_low;webhtv:disabled-stroke:outline_variant;webhtv:disabled-stroke-width:1dp;webhtv:focused-fill:primary_container;webhtv:pressed-fill:primary_container;webhtv:focused-stroke:focus;webhtv:pressed-stroke:focus;webhtv:focused-stroke-width:2dp;webhtv:pressed-stroke-width:2dp</string>
     <string name="theme_binding_tmdb_action_button_stroke" translatable="false">webhtv:state-priority:selected+focused+pressed;webhtv:disabled-stroke:outline_variant;webhtv:selected-stroke:secondary;webhtv:focused-stroke:focus;webhtv:pressed-stroke:focus</string>
+    <string name="home_no_config_title">No content source yet</string>
+    <string name="home_no_config_description">Add a VOD content source to start browsing.</string>
+    <string name="home_no_config_action">Add source</string>
 </resources>

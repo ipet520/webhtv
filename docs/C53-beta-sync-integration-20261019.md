@@ -49,7 +49,7 @@ A/B 是本轮允许同步候选，以下窄范围经过本地兼容性审查后�
 - HLS 去广告三路径：MpvHlsProxy、ExoHlsAdblockDataSource、M3u8 → HlsAdblockNotice.message/durationText。只变更成功提示文案与计时格式，不改变广告识别、跳过区间、时间轴或配置。
 - Android 7 兼容：minSdk=24；Matcher StringBuilder overload、Process.isAlive、View.setImportantForAutofill 分别具有更高平台 API 门槛。安全改为官方 API 1/compat 等价调用，保持算法和对话框行为。
 - IJK 诊断由 PlayerOsdController 的 analytics 数据分派控制；MPV 已有专属统计。本次只补 IJK 来源，不改其它引擎计数。
-- NO_CONFIG 使用现有 ProgressLayout/state events，不新增页面；TV/Mobile consumer 恢复配置后应清掉先前失败态。当前目标最后的 Callback 宿主 noConfig 修复必须与 0f1dc0c615b3ac04e8c22af9f16c75286e3e648a 一起纳入。
+- NO_CONFIG 使用现有 ProgressLayout/state events，不引入上游完整 error-page 状态机；TV/Mobile 复用空态 overlay，并提供通向既有 VOD 配置管理器的动作。只在配置源实际可用且首页收到 HOME refresh 时收起 no-config overlay。当前目标最后的 Callback 宿主 noConfig 修复必须与 0f1dc0c615b3ac04e8c22af9f16c75286e3e648a 一起纳入。
 - 主题与焦点：本地 ThemeController、ThemeTokens、ThemeEditor、TV 焦点环和控件状态有额外合同；本轮只让健康报告读取语义 token，不统一色值，不重写 theme/dialog/focus 系统。
 - 解码合同：E-SP9 明确保留硬解手动选择；目标 C65 自动硬转软回退即使后续 review 补了判据也不纳入。
 - 缓存：此前明确排除独立缓存管理功能；CacheManagementDialog/CacheCleanupManager 范围中的候选不纳入。
@@ -463,3 +463,16 @@ Merge 提交用 combined diff 检查冲突解决路径；合并分支中的独�
 - Regenerated only those five scoped assets and inspected the 640x360 result; layout and wordmark remain intact.
 - PASS: `AppBrandingContractTest` in Mobile and Leanback debug variants; 13 tests per variant, 0 failures/errors/skips.
 - Task guard session: `C53-TV-BANNER-RESOLUTION-01`; generator, resources, tests, and evidence are listed above.
+
+
+### Checkpoint 12: no-config is a recoverable empty state
+
+- Source: `0f1dc0c615b3ac04e8c22af9f16c75286e3e648a` adds the distinct no-config result and both host paths. The final target callback contract also includes `64ebe4be58063075f5139d175412bc3e9ce95edd`: the default `Callback.noConfig()` calls `error("")`, preserving the completion signal for existing callbacks that do not override it.
+- `BaseConfig` now sends empty-URL failures to `noConfig()`. Mobile dispatches `StateEvent.NO_CONFIG`; Leanback and Mobile render the existing empty overlay with localized title, explanation, and an action into `HistoryDialog.create().vod().manage()`. This avoids importing the upstream error/retry pages. Existing generic EMPTY, real `error(String)`, and other StateEvent behavior remain separate.
+- The no-config action uses the existing primary-button color-state resources. Their Pressed and Focused entries stay distinct; no Selected, Activated, or Current state behavior was added. The regular empty view resets to its original `error_empty` content after custom no-config text is used.
+- Both home consumers dismiss only the tracked no-config view after a HOME refresh confirms VOD sources exist. Mobile tests the overlay's visibility first; Leanback tracks its own no-config state. Existing recovery, playback, history, and theme systems were not replaced.
+- PASS: `NoConfigStateContractTest` in Mobile and Leanback debug variants; 5 tests per variant, 0 failures/errors/skips.
+- Full Mobile debug suite: 4,928 tests, 5 failures, 2 skipped. Full Leanback debug suite: 4,126 tests, 5 failures, 2 skipped. The same five failures were observed in both variants and in the broad Mobile run before this checkpoint: `MpvFontConfigTest.writeIfChanged_replacesStaleConfigurationAndCleansTemporaryFile`, `MpvHlsCacheCoordinatorTest.successfulCommitPublishesCompleteFileAndReleasesReservation`, `LiveActivitySourceFallbackSourceTest.eachFetchReplacesPreviousBufferingTimeout`, `LiveActivitySourceFallbackSourceTest.failedAttemptIsReleasedOnlyWhenReplacementStartsBuffering`, and `ThemeBaseWiringTest.controlSheetButtonTextStaysPaletteIndependent`. No baseline comparison was run, so these are recorded as observed suite failures, not labelled pre-existing.
+- PASS: `assembleMobileArm64_v8aDebug`, `assembleLeanbackArm64_v8aDebug`, `assembleMobileArm64_v8aRelease`, and `assembleLeanbackArm64_v8aRelease`. Release emitted existing resource/localization warnings; packaging succeeded.
+- Device verification: NOT RUN.
+- Task guard session: `C53-NO-CONFIG-STATE-01`; source, tests, and build evidence are listed above.

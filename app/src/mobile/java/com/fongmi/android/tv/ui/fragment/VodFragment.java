@@ -428,10 +428,28 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
         if (event.type() == ConfigEvent.Type.VOD) setLogo();
     }
 
+    private void dismissNoConfigIfConfigured() {
+        if (mBinding.empty.getRoot().getVisibility() != View.VISIBLE) return;
+        if (VodConfig.get().getSites().isEmpty()) return;
+        mBinding.empty.getRoot().setVisibility(View.GONE);
+    }
+
+    private void showNoConfig() {
+        hideProgress();
+        mBinding.empty.text.setText(R.string.home_no_config_title);
+        mBinding.empty.description.setText(R.string.home_no_config_description);
+        mBinding.empty.description.setVisibility(View.VISIBLE);
+        mBinding.empty.action.setText(R.string.home_no_config_action);
+        mBinding.empty.action.setOnClickListener(view -> HistoryDialog.create().vod().manage().show(this));
+        mBinding.empty.action.setVisibility(View.VISIBLE);
+        mBinding.empty.getRoot().setVisibility(View.VISIBLE);
+    }
+
     @Subscribe(threadMode = ThreadMode.MAIN)
     public void onRefreshEvent(RefreshEvent event) {
         switch (event.getType()) {
             case HOME:
+                dismissNoConfigIfConfigured();
                 if (mWeb != null && mWeb.isVisible()) {
                     Site home = getHome();
                     WebHomeChromeStartup.remember(getConfig(), home);
@@ -467,6 +485,9 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
                 break;
             case PROGRESS:
                 showProgress();
+                break;
+            case NO_CONFIG:
+                showNoConfig();
                 break;
         }
     }

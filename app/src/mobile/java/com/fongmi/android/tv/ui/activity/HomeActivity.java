@@ -205,6 +205,13 @@ public class HomeActivity extends BaseActivity implements NavigationBarView.OnIt
             }
 
             @Override
+            public void noConfig() {
+                resetVodChrome();
+                checkAction(getIntent());
+                StateEvent.noConfig();
+            }
+
+            @Override
             public void error(String msg) {
                 resetVodChrome();
                 checkAction(getIntent());

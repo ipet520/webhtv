@@ -21,6 +21,14 @@ public class Callback implements okhttp3.Callback {
     public void start() {
     }
 
+    /**
+     * Called when no VOD content source is configured. Existing callbacks still receive their
+     * normal completion signal unless the host provides a dedicated empty-state handler.
+     */
+    public void noConfig() {
+        error("");
+    }
+
     public void error(String msg) {
     }
 

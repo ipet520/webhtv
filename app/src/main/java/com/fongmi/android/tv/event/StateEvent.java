@@ -8,6 +8,10 @@ public record StateEvent(Type type) {
         EventBus.getDefault().post(new StateEvent(Type.EMPTY));
     }
 
+    public static void noConfig() {
+        EventBus.getDefault().post(new StateEvent(Type.NO_CONFIG));
+    }
+
     public static void progress() {
         EventBus.getDefault().post(new StateEvent(Type.PROGRESS));
     }
@@ -17,6 +21,6 @@ public record StateEvent(Type type) {
     }
 
     public enum Type {
-        EMPTY, PROGRESS, CONTENT
+        EMPTY, PROGRESS, CONTENT, NO_CONFIG
     }
 }

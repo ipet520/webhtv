@@ -137,6 +137,7 @@ public class HomeActivity extends BaseActivity implements ExitConfirmDialog.List
     private boolean webToolbarVisible = true;
     private boolean loadingHomeCategory;
     private boolean skipNextVodConfigRefresh;
+    private boolean noConfigVisible;
     private boolean pendingOpenVod; // 手动点击"点播"后等待数据加载完成再进分类页
     private boolean webConfirmKeyDown;
     private boolean webConfirmLongPress;
@@ -622,6 +623,14 @@ public class HomeActivity extends BaseActivity implements ExitConfirmDialog.List
             }
 
             @Override
+            public void noConfig() {
+                SpiderDebug.log("startup", "no vod config configured");
+                skipNextVodConfigRefresh = true;
+                checkAction(getIntent());
+                showNoConfig();
+            }
+
+            @Override
             public void error(String msg) {
                 SpiderDebug.log("startup", "config load error cost=%sms msg=%s", System.currentTimeMillis() - App.time(), msg);
                 Notify.show(msg);
@@ -631,7 +640,23 @@ public class HomeActivity extends BaseActivity implements ExitConfirmDialog.List
         };
     }
 
+    private void showNoConfig() {
+        noConfigVisible = true;
+        mBinding.progressLayout.showEmptyContent(
+                R.string.home_no_config_title,
+                R.string.home_no_config_description,
+                R.string.home_no_config_action,
+                view -> HistoryDialog.create().vod().manage().show(this));
+    }
+
+    private void dismissNoConfigIfConfigured() {
+        if (!noConfigVisible || VodConfig.get().getSites().isEmpty()) return;
+        noConfigVisible = false;
+        mBinding.progressLayout.showContent();
+    }
+
     private void showContent() {
+        noConfigVisible = false;
         SpiderDebug.log("startup", "home showContent start cost=%sms", System.currentTimeMillis() - App.time());
         mBinding.progressLayout.showContent();
         checkAction(getIntent());
@@ -897,6 +922,7 @@ public class HomeActivity extends BaseActivity implements ExitConfirmDialog.List
     public void onRefreshEvent(RefreshEvent event) {
         switch (event.getType()) {
             case HOME:
+                dismissNoConfigIfConfigured();
                 setTitle();
                 SpiderDebug.log("site-dialog", "home refresh start key=%s homePage=%s", getHome().getKey(), getHome().hasHomePage());
                 if (mWeb != null && mWeb.isVisible()) {

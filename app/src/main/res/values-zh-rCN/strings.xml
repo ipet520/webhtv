@@ -2890,4 +2890,7 @@
         <item>五</item>
         <item>六</item>
     </string-array>
+    <string name="home_no_config_title">还没有配置接口</string>
+    <string name="home_no_config_description">添加一个点播接口后即可浏览内容。</string>
+    <string name="home_no_config_action">添加接口</string>
 </resources>

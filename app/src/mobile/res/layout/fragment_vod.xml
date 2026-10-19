@@ -104,6 +104,14 @@
         layout="@layout/view_progress"
         android:visibility="gone" />
 
+    <include
+        android:id="@+id/empty"
+        layout="@layout/view_empty"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_gravity="center"
+        android:visibility="gone" />
+
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/filter"
         android:layout_width="wrap_content"

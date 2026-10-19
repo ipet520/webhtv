@@ -4,7 +4,8 @@
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"
     android:gravity="center"
-    android:orientation="vertical">
+    android:orientation="vertical"
+    android:clickable="true">
 
     <com.airbnb.lottie.LottieAnimationView
         android:layout_width="200dp"
@@ -20,5 +21,30 @@
         android:text="@string/error_empty"
         android:textColor="?attr/webhtvColorOnWallpaper"
         android:textSize="16sp" />
+
+    <com.google.android.material.textview.MaterialTextView
+        android:id="@+id/description"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:gravity="center"
+        android:maxWidth="560dp"
+        android:textColor="?attr/webhtvColorOnWallpaper"
+        android:textSize="16sp"
+        android:visibility="gone" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/action"
+        style="@style/Widget.Material3.Button.TonalButton"
+        android:layout_width="wrap_content"
+        android:layout_height="48dp"
+        android:layout_marginTop="20dp"
+        android:focusable="true"
+        android:focusableInTouchMode="false"
+        android:minHeight="48dp"
+        android:minWidth="144dp"
+        android:textColor="@color/following_button_primary_text"
+        android:visibility="gone"
+        app:backgroundTint="@color/following_button_primary_bg" />
 
 </androidx.appcompat.widget.LinearLayoutCompat>

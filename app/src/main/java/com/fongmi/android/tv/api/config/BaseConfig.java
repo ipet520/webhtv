@@ -124,7 +124,7 @@ abstract class BaseConfig {
             e.printStackTrace();
             if (isCanceled(e)) return;
             if (taskId.get() != id) return;
-            if (TextUtils.isEmpty(config.getUrl())) App.post(() -> callback.error(""));
+            if (TextUtils.isEmpty(config.getUrl())) App.post(callback::noConfig);
             else if (this instanceof VodConfig) ((VodConfig) this).onConfigFailure(config, callback, e);
             else App.post(() -> callback.error(Notify.getError(R.string.error_config_get, e)));
         } finally {

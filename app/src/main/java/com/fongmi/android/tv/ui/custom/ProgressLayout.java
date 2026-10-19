@@ -24,6 +24,7 @@ public class ProgressLayout extends RelativeLayout {
     private List<View> mContentViews;
     private View mProgressView;
     private View mEmptyView;
+    private ViewEmptyBinding mEmptyBinding;
     private State mState;
 
     public ProgressLayout(Context context) {
@@ -47,7 +48,8 @@ public class ProgressLayout extends RelativeLayout {
 
     private void ensureEmptyView() {
         if (mEmptyView != null) return;
-        mEmptyView = ViewEmptyBinding.inflate(LayoutInflater.from(getContext())).getRoot();
+        mEmptyBinding = ViewEmptyBinding.inflate(LayoutInflater.from(getContext()));
+        mEmptyView = mEmptyBinding.getRoot();
         mEmptyView.setTag(TAG_PROGRESS);
         mEmptyView.setVisibility(GONE);
         addView(mEmptyView, centerParams());
@@ -86,7 +88,30 @@ public class ProgressLayout extends RelativeLayout {
     }
 
     public void showEmpty() {
+        resetEmptyContent();
         switchState(State.EMPTY);
+    }
+
+    public void showEmptyContent(int title, int description, int action, OnClickListener listener) {
+        ensureEmptyView();
+        mEmptyBinding.text.setText(title);
+        mEmptyBinding.description.setText(description);
+        mEmptyBinding.description.setVisibility(VISIBLE);
+        mEmptyBinding.action.setText(action);
+        mEmptyBinding.action.setOnClickListener(listener);
+        mEmptyBinding.action.setVisibility(listener == null ? GONE : VISIBLE);
+        switchState(State.EMPTY);
+        if (listener != null) mEmptyBinding.action.requestFocus();
+    }
+
+    private void resetEmptyContent() {
+        ensureEmptyView();
+        mEmptyBinding.text.setText(com.fongmi.android.tv.R.string.error_empty);
+        mEmptyBinding.description.setText("");
+        mEmptyBinding.description.setVisibility(GONE);
+        mEmptyBinding.action.setText("");
+        mEmptyBinding.action.setOnClickListener(null);
+        mEmptyBinding.action.setVisibility(GONE);
     }
 
     public void showContent() {
