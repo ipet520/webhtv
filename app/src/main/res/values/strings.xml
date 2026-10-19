@@ -1628,6 +1628,7 @@
 
     <!-- Error -->
     <string name="error_config_get">Configuration get failed</string>
+    <string name="error_config_load">Could not load content source</string>
     <string name="error_play_next">It\'s the last episode!</string>
     <string name="error_play_prev">It\'s the first episode!</string>
     <string name="error_play_parse">Unable to parse url</string>

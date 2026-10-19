@@ -8,6 +8,7 @@ import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.viewbinding.ViewBinding;
 
 import com.fongmi.android.tv.Product;
+import com.fongmi.android.tv.R;
 import com.fongmi.android.tv.api.config.VodConfig;
 import com.fongmi.android.tv.bean.Config;
 import com.fongmi.android.tv.bean.Keep;
@@ -63,6 +64,14 @@ public class KeepActivity extends BaseActivity implements KeepAdapter.OnClickLis
 
             @Override
             public void error(String msg) {
+                mBinding.progressLayout.showError(
+                        R.string.error_config_load,
+                        msg,
+                        R.string.error_retry,
+                        view -> {
+                            mBinding.progressLayout.showProgress();
+                            loadConfig(config, item);
+                        });
                 Notify.show(msg);
             }
         });

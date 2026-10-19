@@ -635,7 +635,7 @@ public class HomeActivity extends BaseActivity implements ExitConfirmDialog.List
                 SpiderDebug.log("startup", "config load error cost=%sms msg=%s", System.currentTimeMillis() - App.time(), msg);
                 Notify.show(msg);
                 skipNextVodConfigRefresh = true;
-                showContent();
+                showConfigError(msg);
             }
         };
     }
@@ -655,8 +655,18 @@ public class HomeActivity extends BaseActivity implements ExitConfirmDialog.List
         mBinding.progressLayout.showContent();
     }
 
-    private void showContent() {
-        noConfigVisible = false;
+    private void showConfigError(String message) {
+        mBinding.progressLayout.showError(
+                R.string.error_config_load,
+                message,
+                R.string.error_retry,
+                view -> {
+                    mBinding.progressLayout.showProgress();
+                    initConfig();
+                });
+    }
+
+    private void showContent() {        noConfigVisible = false;
         SpiderDebug.log("startup", "home showContent start cost=%sms", System.currentTimeMillis() - App.time());
         mBinding.progressLayout.showContent();
         checkAction(getIntent());

@@ -12,6 +12,8 @@ import androidx.core.content.ContextCompat;
 
 import com.fongmi.android.tv.R;
 import com.fongmi.android.tv.databinding.ViewEmptyBinding;
+import com.fongmi.android.tv.theme.SettingsValuePresentation;
+import com.fongmi.android.tv.theme.ThemeController;
 import com.fongmi.android.tv.databinding.ViewProgressBinding;
 
 import java.util.ArrayList;
@@ -22,13 +24,17 @@ public class ProgressLayout extends RelativeLayout {
     private static final String TAG_PROGRESS = "ProgressLayout.TAG_PROGRESS";
 
     public enum State {
-        CONTENT, PROGRESS, EMPTY
+        CONTENT, PROGRESS, EMPTY, ERROR
     }
 
     private List<View> mContentViews;
     private View mProgressView;
     private View mEmptyView;
     private ViewEmptyBinding mEmptyBinding;
+    private int mErrorTitleRes;
+    private CharSequence mErrorReason;
+    private int mErrorRetryRes;
+    private OnClickListener mErrorRetryListener;
     private State mState;
 
     public ProgressLayout(Context context) {
@@ -98,6 +104,7 @@ public class ProgressLayout extends RelativeLayout {
 
     public void showEmptyContent(int title, int description, int action, OnClickListener listener) {
         ensureEmptyView();
+        restoreEmptyChrome();
         mEmptyBinding.text.setText(title);
         mEmptyBinding.description.setText(description);
         mEmptyBinding.description.setVisibility(VISIBLE);
@@ -108,8 +115,50 @@ public class ProgressLayout extends RelativeLayout {
         if (listener != null) mEmptyBinding.action.requestFocus();
     }
 
+    public void showError(int titleRes, CharSequence reason, int retryRes, OnClickListener retry) {
+        mErrorTitleRes = titleRes;
+        mErrorReason = reason;
+        mErrorRetryRes = retryRes;
+        mErrorRetryListener = retry;
+        if (mState == State.ERROR) applyErrorContent();
+        else switchState(State.ERROR);
+    }
+
+    public boolean isError() {
+        return mState == State.ERROR;
+    }
+
+    private void applyErrorContent() {
+        if (mEmptyView == null) return;
+        mEmptyBinding.illustration.setVisibility(GONE);
+        SettingsValuePresentation.error(mEmptyBinding.text, ThemeController.current());
+        if (mErrorTitleRes != 0) mEmptyBinding.text.setText(mErrorTitleRes);
+        if (mErrorReason != null && mErrorReason.length() > 0) {
+            mEmptyBinding.description.setText(mErrorReason);
+            mEmptyBinding.description.setVisibility(VISIBLE);
+        } else {
+            mEmptyBinding.description.setVisibility(GONE);
+        }
+        if (mErrorRetryRes != 0 && mErrorRetryListener != null) {
+            mEmptyBinding.action.setText(mErrorRetryRes);
+            mEmptyBinding.action.setOnClickListener(mErrorRetryListener);
+            mEmptyBinding.action.setVisibility(VISIBLE);
+            mEmptyBinding.action.requestFocus();
+        } else {
+            mEmptyBinding.action.setOnClickListener(null);
+            mEmptyBinding.action.setVisibility(GONE);
+        }
+    }
+
+    private void restoreEmptyChrome() {
+        mEmptyBinding.illustration.setVisibility(VISIBLE);
+        mEmptyBinding.text.setTextColor(ContextCompat.getColor(getContext(), R.color.webhtv_on_wallpaper));
+        mEmptyBinding.text.setBackground(null);
+    }
+
     private void resetEmptyContent() {
         ensureEmptyView();
+        restoreEmptyChrome();
         mEmptyBinding.text.setText(com.fongmi.android.tv.R.string.error_empty);
         mEmptyBinding.description.setText("");
         mEmptyBinding.description.setVisibility(GONE);
@@ -150,8 +199,8 @@ public class ProgressLayout extends RelativeLayout {
         if (mState == state) return;
         State previous = mState;
         mState = state;
-        if (state == State.EMPTY) applyEmptyStateScrim();
-        else if (previous == State.EMPTY) setBackground(null);
+        if (state == State.EMPTY || state == State.ERROR) applyEmptyStateScrim();
+        else if (previous == State.EMPTY || previous == State.ERROR) setBackground(null);
         switch (state) {
             case CONTENT:
                 if (mEmptyView != null) mEmptyView.setVisibility(GONE);
@@ -166,6 +215,14 @@ public class ProgressLayout extends RelativeLayout {
                 break;
             case EMPTY:
                 ensureEmptyView();
+                restoreEmptyChrome();
+                mEmptyView.setVisibility(VISIBLE);
+                if (mProgressView != null) mProgressView.setVisibility(GONE);
+                setContentVisibility(false);
+                break;
+            case ERROR:
+                ensureEmptyView();
+                applyErrorContent();
                 mEmptyView.setVisibility(VISIBLE);
                 if (mProgressView != null) mProgressView.setVisibility(GONE);
                 setContentVisibility(false);
