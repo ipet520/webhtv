@@ -593,3 +593,98 @@ Merge 提交用 combined diff 检查冲突解决路径；合并分支中的独�
 - 修复：四个页面的单项删除回调均在 diff 完成后按最终 itemCount 调用已有 `showContent`。Mobile History/Keep 和 Leanback History 的清空操作也改用已有 `BaseDiffAdapter.clear(Runnable)` 完成回调后切换空态；列表归零时同时退出删除模式，Mobile 页面继续刷新 marquee。Leanback Keep 当前没有清空入口，因此只修复其单项删除路径。
 - 影响范围：复用现有 EMPTY/CONTENT 状态机、adapter diff 回调与删除交互，不引入新页面、文案、控件或数据行为；只在 adapter 已提交最终列表后切换状态。
 - 验证：新增 `HistoryKeepEmptyTransitionSourceTest` 锁定四端单项删除回调、现有清空入口的 diff 完成回调、归零退出删除模式，以及 `ProgressLayout` 的零行到 EMPTY 映射。Mobile `:app:testMobileArm64_v8aDebugUnitTest --tests ...HistoryKeepEmptyTransitionSourceTest` 与 Leanback 对应任务分别 3/3、failures=0、errors=0；两端 Java 编译通过。无真机验证。
+
+
+## C53 收尾与 E 类剩余候选复评（2026-10-19，最终审计补记）
+
+本节覆盖固定同步起点 f5f26b30855638a84aef3bbd5be40e97ec8b0ce1 之后的收尾提交；上游仍固定为 93ea56a61df9fbe3acf0d345234f0a97c3bcfab3，LOCAL_BASE 仍为 80766ab3e3455968aa64ee8489bafcdec6731d91。复评工作在隔离 App 工作树和分支 sync/upstream-beta-20261019 完成。写入本节前 HEAD 为 3b272c0374db4663b6d6508af4287754b4080fa1；报告提交另行记录于 Git 历史。本次不推送、不合入稳定分支，Suite pointer、原 App checkout 和 WebHome 均未修改。
+
+### 五项历史测试失败：BASE 与 SYNC 对照
+
+BASE 工作树是干净 detached checkout 80766ab3e3455968aa64ee8489bafcdec6731d91；SYNC 使用本节当前分支。两侧均在同一台 Windows 主机、JDK 21、Android SDK E:\Android\Sdk、Gradle 9.5.1、相同 GRADLE_USER_HOME 和 JAVA_TOOL_OPTIONS 下运行。先以单个 Gradle task 和正确包名执行完整 MPV 测试包、LiveActivity 测试类及 ThemeBaseWiringTest 指定方法；其后在最终 SYNC 上分别运行完整 Mobile 与 Leanback 测试任务。
+
+| 用例 | BASE 证据 | SYNC 证据 | 根因和归因 |
+|---|---|---|---|
+| MpvFontConfigTest.writeIfChanged_replacesStaleConfigurationAndCleansTemporaryFile | MpvFontConfigTest 3 项中此项失败；MpvFontConfigTest.java:53 抛 IOException: Unable to commit fontconfig configuration，生产栈落在 MpvFontConfig.writeIfChanged:74。 | MpvFontConfigTest 3/3 通过；最终全量 Mobile、Leanback 均通过。 | BASE 只调用 File.renameTo(existingTarget)，Windows JVM 不能以该调用替换已存在目标文件。SYNC 先完整写入、flush、fsync 临时文件，再以同目录 .bak 作为失败回退路径，失败时尝试恢复旧文件，成功后清除备份。属于跨平台文件替换缺口，BASE 失败，SYNC 修复；不是断言放宽。 |
+| MpvHlsCacheCoordinatorTest.successfulCommitPublishesCompleteFileAndReleasesReservation | MPV 包 313 项中此项失败；MpvHlsCacheCoordinatorTest.java:208 的 commit.bin.meta 文件断言为 false。 | MPV 包 313/313 通过；最终双端全量通过。 | BASE 的 writeMetaLocked 在 OutputStream 仍处于 try-with-resources 范围时删除并 rename 临时元数据。Windows 会锁定打开的文件，rename 失败且被现有容错吞掉，因而缺少 .meta。SYNC 先关闭输出流再发布元数据；缓存主体仍有效，资源关闭顺序也适用于 Android。 |
+| LiveActivitySourceFallbackSourceTest.eachFetchReplacesPreviousBufferingTimeout | 类 5 项中失败；断言 expected:<2> but was:<0>，失败在 assertFetchTimeoutIsReplaced:75。 | 类 5/5 通过；最终双端全量通过。 | Windows checkout 的 LiveActivity.java 是 CRLF，测试却以 LF 子串匹配，读不到两处实际代码。SYNC 的 readSource 只把 CRLF 归一化成 LF；次数断言仍严格要求 2。Leanback/Mobile LiveActivity 生产文件相对 BASE 未修改。 |
+| LiveActivitySourceFallbackSourceTest.failedAttemptIsReleasedOnlyWhenReplacementStartsBuffering | 类 5 项中失败；assertTrue 在测试行 39 收到 Leanback LiveActivity.java 路径后失败。 | 类 5/5 通过；最终双端全量通过。 | 与上一项相同，是 CRLF 下多行源码契约读取失败，不是运行时换源行为回归。SYNC 保留所有字符串和负向断言，仅统一换行后匹配；生产 LiveActivity 未变。 |
+| ThemeBaseWiringTest.controlSheetButtonTextStaysPaletteIndependent | 单项失败，ThemeBaseWiringTest.java:177 断言“selected state must stay dark”找不到 #FF000000。 | 当前契约测试通过；完整 Mobile、Leanback 测试通过。 | BASE 断言和实际控件背景不符。Mobile selector_player_child_sheet_button 的常态、focused、selected、activated 填充均为深色玻璃；selector_control_sheet_text 的 white/white-90 前景才与这些状态配对。SYNC 契约按 disabled、activated、selected、focused、default 分别锁定当前颜色；没有改生产 selector，也没有删掉对比度断言。固定玻璃 chip 是另一控件，仍保留黑字压浅色选中底和白字压深色常态底，由 DialogGlassChipStyleTest 单独检查。 |
+
+五项均不是“BASE 通过、SYNC 失败”。其中 MPV 两项是同步代码修复了 BASE 在 Windows 上暴露的文件发布缺陷；Live 两项修正源码测试对换行格式的依赖；ControlSheet 项修正了与当前真实控件背景相矛盾的旧断言。以上测试没有被删除或降低强度。
+
+另查到一个不属于五项清单的 LeanbackForegroundContrastTest 报错：BASE 指定用例通过；SYNC 原测试解析器把 adapter_search_list.xml → shape_vod_site.xml → bg_site.xml → tv_badge_site 的资源链判为未解析 palette。最终 tv_badge_site 在 src/leanback/res/values/tv_badge_colors.xml 中明确为深色 #C62828；解析器原来没有加载这个 flavor 专属 values 文件，故报告为 false positive。3b272c0374db4663b6d6508af4287754b4080fa1 只把该真实资源文件加入测试解析器，未改 UI 或放宽阈值。LeanbackForegroundContrastTest 随后通过，当前完整 Leanback 测试也通过。
+
+### 原 54 项 E 中除实验室 8 项以外的 46 项逐项复评
+
+原 E 台账有 54 项，其中 8 项实验室候选已在前文单独审计和实施；下表逐条覆盖其余 46 项。判定码：U=采用上游最终实现；C=与本地机制融合或只提取已授权的 Bug 修复；L=保留本地等效或更适合现有主题/交互的实现；X=排除；D=因具体数据风险暂缓。原始提交标题和修改路径见前文完整台账。
+
+| 上游完整 SHA | 判定 | 最终比较与选择 |
+|---|---|---|
+| a9a52e2cb7b356bd4520dbb05783b6b348c1ab0b | X | 只有 MPV 切换原因诊断日志，没有对应的现有行为修复；不扩展诊断面。缓冲停滞行为已由 c2a09e7 的适配实现处理。 |
+| 7e83931c5baa38b40581fac88f10f72781fa734c | X | 提交只增加 MobilePlaybackFlagResolutionContractTest、复评文档和索引链接，无生产代码变化；保留已有测试，不移植复评材料。 |
+| c2a09e7647dd6a83871b37945074853b4588141c | C | 采用其把停滞恢复用于 MPV 的目标，保留本地更完整的 seek/flush、慢速增长和 90 秒 episode 上限；旧播放器替换前取消计时。BufferingStallWatchdog 与 PlayerManagerLifecycle 测试覆盖。 |
+| 3eee5e8c9d618c4f7845e6bd0100357f28ef82d0 | C | 恢复现有 TV MPV 自动直出路径，但保留本地设备/输出能力闸门、MPV shutter 稳定性保护和 Mobile 行为；没有改成全局默认软解/直出。MpvOutputModePolicy 与 MpvStabilityGuard 合同覆盖。 |
+| 2d4259ef7a3bb18478f301d21c3d3a388e37b46b | C | 修复 TV DIRECT 详情简介和当前集提示；保留本地 TMDB writer、Focused 优先级及 selected 跑马灯语义，只将真实播放项标为 activated。VideoActivityDetailShellSourceTest 覆盖。 |
+| 933ab6d73e27477c62e84dfb2c3ad546b4741043 | L | app.py 的原子 writeFile、带超时/跳数上限的 redirect 和严格 str2json 在本地已等效存在，不重复复制；现有 Python bridge 29 项测试覆盖失败保全、并发和错误输入。 |
+| 317fa9021d4b4184518745c0f891c89b9719b033 | C | 缺失 getDependence 的可选方法已有 getattr/可调用检查；真实方法异常继续向上报告。只补 PyLoader 初始化异常诊断到 SpiderDebug.log，避免静默降级；Python 29 项及 PyLoaderInitDiagnosticsSourceTest 覆盖。 |
+| b1fe3d5686883f45f32e626b2b61ba183a0b1dcb | L | SiteViewModel 已在 onCleared 后拒绝排队请求并返回取消结果，SubmitAfterClear 测试覆盖，不移植重复保护。 |
+| 80816a15f0b22e870a86036afb49e186d5efb9df | C | 采用 seek bar 返还最后一个有效控制按钮的机制，同时保留本地 ensureFocus、控制栏所有权校验及无效目标 no-op。PlayerControlFocusHelperSeekReturnTest 9 项覆盖按键路径、外部焦点和无 id 控件。 |
+| 2137fffc5a56b44014d10ec9d3498b31b12810d0 | L | 当前固定目标树与本地 selector_dialog_glass_chip_text 采用同一明暗分态方案：disabled/default 为 white-90，checked/activated/selected/focused 为 black；这是针对固定暗色常态与浅色选中填充的控件特例，不推广到其他按钮。DialogGlassChipStyleTest 覆盖主题两表的合成对比度。 |
+| 7d7c17ef15002a16051744a34aa29d54305e4527 | L | 保留本地 SiteDialog 全屏 MATCH_PARENT 布局及其纵向内容空间，未把面板缩到 90%。90% 是另一视觉尺寸选择；本地已有滚动内容与显式行内边距，不存在靠缩小面板才能修复的组行裁切。SiteDialog 布局合同测试覆盖。 |
+| b66a3397e2574c733d06bd1099ea8e94254bd6c5 | U | 已在 55a87d489b60a0b6e4ad7c00cf5300a992ced63a 为两个 Leanback site row 直接设置 14dp 水平 padding。SiteDialogTheme 会把背景替换为无 padding 的 GradientDrawable，因此只靠 selector 背景 padding 不可靠；测试明确检查 View 自身的 padding。 |
+| fad60a9b1e66602875fb242887b564172a8182f3 | X | 16dp 到 20dp 的卡片间距属于视觉尺寸变更，没有现有布局缺陷证据；保留本地间距和焦点缩放，不作大范围密度调整。 |
+| cb0bcc5c0bbd4541402dcef4cf41d05d730ec972 | C | 采用现有 EMPTY 壁纸遮罩及 Following 文本的语义配色修复；保留本地状态机、插画、焦点和自定义主题 token，不导入通用 ERROR/CTA 页面。ProgressLayoutEmptyScrimTest 与 MobileFollowingCardSemanticContractTest 覆盖。 |
+| 7ac2d124f6e5a4f5dcd6ec669b13d4f39b488219 | L | 保留本地 TV Tab 焦点环的 Focus token 和控件状态分工；不把整条 Tab 状态涂成单一硬编码色。Theme token、selector 状态和焦点环合同测试覆盖。 |
+| f6eede67dc12ff700e160b2d20c5cc510a50f928 | C | 六处现有弹窗改用 WebHtvAlertDialogBuilder；Updater 显式 themeResId 和原有事件/选择行为不变，其他 Focused/Selected/Activated selector 未重写。ThemeBinderContract/Runtime 覆盖。 |
+| 6f39d5a618192a99eb830ad79924a783e01437c4 | X | 8dp 圆角是规范/外观调整，没有已复现的功能 Bug；不改变现有输入框外形。 |
+| ecacf87742e985c35452057484a151817bed35d3 | L | TV History 删除最后一项后通过现有 ProgressLayout 进入 EMPTY；不引入额外标题、说明或动作按钮。与 HistoryKeepEmptyTransitionSourceTest 所锁定路径一致。 |
+| 8168dab8093cc245c116f93ec5860e040c2049e8 | X | 通用 list-empty hook 是全局架构重构，影响面超过已证实问题；保留每个 History/Keep 删除或清空回调在 AsyncListDiffer 完成后更新状态的窄修复。 |
+| 28e1a2f8d6fd70ea7654525e8b671550217194f6 | L | Mobile History/Keep 仅在最终 diff 完成后切换空态和退出删除模式；继续使用原空态和菜单行为。HistoryKeepEmptyTransitionSourceTest 覆盖四端路径。 |
+| f2f65ff3cf00a39ba285ae10c98d063e72230084 | C | Mobile 首页已有配置加载失败现在显示 ERROR 原因和原有 ConfigRetry 重试；复用 ProgressLayout 与现有 initConfig 入口，不新增页面/设置。MobileHomeConfigErrorRecoveryTest 和 NoConfigStateContractTest 覆盖。 |
+| 615de468aca96eda197ff6d083d1417c5a3a17a5 | L | 保留本地 SettingsValuePresentation：按 ThemeController 当前浅/深/自定义调色板配对 errorContainer 与 onErrorContainer；不换成固定暗色底。对比度与成功刷新复位测试覆盖。 |
+| 537803de67de31abd347bff9c1ce189639102f9a | C | 只把播放器错误层接到已经存在的 reset/retry 路径，未增加新的换源/重置算法；MobilePlayerErrorRetryContractTest 覆盖。 |
+| 46f0d5560daeda8b9dfe30170904c4d9e2614368 | C | 仅保留已有列表删空后的状态修复及语义 spinner 颜色；空态三件套的普通页面 CTA 不接入。spinner 角色已在 c96b2a485348d6d00bdd9fa8e6fa6997d5ad7290 收窄到 wallpaper foreground。 |
+| a2932aeac21f173268aed547e8687b71d8f7c694 | C | TV 播放错误层复用本地 reset 动作和稳定的错误状态；未新增解码策略或自动换源默认行为。TvPlayerErrorRetryContractTest 覆盖。 |
+| 6f4009aa74dff0bba2dcc7e3568fb35a4dfed409 | C | 采用现有 TV 设置失败和 Keep 配置失败的可恢复显示，颜色改用本地动态 error/onError 主题角色，成功刷新时复位；不依赖固定色板。 |
+| bc756d1d7a114ce91acc206245c391a39403b3ff | C | BASE 已使用 WorkManager 执行 FollowingUpdateWorker；本地只把现有 enqueue/cancel 调用排队到用户解锁后，并保留周期/约束/identity key，不增加 worker、周期或用户开关。FollowingWorkStartupSourceTest 覆盖。 |
+| f838870134946ad2e8ea2322dc42830dd6b6ae16 | C | Leanback 首页配置失败显示现有错误原因与 ConfigRetry；复用当前主页和初始化回调，不创建独立错误页。TvConfigErrorRecoverySourceTest 覆盖。 |
+| 61483311b4d6ec722c057d48e9f7232ad83bb711 | C | 保留删空状态修复与 progress 语义颜色；描述/动作槽位保持默认 GONE，普通 EMPTY 不添加新的主动作或重构全站空态。 |
+| d5ceea9682e07fe80eab0bc765d3be86b642fabd | C | 采用已解析 season episode handoff 的目标行为；额外保留本地 cache generation、source-first、语言/媒体类型/season key 校验及手动扁平选择优先级。TMDB cache、resolver、handoff 多项测试覆盖。 |
+| 9f672ce2b24f05f2d748bf0b0b45d83a06b8d0f4 | X | 不把卡片焦点缩放重写成单一 helper/统一时长；不同海报、裁切容器和控件密度保留各自现有实现。没有测得性能或焦点可达性问题能证明重构收益。 |
+| 3e87e8364de0a8256e0c42a29f03d8a3cb6b53a4 | L | 保留本地 TV badge 语义角色与不透明深色 fills；white-on-badge 在 #C62828、#177535、#1565C0 上由 TvCardBadgeContrastTest 检查。LeanbackForegroundContrastTest 现也会解析 flavor 资源。 |
+| 4c5f4dc842126a079922c74bbeccceab0004733e | C | 将 forced-night 表的解析绑定到实际 Activity Resources，同时保留 ThemeController、ThemeProfile、动态焦点色和本地 selector；TvDialogPaletteModeTest 覆盖 API 28 资源上下文。 |
+| 56372b7dbac436f88b34225e714adedb3854d0fa | D | 仍暂缓 Room recovery：目标方案可能在 helper close/rename 前清 WAL/SHM/journal；rename 失败或时间戳碰撞时删除路径可能丢掉尚未 checkpoint 的已提交记录。须先证明 sidecar 原子保全与恢复，否则不合入。 |
+| d8c9bdc650115daf21d9ea1abfa3efb7d8f0535a | U | 采用同 versionCode 的更新时间排序：高 code 可升、低 code 不可降，同 code 按 stable/beta 标签时间判断，保留无时间戳非标准标签的原行为。UpdateOrderingTest 与 AppVersionBuildStampTest 覆盖。 |
+| 649275b76279d7a96a17eb2d48d04578d1a2b34e | L | 播放页保留本地 host 分层色板、动态 Focus token 与视频层近白环；focused 控件和 current/activated 内容仍是不同语义。TvFocusRingContractTest 检查颜色和对比度。 |
+| bd78d7b528fb61c4dc89f8eb0655085c878b4a87 | L | TV 设置列表沿用本地不同控件的焦点填充/边框/文本角色；不把 DOH 等不同类型 selector 统一成同一 Activated 颜色。ThemeGlobalSemanticContractTest 覆盖优先级。 |
+| 7948c8e97922f5b66ecd0168cdb1b1b789476e9f | L | 对话框继续从实际 Activity 主题资源和本地 ThemeBinder 取值；不使用可能绕过自定义主题的进程级颜色。ThemeBinder/ThemeController 合同测试覆盖。 |
+| c3bb6a63d9c6c96451bb6cdb0a7acadcf59598a3 | L | 播放页 focus ring 与 current ring 使用同一宽度 token，但保留 focused 优先、current/activated 离焦后显示的控件语义。TvFocusRingContractTest 覆盖。 |
+| b8581afc41fff215edee29f8e485f728c8241406 | L | 详情/播放页保留宿主圆角匹配和本地卡片集数名角色；没有将详情页 focus 样式替换成全局卡片样式。 |
+| 540d70b046a5b08b0cc238a6f52f846b2b82cb64 | L | 保留本地 1.5dp 应用表面环宽和 8dp 卡片宿主圆角；与上游目标的“统一细环”方向相同，但不覆盖不同 surface fill。 |
+| d8f958671a4462af63c9440b4207c0a3029bf555 | L | 保留原有选集弹窗可见焦点和控件级 state selector；focused ring 与 current selection 的颜色、回焦不合并。 |
+| d07a8454f7f3492090eff92e46f18db2219ad17c | L | 焦点色仍由主题 token 派生，不恢复固定 accent；同一 token 只统一环色/宽度，不统一 Focused、Selected、Activated、Pressed、Current 的选择器顺序。 |
+| 40ba21ed8766fd59d981b77e04c121557268fcb4 | L | 站点注入横屏保持本地全屏 shell、滚动区和底部按钮区布局，保留其与 90% 站点面板不同的对话框所有权。CustomCspDialogLayoutTest 覆盖。 |
+| 22348293b8b5aa3ca4b1c88e223eaf1b98743e78 | L | 站点注入竖屏保持本地 MATCH_PARENT 内容区域及固定操作区，不采用把按钮挤入内容滚动区的方案；CustomCspDialogLayoutTest 覆盖。 |
+| 42b03f028e9b8f29ff6f803571952a82f6d91e7e | L | 深色搜索分组 popup 保留 ThemeDialogSemantics.popup 的 Activity theme context 和本地主题面板；不换成只适配固定 dark palette 的颜色。SearchScopePopupLayoutTest 覆盖。 |
+
+统计：U=2，C=17，L=20，X=6，D=1，合计 46。连同前文独立处理的实验室 8 项，原 54 个 E 候选已全部重新判定；仅 Room recovery 保留在 D。X 项分别是诊断日志、仅复评材料、纯间距/圆角、通用列表重构和无可证明收益的焦点缩放重构。同期继续排除原 D 类独立能力；最终变更没有新增缓存管理界面、PG 专属功能、Reader TTS、音频指纹/语音广告、跨设备历史、遥测、设置选项或第三方依赖升级。
+
+### 本地 UI 修复与重叠优化验收
+
+- ControlSheetButton 与 glass chip 不是同一个控件。ControlSheetButton 画在固定深色玻璃上，Mobile 的 selected/activated/focused 字样保持白色；dialog glass chip 的 selected/activated/focused 填充是浅色，因此文字保持黑色，default 在深色透明底上为 white-90。两个 selector、对应背景和主题契约测试均保留；没有将 Focused、Selected、Activated、Pressed、Current 全局统一。
+- TV 设置控件继续逐类型区分焦点填充、描边和文字；Lab 分组 selector 的 focused 优先级与禁用按钮的 disabled 优先级分别验证。Leanback Lab 焦点源码 12 项、Lab 包 31 项均通过。类目、命令、详情、导入包、配置源弹窗的方向键放行、确认键切换、文件选择链接和几何向上返回均有对应源码合同测试；遥控器实体操作未执行。
+- Mobile/TV 浅深模式、自定义主题 token、ThemeBinder、对话框资源上下文和 Following 错误配色保持现有路径。TMDB 详情 cache generation、season handoff、source-first、追更和 episode mapping 未被上游替换；History/Keep 只在实际 diff 完成后更新空态。播放器切换与 EOF 回退保留本地生命周期、超时、自动换源和所有权测试。
+- 上游目标与本地 EOF/预加载策略比较：HttpEofRecoveryDataSource 仍只补取精确未读 range，连续 retry 上限 3，间隔为 100/250/500ms，总 backoff 上限 850ms；close 期间取消 wait。前台 EOF 事件写入带时间戳信号，预加载源仍标记为 non-foreground。AutoPreloadPolicy 只在最近一次前台恢复 age 不大于 15,000ms 时硬暂停，并用 max(0, 15,000-age) 作为剩余等待；同一恢复事件的后续 tick 不会每次重新叠加 15 秒。窗口到期后仍须满足现有 buffer、network、thermal 和 session 规则才恢复。AutoPreloadPolicyTest 覆盖窗口边界/到期恢复/从未发生恢复/过期信号，以及健康 route 不受旧信号影响；PreCachePolicy、ExoEofRecoveryWiring、close 取消测试随双端全量测试通过。15 秒窗口和真实预热恢复时机仍未在设备上校准。
+- 代码范围核查：本轮复评新增改动仅为 tv_badge_colors 资源解析测试；没有改数据库 schema、Room recovery、网络 API 或 Gradle 依赖。Manifest 变化只替换 WorkManager 的 eager initializer；BASE 已有 Following WorkManager 调度，本地只延后到用户解锁，现有周期、worker 和取消顺序保留。ProgressLayout 的错误显示只用于现有首页/收藏配置加载失败与已有重试入口；普通 EMPTY 的描述/动作控件默认 GONE，不增加独立页面或设置项。
+
+### 最终自动化验证、设备限制与发布门槛
+
+- Mobile 完整 DebugUnitTest：5,008 tests，failures=0、errors=0、skipped=2，Gradle exit=0。
+- Leanback 完整 DebugUnitTest：4,229 tests，failures=0、errors=0、skipped=2，Gradle exit=0。
+- Leanback 实验室定向测试：31 tests，failures=0、errors=0。
+- Python bridge：现有 unittest 文件 29 tests，全部通过；主机未安装 pytest，但该测试使用标准库 unittest 执行，不需要 pytest。
+- Mobile Debug、Leanback Debug、Mobile Release、Leanback Release 的 assemble 均成功。
+- ADB 检查只有离线设备，无在线 TV 或 Mobile 真机；设备验收 NOT RUN。需要人工设备复核：实验室 D-pad 分类/命令/详情/导入/配置弹窗确认与返回；自定义浅深主题和 TV 设置焦点对比度；播放器退出、MPV direct/shutter、Exo EOF 重试及 HLS 恢复/预热让位；TMDB 详情换源追更和 Mobile History/Keep 最后一项删除。
+- READY_FOR_RELEASE=NO（仅指尚未过真机发布门槛；自动化和构建均通过）。按 Suite 规则，稳定 authority 仍是 74af2c5137a9380cd454c78098668806b1b27e6a；本同步分支不是 stable authority。
+- PUSHED=NO；本节完成后仍只保留独立分支和审计提交，不推送、不合并、不更新 Suite pointer。
