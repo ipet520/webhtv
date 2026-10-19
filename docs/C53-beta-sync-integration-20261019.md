@@ -580,3 +580,9 @@ Merge 提交用 combined diff 检查冲突解决路径；合并分支中的独�
 - 比较与选择：上游最终补上 EMPTY/ERROR 两类 scrim，同时实现新的 ERROR 状态、原因文本和重试动作。本地已有 showEmptyContent 空态 API 和 TMDB/首页各自状态机；本轮只抽取现有 EMPTY 遮罩及其主题属性接线，不增加 ERROR 状态/重试能力、不替换本地空态文案、插画、按钮、焦点或状态消费路径。
 - 实施：在 State.EMPTY 进入时，将已定义 webhtv_color_overlay_dark 经主题属性铺到 ProgressLayout 宿主层；从 EMPTY 退出时清除临时背景，其他状态只在确实离开 EMPTY 时恢复，不覆盖宿主原有背景。新属性由 Theme.WebHTV 绑定，values-night 自动取对应 dark 值。
 - 自动化验证：Leanback 和 Mobile 各运行 ProgressLayoutEmptyScrimTest 1/1、ThemeContractTest 5/5，XML failures=0、errors=0；用 Robolectric 验证 EMPTY→PROGRESS→EMPTY→CONTENT 的遮罩创建/清除和主题色值。首轮 NPE 来自测试用单参数构造器，而该构造器本来不执行 init()；生产布局走 (Context, AttributeSet) 构造。测试 fixture 改用生产 XML 构造路径后两端通过，未修改生产状态断言。壁纸上实际视觉与亮度效果仍需手机/TV 真机查看。
+### 补充复评：Mobile Following 主题文字配对
+
+- 上游来源：cb0bcc5c0bbd4541402dcef4cf41d05d730ec972。本地 main 版 Following 卡片已将徽标文字和错误文字绑定到主题角色；mobile 覆盖布局却把徽标文字写死为 #174EA6、错误文字写死为 #B3261E。徽标背景由 shape_sync_direction 使用 colorPrimaryContainer，深色/自定义主题下固定浅色前景与主题底色不匹配。
+- 重叠比较：上游最终目标把 shape_sync_direction 改成 colorSurfaceContainer 并将徽标前景改为 colorPrimary；它是完整的视觉方案更换。当前本地共享版保留 PrimaryContainer 填充，并用 colorOnPrimaryContainer 作为配对文字，语义一一对应且 ThemeResolver 对自定义角色维持对比约束；main 版已经采用此配对。为避免改变本地 badge 的既有视觉，只把 Mobile 覆盖布局对齐到 main 的前景角色；错误字色则对齐两端已有 colorError。
+- 实施：仅替换 mobile item_following.xml 两个固定 textColor，不改填充、间距、卡片、按钮、错误状态或焦点样式。新增 MobileFollowingCardSemanticContractTest，锁定两端主色容器配对、错误语义色与不再出现两个硬编码常量。
+- 自动化验证：Mobile Following 语义合同 3/3；Mobile app 与 test Java 编译成功。尚未在真实浅/深色主题下检查卡片截图或文字边缘/字号显示。
