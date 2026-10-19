@@ -529,9 +529,11 @@ Merge 提交用 combined diff 检查冲突解决路径；合并分支中的独�
 - 视觉/遥控手感仍需真机验证：DIRECT 长简介截断与按钮焦点、沉浸音频布局、当前集焦点白环/非焦点主题 Current 环，以及跨集刷新后的环状态。静态和 Robolectric 测试不构成设备验收。
 - 外部依据：Android TV 官方[导航文档](https://developer.android.com/training/tv/get-started/navigation)要求 D-pad 能到达可见控件，并支持必要时显式配置焦点路径；它不规定 WebHTV 的颜色或激活动画。
 
-### 复评：Seek UP 焦点返还（单独修复单元）
+### 复评：Seek UP 焦点返还
 
-- 上游来源：`80816a15f0b22e870a86036afb49e186d5efb9df`。其记忆焦点 helper 可解决按钮 DOWN 到 timeBar 后 UP 落到错误按钮的问题；待单独移植和测试，不能与 DIRECT 详情修复混在同一提交。
+- 上游来源：`80816a15f0b22e870a86036afb49e186d5efb9df`。修复前本地 `timeBar` 没有按用户来源动态更新 UP 目标；`PlayerControlFocusHelper` 已有本地 `ensureFocus(preferred)` 恢复逻辑，但它不记忆 seek 条的上一个按钮。
+- 实际比较：上游用当前控制栏焦点动态写 `timeBar.nextFocusUpId`，并在焦点位于 seek 本身/容器时保留先前目标。吸收这一窄机制，保留本地 `ensureFocus` 和原方向导航/事件处理语义；仅在控制栏仍持有焦点时写入具有 id 的可聚焦后代，外部焦点、seek 自身、无 id 或不可聚焦目标不覆盖现存目标。
+- 定向验证：Leanback `PlayerControlFocusHelperSeekReturnTest` 9/9（XML tests=9, failures=0, errors=0），覆盖按钮来源、timeBar/容器不覆盖记忆、外部/无效目标、缺少 seek 的 no-op，以及遥控事件路径接线。设备按 DOWN/UP 的真实遥控操作未执行。
 
 ### 已确认的 Lab selector 状态优先级回归
 

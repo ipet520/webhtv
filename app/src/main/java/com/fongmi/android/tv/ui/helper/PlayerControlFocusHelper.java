@@ -4,6 +4,8 @@ import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
 
+import com.fongmi.android.tv.R;
+
 public final class PlayerControlFocusHelper {
 
     private PlayerControlFocusHelper() {
@@ -30,11 +32,34 @@ public final class PlayerControlFocusHelper {
             ensureFocus(root, preferred);
             return true;
         }
+        syncSeekReturnTarget(root);
         if (!isDirectionKey(event) || event.getAction() != KeyEvent.ACTION_DOWN) return false;
         View focus = root.findFocus();
         View next = focus == null ? null : focus.focusSearch(direction(event));
         if (next == null || !isDescendant(root, next)) return true;
         return false;
+    }
+
+    /** Returns the control-bar focus that should receive UP from the seek bar. */
+    public static View seekReturnTarget(View seek, View controls, View focused) {
+        if (seek == null || controls == null || focused == null) return null;
+        if (focused.getId() == View.NO_ID || !focused.isFocusable()) return null;
+        if (isDescendant(seek, focused) || !isDescendant(controls, focused)) return null;
+        return focused;
+    }
+
+    /** Remember the control under focus so the seek bar's UP edge returns to that control. */
+    public static void syncSeekReturnTarget(View root) {
+        if (root == null) return;
+        syncSeekReturnTarget(root, root.findFocus());
+    }
+
+    static void syncSeekReturnTarget(View root, View focused) {
+        if (root == null) return;
+        View timeBar = root.findViewById(R.id.timeBar);
+        if (timeBar == null) return;
+        View target = seekReturnTarget(timeBar, root, focused);
+        if (target != null) timeBar.setNextFocusUpId(target.getId());
     }
 
     public static boolean containsFocus(View root) {
