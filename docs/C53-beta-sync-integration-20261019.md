@@ -380,4 +380,13 @@ Merge 提交用 combined diff 检查冲突解决路径；合并分支中的独�
 - PASS: :app:testMobileArm64_v8aDebugUnitTest with the three focused classes; 6 tests, 0 failures, 0 errors, 0 skipped.
 - PASS: :app:testLeanbackArm64_v8aDebugUnitTest with the same classes; 6 tests, 0 failures, 0 errors, 0 skipped.
 - These are JVM/variant test results. No Android 7 device run was performed in this unit; device verification remains separate.
-- Task guard session: C53-android7-compat. Commit is pending after the final scoped diff check.
+- Task guard session: C53-android7-compat. Committed as `adf09a884b0d45b8c563110863c44c45caf999be` (`fix: use API-compatible Android 7 calls`); local recovery tag `recovery/C53-android7-compat/20261019071336-adf09a884b0d`.
+
+### Checkpoint 2: HLS ad notice duration
+
+- Source candidates: `72cdec02b2b9b335fe5d2acbb9146ca7a927c39d` added a shared total-duration notice across nano `/m3u8`, Exo, and MPV/IJK HLS channels. Follow-up `926b9d50ca66853d393c7d144b8e9c196a8244f7` fixed final-tree formatting boundaries; the final target implementation is used.
+- `HlsAdblockNotice` retains the local 30-second per-playlist debounce and now owns the shared count+duration text. It rounds to 0.1 seconds before unit selection, promotes 59.96 seconds to `1 分钟`, and omits unknown or sub-granularity durations. Three existing HLS channel call sites use this helper; ad detection, statistics, thresholds, fallback gates, and playback timeline were not changed.
+- Added/updated regression assertions for notice formatting, unknown values, rounding, sub-0.1-second values, all three call sites, structured and legacy outcomes, and exact Exo notice text.
+- PASS: Mobile and Leanback focused HLS notice/pipeline/Exo tests, 17 each; 0 failures, 0 errors, 0 skipped. The HLS-related MPV tests in the broader Mobile invocation also passed (8 tests).
+- The first combined Mobile+Leanback Gradle invocation ran 4,915 Mobile tests and failed 5 tests (2 skipped): `MpvFontConfigTest.writeIfChanged_replacesStaleConfigurationAndCleansTemporaryFile` (IOException committing fontconfig), `MpvHlsCacheCoordinatorTest.successfulCommitPublishesCompleteFileAndReleasesReservation` (assertion), `LiveActivitySourceFallbackSourceTest.eachFetchReplacesPreviousBufferingTimeout` and `.failedAttemptIsReleasedOnlyWhenReplacementStartsBuffering` (source assertions), and `ThemeBaseWiringTest.controlSheetButtonTextStaysPaletteIndependent` (source assertion). Leanback's selected task and the isolated Mobile HLS rerun passed. These failures are recorded as observed; no baseline comparison was performed, and they are not evidence of full Mobile suite success.
+- Task guard session: `C53-HLS-NOTICE-01`; source, tests, and verification evidence for this checkpoint are listed above.
