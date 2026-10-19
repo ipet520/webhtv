@@ -20,4 +20,18 @@ public class SiteHealthReportDialogSourceTest {
         assertTrue(source.contains("AdBlockStatsStore.getRuleDisplayName(entry.getKey())"));
         assertFalse(source.contains("dimensionSummary(report.adBlockedByRule)"));
     }
+
+    @Test
+    public void generatedRowsUseResolvedThemeRolesInsteadOfFixedBlack() throws Exception {
+        String source = Files.readString(Path.of(
+                "src/main/java/com/fongmi/android/tv/ui/dialog/SiteHealthReportDialog.java"));
+
+        assertFalse("generated report text must not use fixed translucent black",
+                source.contains("R.color.black"));
+        assertTrue("generated text must use the active theme's semantic color roles",
+                source.contains("ThemeController.current().colorOnSurface"));
+        assertTrue("status accents must be corrected against the actual report panel",
+                source.contains("readableOnPanel(color)"));
+        assertTrue(source.contains("ThemeController.current().colorSurfaceContainerHigh()"));
+    }
 }

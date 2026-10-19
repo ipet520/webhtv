@@ -431,3 +431,11 @@ Merge 提交用 combined diff 检查冲突解决路径；合并分支中的独�
 - Added a source contract asserting both count and duration dispatch by engine type.
 - PASS: `PlayerDisplaySettingSyncTest` in Mobile and Leanback debug variants; 7 tests per variant, 0 failures/errors/skips.
 - Task guard session: `C53-OSD-REBUFFER-ENGINE-01`; source, tests, and verification evidence for this checkpoint are listed above.
+
+### Checkpoint 8: Site Health report theme contrast
+
+- Source: `e7188138a92067f48ec4e4e0c988171729409966` (`fix(site-health): 修复播放链路健康报表在深色面板上的文字不可读`).
+- Generated report text now uses the active theme's `colorOnSurface` and `colorOnSurfaceVariant` roles. Existing GOOD/BAD/WARN status colors remain distinct and are contrast-corrected against `colorSurfaceContainerHigh`; the custom theme palette remains the source of surface and semantic colors.
+- Added a source contract for semantic theme roles and status contrast correction. No focus or selected/activated/pressed/current state selectors were changed.
+- PASS: `SiteHealthReportDialogSourceTest` in Mobile and Leanback debug variants; 2 tests per variant, 0 failures/errors/skips.
+- Task guard session: `C53-SITE-HEALTH-THEME-COLOR-01`; source, tests, and verification evidence for this checkpoint are listed above.
