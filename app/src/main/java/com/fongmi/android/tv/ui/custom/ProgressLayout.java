@@ -6,7 +6,11 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.RelativeLayout;
+import android.util.TypedValue;
 
+import androidx.core.content.ContextCompat;
+
+import com.fongmi.android.tv.R;
 import com.fongmi.android.tv.databinding.ViewEmptyBinding;
 import com.fongmi.android.tv.databinding.ViewProgressBinding;
 
@@ -144,7 +148,10 @@ public class ProgressLayout extends RelativeLayout {
 
     public void switchState(State state) {
         if (mState == state) return;
+        State previous = mState;
         mState = state;
+        if (state == State.EMPTY) applyEmptyStateScrim();
+        else if (previous == State.EMPTY) setBackground(null);
         switch (state) {
             case CONTENT:
                 if (mEmptyView != null) mEmptyView.setVisibility(GONE);
@@ -166,6 +173,23 @@ public class ProgressLayout extends RelativeLayout {
         }
     }
 
+    /**
+     * Empty-state text sits over the wallpaper. Use the theme dark overlay across the
+     * ProgressLayout so the existing text palette remains readable over arbitrary images.
+     * The overlay is cleared only when leaving EMPTY, preserving any host background in
+     * CONTENT/PROGRESS states.
+     */
+    private void applyEmptyStateScrim() {
+        TypedValue value = new TypedValue();
+        if (!getContext().getTheme().resolveAttribute(R.attr.webhtvColorOverlayDark, value, true)) {
+            setBackground(null);
+            return;
+        }
+        int color = value.resourceId == 0
+                ? value.data
+                : ContextCompat.getColor(getContext(), value.resourceId);
+        setBackgroundColor(color);
+    }
     private void setContentVisibility(boolean visible) {
         for (View view : mContentViews) {
             if (visible) showView(view);

@@ -52,6 +52,7 @@
         <item name="colorOnSurface_80">@color/webhtv_on_surface_80</item>
         <item name="colorOnSurface_90">@color/webhtv_on_surface_90</item>
         <item name="webhtvColorOnWallpaper">@color/webhtv_on_wallpaper</item>
+        <item name="webhtvColorOverlayDark">@color/webhtv_color_overlay_dark</item>
         <item name="webhtvColorPlayerControl">@color/webhtv_color_player_control</item>
         <item name="webhtvColorPlayerControlMuted">@color/webhtv_color_player_control_muted</item>
         <item name="webhtvColorPlayerControlActive">@color/webhtv_color_player_control_active</item>

@@ -574,3 +574,9 @@ Merge 提交用 combined diff 检查冲突解决路径；合并分支中的独�
 - 比较与选择：上游将这六处改为 `WebHtvAlertDialogBuilder`，Updater 保留 `(Context, themeResId)` 重载。此 wrapper 在主题 token 等于编译基线时为 no-op，因此默认视觉、按钮动作、条目选择和既有 theme overlay 保持原逻辑；启用自定义主题时窗口与内容现在会按现有 binder 同步。没有修改焦点 drawable、状态 selector 或对话框布局。
 - 实施：四组调用路径改用本地 wrapper；同时将原始 Material builder 合同扫描从只匹配简单类名增强为匹配带包名的构造调用，避免再次被全限定名绕过。现有 `AlertDialog.Builder` 和 CrashActivity 例外规则保留。
 - 自动化验证：Leanback `ThemeBinderContractTest` 27/27 + `ThemeBinderRuntimeTest` 5/5；Mobile `ThemeBinderContractTest` 27/27 + `ThemeControllerContractTest` 10/10；两端 XML failures=0、errors=0，Leanback 与 Mobile variant 的 app/test Java 编译均成功。扫描测试通过，生产 main/mobile/leanback 中不再发现裸 `MaterialAlertDialogBuilder`。TV/手机实际弹窗视觉、键盘导航以及更新备份流程仍需设备/交互验收；源码合同或构建结果不能替代设备验证。
+### 补充复评：现有空态壁纸对比度
+
+- 上游来源：cb0bcc5c0bbd4541402dcef4cf41d05d730ec972。本地 ProgressLayout 的 EMPTY 内容块是居中 wrap_content，其文本叠在宿主壁纸上；webhtvColorOverlayDark 已声明且 dark overlay 颜色已存在，但主题从未给该属性赋值，EMPTY 状态也没有宿主层遮罩。上游对应记录给出壁纸采样下正文对比度最低 3.30:1、甚至纯白上限 4.17:1；当前固定文字色无法对任意壁纸保证 4.5:1。
+- 比较与选择：上游最终补上 EMPTY/ERROR 两类 scrim，同时实现新的 ERROR 状态、原因文本和重试动作。本地已有 showEmptyContent 空态 API 和 TMDB/首页各自状态机；本轮只抽取现有 EMPTY 遮罩及其主题属性接线，不增加 ERROR 状态/重试能力、不替换本地空态文案、插画、按钮、焦点或状态消费路径。
+- 实施：在 State.EMPTY 进入时，将已定义 webhtv_color_overlay_dark 经主题属性铺到 ProgressLayout 宿主层；从 EMPTY 退出时清除临时背景，其他状态只在确实离开 EMPTY 时恢复，不覆盖宿主原有背景。新属性由 Theme.WebHTV 绑定，values-night 自动取对应 dark 值。
+- 自动化验证：Leanback 和 Mobile 各运行 ProgressLayoutEmptyScrimTest 1/1、ThemeContractTest 5/5，XML failures=0、errors=0；用 Robolectric 验证 EMPTY→PROGRESS→EMPTY→CONTENT 的遮罩创建/清除和主题色值。首轮 NPE 来自测试用单参数构造器，而该构造器本来不执行 init()；生产布局走 (Context, AttributeSet) 构造。测试 fixture 改用生产 XML 构造路径后两端通过，未修改生产状态断言。壁纸上实际视觉与亮度效果仍需手机/TV 真机查看。
