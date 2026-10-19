@@ -52,6 +52,7 @@ import com.fongmi.android.tv.setting.CustomCspSetting;
 import com.fongmi.android.tv.theme.ThemeDialogSemantics;
 import com.fongmi.android.tv.theme.ThemeTokens;
 import com.fongmi.android.tv.theme.WebHtvAlertDialogBuilder;
+import com.fongmi.android.tv.ui.custom.CustomNestedScrollView;
 import com.fongmi.android.tv.ui.custom.CustomTextListener;
 import com.fongmi.android.tv.ui.custom.SafeScrollEditText;
 import com.fongmi.android.tv.ui.custom.SettingClipboardOverlay;
@@ -149,24 +150,9 @@ public class CustomCspDialog extends BaseAlertDialog {
         getDialog().setCanceledOnTouchOutside(false);
         Window window = getDialog().getWindow();
         if (window == null) return;
-        WindowManager.LayoutParams params = window.getAttributes();
-        int screenWidth = ResUtil.getScreenWidth(requireContext());
-        int screenHeight = ResUtil.getScreenHeight(requireContext());
-        boolean land = ResUtil.isLand(requireContext());
         window.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
         window.getDecorView().setPadding(0, 0, 0, 0);
-        params.width = (int) (screenWidth * (land ? 0.76f : 0.94f));
-        params.height = land ? (int) (screenHeight * 0.98f) : WindowManager.LayoutParams.WRAP_CONTENT;
-        window.setAttributes(params);
-        window.setLayout(params.width, params.height);
-        ViewGroup.LayoutParams rootParams = binding.root.getLayoutParams();
-        rootParams.height = land ? params.height : ViewGroup.LayoutParams.WRAP_CONTENT;
-        binding.root.setLayoutParams(rootParams);
-        LinearLayoutCompat.LayoutParams scrollParams = (LinearLayoutCompat.LayoutParams) binding.contentScroll.getLayoutParams();
-        scrollParams.height = land ? 0 : ViewGroup.LayoutParams.WRAP_CONTENT;
-        scrollParams.weight = land ? 1 : 0;
-        binding.contentScroll.setLayoutParams(scrollParams);
-        binding.contentScroll.setMaxHeight(land ? 0 : (int) (screenHeight * 0.58f));
+        applyPageSizing(window, binding.root, binding.contentScroll);
         binding.enabled.requestFocus();
         ThemeDialogSemantics.bindLegacyDialog(binding.getRoot());
         if (clipboardOverlay == null) clipboardOverlay = SettingClipboardOverlay.attach(this, binding.getRoot());
@@ -177,6 +163,42 @@ public class CustomCspDialog extends BaseAlertDialog {
             else closeAndSave(false);
             return true;
         });
+    }
+
+    /**
+     * 站点注入页面两种朝向都铺满整页。权重滚动区承担剩余空间，固定高度的底部按钮保持原尺寸。
+     * 全屏窗口使用 ADJUST_RESIZE，避免屏幕键盘盖住列表和底部操作。
+     */
+    static void applyPageSizing(Window window, LinearLayoutCompat root, CustomNestedScrollView scroll) {
+        WindowManager.LayoutParams params = window.getAttributes();
+        params.width = WindowManager.LayoutParams.MATCH_PARENT;
+        params.height = WindowManager.LayoutParams.MATCH_PARENT;
+        params.gravity = Gravity.CENTER;
+        window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
+        window.setAttributes(params);
+        window.setLayout(params.width, params.height);
+        ViewGroup.LayoutParams rootParams = root.getLayoutParams();
+        rootParams.height = ViewGroup.LayoutParams.MATCH_PARENT;
+        root.setLayoutParams(rootParams);
+        expandToWindow(root);
+        LinearLayoutCompat.LayoutParams scrollParams = (LinearLayoutCompat.LayoutParams) scroll.getLayoutParams();
+        scrollParams.height = 0;
+        scrollParams.weight = 1;
+        scroll.setLayoutParams(scrollParams);
+        scroll.setMaxHeight(0);
+    }
+
+    /**
+     * 把 root 之上的 Material 弹窗面板链一并设为 match_parent，确保短内容时页面仍铺满窗口。
+     */
+    private static void expandToWindow(View root) {
+        for (ViewParent parent = root.getParent(); parent instanceof ViewGroup; parent = parent.getParent()) {
+            ViewGroup group = (ViewGroup) parent;
+            ViewGroup.LayoutParams params = group.getLayoutParams();
+            if (!(params instanceof ViewGroup.MarginLayoutParams)) break;
+            params.height = ViewGroup.LayoutParams.MATCH_PARENT;
+            group.setLayoutParams(params);
+        }
     }
 
     @Override
