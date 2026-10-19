@@ -568,3 +568,9 @@ Merge 提交用 combined diff 检查冲突解决路径；合并分支中的独�
 - 比较与选择：上游最终实现把实际 inflate 上下文传给 resolved/compiled palette 判断。本地额外维护 `ThemeProfile`、动态 token 和焦点语义，因此只适配取表上下文及函数签名，不替换本地 ThemeResolver、ThemeBinder、ThemeProfile 或 selector；无 Activity 的探测入口继续沿用原 fallback。`Focused`、`Selected`、`Activated`、`Pressed` 状态资源未改。
 - 实施：`applyFromPreferences(activity)` 的 baseline 与 current 现在都从相同 Activity context 解析；该 Activity 为 null 时保持系统/App fallback。修正文档链接并加入固定上游目标树中的 `TvDialogPaletteModeTest`，另外更新原有 ThemeBinder/ThemeController 源码合同以锁定 Activity 资源消费。
 - 自动化验证：Leanback `ThemeBinderContractTest` 27/27、`ThemeControllerContractTest` 10/10、`TvDialogPaletteModeTest` 3/3；XML failures=0、errors=0。新测试覆盖 API 28 forced-night 对话框面板与 Activity 色表一致、正文/提示/描边动作对比度不低于 4.5:1，以及传入的夜/日 Context 决定色表。该结果是 Robolectric/静态资源验证，不是 Android TV 真机对比度测量；仍需在 API 28 或同等旧版本 TV 上检查系统日间 + App 深色设置，并复核自定义浅/深主题和动态 Focus token。
+### 补充复评：主题绑定被绕过的六个现有对话框
+
+- 上游来源：`f6eede67dc12ff700e160b2d20c5cc510a50f928`。本地主题契约已有 `WebHtvAlertDialogBuilder.create()`，会将窗口背景与 Dialog view tree 交给 `ThemeController`；Leanback/Mobile 播放页的跳过确认、清晰度选择，Mobile 内核选择，以及 Updater 备份更新确认却仍直接实例化全限定名的 `MaterialAlertDialogBuilder`，绕过了自定义主题绑定。Updater 原先显式传入 `ThemeOverlay_WebHTV_Dialog`，其构造参数必须保留。
+- 比较与选择：上游将这六处改为 `WebHtvAlertDialogBuilder`，Updater 保留 `(Context, themeResId)` 重载。此 wrapper 在主题 token 等于编译基线时为 no-op，因此默认视觉、按钮动作、条目选择和既有 theme overlay 保持原逻辑；启用自定义主题时窗口与内容现在会按现有 binder 同步。没有修改焦点 drawable、状态 selector 或对话框布局。
+- 实施：四组调用路径改用本地 wrapper；同时将原始 Material builder 合同扫描从只匹配简单类名增强为匹配带包名的构造调用，避免再次被全限定名绕过。现有 `AlertDialog.Builder` 和 CrashActivity 例外规则保留。
+- 自动化验证：Leanback `ThemeBinderContractTest` 27/27 + `ThemeBinderRuntimeTest` 5/5；Mobile `ThemeBinderContractTest` 27/27 + `ThemeControllerContractTest` 10/10；两端 XML failures=0、errors=0，Leanback 与 Mobile variant 的 app/test Java 编译均成功。扫描测试通过，生产 main/mobile/leanback 中不再发现裸 `MaterialAlertDialogBuilder`。TV/手机实际弹窗视觉、键盘导航以及更新备份流程仍需设备/交互验收；源码合同或构建结果不能替代设备验证。

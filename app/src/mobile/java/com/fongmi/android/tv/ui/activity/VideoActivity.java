@@ -253,7 +253,6 @@ import com.fongmi.android.tv.ui.custom.AudioPlayerBackgroundDrawable;
 import com.fongmi.android.tv.ui.custom.KaraokeResultView;
 import com.google.android.material.bottomsheet.BottomSheetBehavior;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
-import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
 import java.util.Locale;
@@ -1599,7 +1598,7 @@ private final Task.Scope mPersonalRecommendationTasks = new Task.Scope(Task.reco
     private void setupIntroSkipConfirmListener() {
         mIntroSkipPlayback.setSkipConfirmListener((segment, action) -> {
             if (mIntroSkipConfirmDialog != null && mIntroSkipConfirmDialog.isShowing()) return false;
-            mIntroSkipConfirmDialog = new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+            mIntroSkipConfirmDialog = new WebHtvAlertDialogBuilder(this)
                 .setTitle(R.string.intro_skip_confirm_title)
                 .setMessage(IntroSkipKinds.confirmMessage(segment))
                 .setPositiveButton(android.R.string.ok, (dialog, which) -> action.run())
@@ -3560,7 +3559,7 @@ private final Task.Scope mPersonalRecommendationTasks = new Task.Scope(Task.reco
     private void onQuality() {
         Result result = mViewModel.getPlayer().getValue();
         if (result == null || !result.getUrl().isMulti()) return;
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        new WebHtvAlertDialogBuilder(this)
                 .setTitle(R.string.detail_quality)
                 .setSingleChoiceItems(getQualityItems(result), result.getUrl().getPosition(), (dialog, which) -> {
                     dialog.dismiss();
@@ -5247,7 +5246,7 @@ private final Task.Scope mPersonalRecommendationTasks = new Task.Scope(Task.reco
         String[] items = new String[kernel.length + 1];
         System.arraycopy(kernel, 0, items, 0, kernel.length);
         items[kernel.length] = getString(R.string.player_kernel_external);
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this).setItems(items, (dialog, index) -> {
+        new WebHtvAlertDialogBuilder(this).setItems(items, (dialog, index) -> {
             if (index < kernel.length) {
                 int which = PlayerSetting.kernelAt(index);
                 if (!refreshAndSwitchPlayerKernel(which)) {

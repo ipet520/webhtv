@@ -251,6 +251,7 @@ public class ThemeBinderContractTest {
         // `new WebHtvAlertDialogBuilder(`.
         java.util.regex.Pattern forbidden = java.util.regex.Pattern.compile(
                 "new\\s+(?:[A-Za-z_][\\w.]*\\.)?AlertDialog\\.Builder\\(");
+        java.util.regex.Pattern rawMaterialBuilder = java.util.regex.Pattern.compile("new\\s+(?:[A-Za-z_$][\\w$]*\\.)*MaterialAlertDialogBuilder\\s*\\(");
         java.util.List<String> raw = new java.util.ArrayList<>();
         for (String sourceSet : new String[]{"main", "mobile", "leanback"}) {
             Path base = root.resolve("src/" + sourceSet);
@@ -260,7 +261,7 @@ public class ThemeBinderContractTest {
                     if (path.toString().contains("graphify-out")) continue;
                     if (exempt.contains(path.getFileName().toString())) continue;
                     String text = Files.readString(path, StandardCharsets.UTF_8);
-                    if (text.contains("new MaterialAlertDialogBuilder(")) {
+                    if (rawMaterialBuilder.matcher(text).find()) {
                         raw.add(sourceSet + "/" + path.getFileName() + " -> MaterialAlertDialogBuilder");
                     }
                     if (forbidden.matcher(text).find()) {
