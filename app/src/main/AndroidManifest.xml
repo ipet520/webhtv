@@ -75,6 +75,12 @@
             <meta-data
                 android:name="com.fongmi.android.tv.Startup"
                 android:value="androidx.startup" />
+            <meta-data
+                android:name="androidx.work.WorkManagerInitializer"
+                tools:node="remove" />
+            <meta-data
+                android:name="com.fongmi.android.tv.following.FollowingWorkInitializer"
+                android:value="androidx.startup" />
         </provider>
 
         <activity
