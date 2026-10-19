@@ -315,13 +315,9 @@ public class EpisodeAdapter extends RecyclerView.Adapter<EpisodeAdapter.ViewHold
         textView.setEllipsize(TextUtils.TruncateAt.MARQUEE);
         textView.setNextFocusUpId(isTopEdge(position) && nextFocusUp != 0 ? nextFocusUp : View.NO_ID);
         textView.setNextFocusDownId(isBottomEdge(position) && nextFocusDown != 0 ? nextFocusDown : View.NO_ID);
-        textView.setSelected(item.isSelected() || textView.hasFocus());
+        applyTextActive(holder, item, textView.hasFocus());
         textView.setText(getNativeDisplayTitle(item));
-        textView.setOnFocusChangeListener((view, hasFocus) -> {
-            boolean active = item.isSelected() || hasFocus;
-            textView.setSelected(active);
-            if (holder.nativeFileSizeView != null) holder.nativeFileSizeView.setSelected(active);
-        });
+        textView.setOnFocusChangeListener((view, hasFocus) -> applyTextActive(holder, item, hasFocus));
         textView.setOnKeyListener(keyListener);
         textView.setOnClickListener(v -> mListener.onItemClick(item));
         if (mLongClickListener != null) {
@@ -330,6 +326,14 @@ public class EpisodeAdapter extends RecyclerView.Adapter<EpisodeAdapter.ViewHold
                 return true;
             });
         }
+    }
+
+    /** selected controls marquee; activated is the current-episode semantic state. */
+    private void applyTextActive(@NonNull ViewHolder holder, Episode item, boolean hasFocus) {
+        boolean active = item.isSelected();
+        holder.textView.setSelected(active || hasFocus);
+        holder.textView.setActivated(active);
+        if (holder.nativeFileSizeView != null) holder.nativeFileSizeView.setSelected(active || hasFocus);
     }
 
     private void bindCardView(@NonNull ViewHolder holder, Episode item, int position) {

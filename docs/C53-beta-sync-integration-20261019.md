@@ -521,12 +521,17 @@ Merge 提交用 combined diff 检查冲突解决路径；合并分支中的独�
 - 实际比较与实施：上游 `d5ceea9682e07fe80eab0bc765d3be86b642fabd` 的防御性季集快照与本地数据模型兼容，`TmdbEpisode` 字段不可变；采用其缓存字段、同键 seed、source bundle 启动绑定，并保留旧 3/4 参数 `put` 与 3 参数 `loadSource` 入口。相较上游目标树，本地 source-first TV 路径会提前取走 `mFastTmdbDetailCache`，且 Mobile 路径不会提前取；因此 Leanback 现在显式把已验证 Entry 传给 `loadSource`，Mobile 则由 adapter 从 Intent 消费一次。source bundle 自带的同季列表优先，handoff 只补缺失季，避免覆盖站源 payload。单季兜底按上游后续最终源白名单实施：仅 REQUEST/NONE 且一个正片季；MANUAL_FLAT、TITLE/EXPLICIT 冲突、多季和 MULTI_SLICE 不兜底。
 - 定向验证：Leanback `TmdbDetailCacheTest` 12/12、`TmdbUIAdapterSourceOnlyTest` 3/3、`TmdbSourceAdapterTest` 4/4、`EpisodeListConcurrencyContractTest` 2/2；Mobile `TmdbDetailCacheTest` 12/12、`TmdbUIAdapterTest` 61/61、`TmdbSeasonResolverTest` 34/34、`TmdbEpisodeWiringTest` 9/9、`EpisodeSeasonSegmentsTest` 8/8、`CrossSeasonEpisodeMappingTest` 10/10、`TmdbDetailGenerationTest` 1/1。自动化通过不替代 TV/Mobile 真机上的详情直达、换源、追更与跨季播放验收。
 
-### 决策单元：Leanback 详情与遥控焦点
+### 复评：Leanback 播放页 DIRECT 简介与当前集
 
-- 上游来源：`2d4259ef7a3bb18478f301d21c3d3a388e37b46b`（详情简介/当前集），`80816a15f0b22e870a86036afb49e186d5efb9df`（seek UP 返焦）。
-- 备选：不变更保留 DIRECT 原生详情简介缺失、当前集未激活或进度条 UP 后焦点丢失的路径；直接覆盖会丢本地焦点状态语义；选择只接入缺失的预览/当前集 activated 与焦点来源记忆，不统一状态颜色、不改主题绑定、不钉死弹窗几何路径。
-- 验收：D-pad 可达全屏可见控件；UP 返还之前控件；当前集激活边框在焦点移走后保留；焦点环仍由当前主题控制，focused 与 activated 不互相覆盖；简介在 DIRECT 模式显示且音频详情收起时不残留。定向 Leanback 测试及构建通过，设备交互待实测。
-- 外部证据：Android TV 官方导航文档 `https://developer.android.com/training/tv/get-started/navigation`（2026-10-19 访问，Grade A）要求 D-pad 到达所有可见控件、必要时显式配置 nextFocus，并清楚区分焦点和选择状态；它支持修复可达性，不规定 WebHTV 的颜色/激活动画。
+- 上游来源：`2d4259ef7a3bb18478f301d21c3d3a388e37b46b`。本地原行为：`setText(Vod)` 只把站源简介放入 `content` tag；右侧预览仅由 TMDB `applyTmdbDetailFields()` 写入，而 DIRECT 没有该异步路径。文本选集 adapter 只设 `selected`，但本地 `selector_video_item` 用 `activated` 表示当前集、`selected` 只开跑马灯，所以 DIRECT 当前集没有环。
+- 上游最终实现修复 DIRECT 预览、(actor) 锚点、音频详情隐藏和当前集 `activated`。与本地的重叠仅是 TMDB 预览 writer 与主题状态 selector；本地主题样式和状态顺序保留。采用共享 `updateOverviewPreview()`，DIRECT 的 `setText(Vod)` 立刻写预览，TMDB 路径继续共用同一 writer；按钮在 DIRECT 一律可用，TMDB 仍按截断情况显示。预览锚到演员行后、音频页随详情隐藏。EpisodeAdapter 保留 `selected = current || focused` 跑马灯语义，只把真实播放项设置 `activated`；本地 selector 中 focused 在 activated 前，主题 Focus ring 仍优先、Current ring 在焦点离开后保留。
+- 定向证据：Leanback `VideoActivityDetailShellSourceTest` 5/5；任务执行该测试时也完成 Leanback Android 资源处理及 Java 编译。明确覆盖 DIRECT 预览写入/按钮、selected 与 activated 分工、selector 优先级、演员行锚点和音频隐藏。此前首次测试时的测试断言错误（在 adapter 搜索 selector 状态、且搜索命中 selector 注释）已修正为读取 selector 资源中的真实 item 顺序，未改弱生产断言。
+- 视觉/遥控手感仍需真机验证：DIRECT 长简介截断与按钮焦点、沉浸音频布局、当前集焦点白环/非焦点主题 Current 环，以及跨集刷新后的环状态。静态和 Robolectric 测试不构成设备验收。
+- 外部依据：Android TV 官方[导航文档](https://developer.android.com/training/tv/get-started/navigation)要求 D-pad 能到达可见控件，并支持必要时显式配置焦点路径；它不规定 WebHTV 的颜色或激活动画。
+
+### 复评：Seek UP 焦点返还（单独修复单元）
+
+- 上游来源：`80816a15f0b22e870a86036afb49e186d5efb9df`。其记忆焦点 helper 可解决按钮 DOWN 到 timeBar 后 UP 落到错误按钮的问题；待单独移植和测试，不能与 DIRECT 详情修复混在同一提交。
 
 ### 已确认的 Lab selector 状态优先级回归
 

@@ -51,4 +51,58 @@ public class VideoActivityDetailShellSourceTest {
         int tag = activity.indexOf("mBinding.content.setTag(item.getContent());");
         assertTrue("setDetail must still feed the synopsis tag so the dialog can open", tag >= 0);
     }
+    @Test
+    public void directPlaybackRendersInlineSynopsisPreview() throws Exception {
+        Path source = Path.of("src", "leanback", "java", "com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java");
+        if (!Files.isRegularFile(source)) source = Path.of("app").resolve(source);
+        String activity = Files.readString(source, StandardCharsets.UTF_8);
+        int helper = activity.indexOf("private void updateOverviewPreview()");
+        int helperEnd = activity.indexOf("private void updateTmdbOverviewButton()", helper);
+        assertTrue("VideoActivity must keep one shared synopsis preview writer", helper >= 0 && helperEnd > helper);
+        String body = activity.substring(helper, helperEnd);
+        assertTrue("the preview must be rendered into the synopsis node", body.contains("mBinding.tmdbOverview.setText(overviewText)") && body.contains("mBinding.tmdbOverview.setVisibility(View.VISIBLE)"));
+        int setText = activity.indexOf("private void setText(Vod item) {");
+        int setTextEnd = activity.indexOf("private void setText(TextView view, int resId, String text)", setText);
+        assertTrue("DIRECT details must feed the preview without waiting for TMDB", setText >= 0 && setTextEnd > setText && activity.substring(setText, setTextEnd).contains("if (!isTmdbSourceEnabled()) updateOverviewPreview();"));
+        int button = activity.indexOf("private void updateTmdbOverviewButton()");
+        int buttonEnd = activity.indexOf("private int getTmdbOverviewMaxLines(", button);
+        assertTrue("DIRECT must keep the full-synopsis button reachable", button >= 0 && buttonEnd > button && activity.substring(button, buttonEnd).contains("truncated || directMode"));
+    }
+
+    @Test
+    public void directEpisodeChipsSeparateMarqueeAndCurrentState() throws Exception {
+        Path source = Path.of("src", "leanback", "java", "com", "fongmi", "android", "tv", "ui", "adapter", "EpisodeAdapter.java");
+        if (!Files.isRegularFile(source)) source = Path.of("app").resolve(source);
+        String adapter = Files.readString(source, StandardCharsets.UTF_8);
+        int helper = adapter.indexOf("private void applyTextActive(");
+        int helperEnd = adapter.indexOf("private void bindCardView(", helper);
+        assertTrue("text episode chips must use a shared state writer", helper >= 0 && helperEnd > helper);
+        String body = adapter.substring(helper, helperEnd);
+        assertTrue("selected must remain the marquee/focus state", body.contains("setSelected(active || hasFocus)"));
+        assertTrue("activated must represent the currently playing episode", body.contains("setActivated(active)"));
+        Path selectorPath = Path.of("src", "leanback", "res", "drawable", "selector_video_item.xml");
+        if (!Files.isRegularFile(selectorPath)) selectorPath = Path.of("app").resolve(selectorPath);
+        String selector = Files.readString(selectorPath, StandardCharsets.UTF_8);
+        int focusedState = selector.indexOf("<item android:state_focused");
+        int activatedState = selector.indexOf("<item android:state_activated");
+        assertTrue("focus ring must take precedence over the persistent current-episode ring",
+                focusedState >= 0 && activatedState > focusedState);
+    }
+
+    @Test
+    public void synopsisPreviewIsAnchoredBelowActorAndHiddenWithAudioDetails() throws Exception {
+        Path xmlPath = Path.of("src", "leanback", "res", "layout", "activity_video.xml");
+        if (!Files.isRegularFile(xmlPath)) xmlPath = Path.of("app").resolve(xmlPath);
+        String xml = Files.readString(xmlPath, StandardCharsets.UTF_8);
+        int id = xml.indexOf("@+id/tmdbOverview\"");
+        int end = xml.indexOf("/>", id);
+        assertTrue("synopsis preview should be placed below actor row", id >= 0 && end > id && xml.substring(id, end).contains("android:layout_below=\"@+id/actor\""));
+        Path source = Path.of("src", "leanback", "java", "com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java");
+        if (!Files.isRegularFile(source)) source = Path.of("app").resolve(source);
+        String activity = Files.readString(source, StandardCharsets.UTF_8);
+        int details = activity.indexOf("private void setVideoDetailsVisible(boolean visible)");
+        int detailsEnd = activity.indexOf("private boolean shouldShowVideoDetailRemark(", details);
+        assertTrue("audio mode must hide the synopsis with the other detail fields", details >= 0 && detailsEnd > details && activity.substring(details, detailsEnd).contains("visible && !TextUtils.isEmpty(mBinding.tmdbOverview.getText())"));
+    }
+
 }

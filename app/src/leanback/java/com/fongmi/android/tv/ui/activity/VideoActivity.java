@@ -2875,25 +2875,31 @@ private boolean runtimeSourceOnly;
             if (!TextUtils.isEmpty(genres)) setText(mBinding.type, R.string.detail_type, genres);
         }
 
-        // 简介移到站源行下方显示；内容相同时不重置 maxLines，避免播放页再次布局闪动。
-        Object desc = mBinding.content.getTag();
-        String overview = desc == null ? "" : desc.toString();
-        if (!TextUtils.isEmpty(overview)) {
-            CharSequence overviewText = getString(R.string.detail_content, overview);
-            if (!TextUtils.equals(mBinding.tmdbOverview.getText(), overviewText)) {
-                mBinding.tmdbOverview.setSingleLine(false);
-                mBinding.tmdbOverview.setHorizontallyScrolling(false);
-                mBinding.tmdbOverview.setMaxLines(Integer.MAX_VALUE);
-                mBinding.tmdbOverview.setText(overviewText);
-                mBinding.tmdbOverview.post(this::updateTmdbOverviewButton);
-            }
-            mBinding.tmdbOverview.setVisibility(View.VISIBLE);
-        } else {
-            mBinding.tmdbOverview.setVisibility(View.GONE);
-        }
+        // TMDB 模式下简介由富集结果接管；此处统一写入，避免 DIRECT 模式没有预览。
+        updateOverviewPreview();
 
         // 简介按钮默认隐藏，焦点先把视频右移到简介按钮（按钮显示时）或搜索按钮
         mBinding.video.setNextFocusRightId(R.id.content);
+    }
+
+    /** 将详情文本铺到简介预览区域；DIRECT 模式没有 TMDB 异步回填路径。 */
+    private void updateOverviewPreview() {
+        Object desc = mBinding.content.getTag();
+        String overview = desc == null ? "" : desc.toString();
+        if (TextUtils.isEmpty(overview)) {
+            mBinding.tmdbOverview.setText("");
+            mBinding.tmdbOverview.setVisibility(View.GONE);
+            return;
+        }
+        CharSequence overviewText = getString(R.string.detail_content, overview);
+        if (!TextUtils.equals(mBinding.tmdbOverview.getText(), overviewText)) {
+            mBinding.tmdbOverview.setSingleLine(false);
+            mBinding.tmdbOverview.setHorizontallyScrolling(false);
+            mBinding.tmdbOverview.setMaxLines(Integer.MAX_VALUE);
+            mBinding.tmdbOverview.setText(overviewText);
+        }
+        mBinding.tmdbOverview.setVisibility(View.VISIBLE);
+        mBinding.tmdbOverview.post(this::updateTmdbOverviewButton);
     }
 
     private void updateTmdbOverviewButton() {
@@ -2909,8 +2915,9 @@ private boolean runtimeSourceOnly;
             }
         }
         boolean truncated = isTextTruncated(view);
-        mBinding.content.setVisibility(truncated ? View.VISIBLE : View.GONE);
-        mBinding.video.setNextFocusRightId(truncated ? R.id.content : R.id.keep);
+        boolean directMode = !isTmdbSourceEnabled();
+        mBinding.content.setVisibility(truncated || directMode ? View.VISIBLE : View.GONE);
+        mBinding.video.setNextFocusRightId(truncated || directMode ? R.id.content : R.id.keep);
     }
 
     private int getTmdbOverviewMaxLines(TextView view, android.text.Layout layout) {
@@ -2967,6 +2974,7 @@ private boolean runtimeSourceOnly;
         setText(mBinding.director, R.string.detail_director, item.getDirector());
         setText(mBinding.actor, R.string.detail_actor, item.getActor());
         setText(mBinding.remark, 0, item.getRemarks());
+        if (!isTmdbSourceEnabled()) updateOverviewPreview();
         updateAudioStageText();
     }
 
@@ -10499,6 +10507,7 @@ private void setVideoDetailsVisible(boolean visible) {
         mBinding.row1.setVisibility(value);
         mBinding.director.setVisibility(showNativeMetadata && !TextUtils.isEmpty(mBinding.director.getText()) ? View.VISIBLE : View.GONE);
         mBinding.actor.setVisibility(showNativeMetadata && !TextUtils.isEmpty(mBinding.actor.getText()) ? View.VISIBLE : View.GONE);
+        mBinding.tmdbOverview.setVisibility(visible && !TextUtils.isEmpty(mBinding.tmdbOverview.getText()) ? View.VISIBLE : View.GONE);
         mBinding.row2.setVisibility(value);
         mBinding.scroll.setVisibility(value);
     }

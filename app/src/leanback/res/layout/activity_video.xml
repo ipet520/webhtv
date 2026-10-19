@@ -668,13 +668,13 @@
         android:textSize="16sp"
         tools:text="導演：FongMi" />
 
-    <!-- TMDB 简介：仅 TMDB 模式显示，撑满站源/导演行与底部按钮之间的空间 -->
+    <!-- 简介预览：位于导演/演员行与底部动作之间，支持 DIRECT 与 TMDB 详情。 -->
     <com.google.android.material.textview.MaterialTextView
         android:id="@+id/tmdbOverview"
         style="@style/Video.ContextText"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_below="@+id/director"
+        android:layout_below="@+id/actor"
         android:layout_above="@+id/row2"
         android:layout_alignStart="@+id/name"
         android:layout_alignParentEnd="true"
