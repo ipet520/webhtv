@@ -447,3 +447,11 @@ Merge 提交用 combined diff 检查冲突解决路径；合并分支中的独�
 - Added source-contract coverage for the explicit-choice marker, auto-correction guard, and reset points. No TV orientation behavior or global orientation preference changed.
 - PASS: `PlayerPlaybackRegressionSourceTest` Mobile debug variant; 15 tests, 0 failures/errors/skips.
 - Task guard session: `C53-MOBILE-MANUAL-ROTATE-01`; source, tests, and verification evidence for this checkpoint are listed above.
+
+### Checkpoint 10: Mobile episode-card source tag width
+
+- Source: `1cbdf2d817529b5a3b979b8a48c17587a6f0f3ea` (`fix(mobile): 站点标签宽度占满剧集卡片，右缘不再短一截`).
+- The rectangular Mobile card's site tag now aligns to both edges of the poster, fills that width, and ellipsizes long names. Existing theme color and text style remain unchanged.
+- Added XML-layout assertions for width, poster-edge alignment, and end ellipsis.
+- PASS: `VodAdapterLayoutTest` Mobile debug variant; 5 tests, 0 failures/errors/skips.
+- Task guard session: `C53-MOBILE-SITE-TAG-WIDTH-01`; source, tests, and verification evidence for this checkpoint are listed above.
