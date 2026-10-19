@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Opaque poster badge fills keep the existing white card labels readable on any poster. -->
+    <color name="tv_badge_progress">#177535</color>
+    <color name="tv_badge_site">#C62828</color>
+    <color name="tv_badge_year">#1565C0</color>
+</resources>
