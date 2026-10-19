@@ -489,6 +489,12 @@ public abstract class PlaybackActivity extends BaseActivity implements MediaCont
 
     protected void startPlayer(String key, Result result, boolean useParse, long timeout,
                                MediaMetadata metadata, long startPositionMs) {
+        // Automatic line switches and delayed player-content results converge here. Once this page
+        // is exiting, refuse a late start so it cannot leave audio or a foreground notification.
+        if (isPlaybackExiting() || isFinishing() || isDestroyed()) {
+            if (SpiderDebug.isEnabled()) SpiderDebug.log("playback-flow", "startPlayer skipped exiting=%s finishing=%s destroyed=%s key=%s", isPlaybackExiting(), isFinishing(), isDestroyed(), key);
+            return;
+        }
         // 小说/漫画阅读器路由（播放内核前的最后一道拦截）
         // novel:// / pics:// / manga:// 是「阅读内容协议」而非播放地址。
         // 正常情况下 ContentDispatcher 已在更早的汇聚点分流；这里兜底处理漏网的解析结果。

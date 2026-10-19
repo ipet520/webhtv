@@ -415,3 +415,11 @@ Merge 提交用 combined diff 检查冲突解决路径；合并分支中的独�
 - Added source-contract checks for both early-return paths while retaining the existing stale-READY/duplicate-result coverage.
 - PASS: `VideoActivityLayoutTest` Mobile debug variant; 154 tests, 0 failures/errors/skips. The class reads the Leanback production source. Leanback compilation is recorded with the final variant builds.
 - Task guard session: `C53-LEANBACK-DISCARDED-RESULT-01`; source, tests, and verification evidence for this checkpoint are listed above.
+
+### Checkpoint 6: refuse late playback starts after exit
+
+- Source candidate: `97c7ae68abd9be76d2bdd1d79e34d93a9f6925ae` (`fix(playback): 退出播放页必定停播，堵住「退回详情页还有声音/通知栏仍显示播放中」`).
+- Ported the central `startPlayer` guard for `isPlaybackExiting()`, `isFinishing()`, and `isDestroyed()`. This is the shared endpoint for late player-content results and automatic line-switch starts.
+- The same upstream commit also changes `stopPlayback()` to call `mService.suspend()` for non-owners. That portion is deferred: local `PlaybackService.suspend()` stops the shared player, so applying the upstream change could terminate playback owned by a newer page. The existing owner-key stop behavior remains intact.
+- PASS: `PlaybackOwnershipSourceTest` in Mobile and Leanback debug variants; 17 tests per variant, 0 failures/errors/skips.
+- Task guard session: `C53-PLAYBACK-EXIT-START-01`; source, tests, and verification evidence for this checkpoint are listed above.

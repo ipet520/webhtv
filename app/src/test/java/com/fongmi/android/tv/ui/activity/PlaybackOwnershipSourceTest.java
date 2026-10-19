@@ -335,6 +335,23 @@ public class PlaybackOwnershipSourceTest {
                 mobile.contains("mPendingPlayerResult = null;"));
     }
 
+    @Test
+    public void anExitingPlayerPageNeverStartsPlaybackAgain() throws Exception {
+        String source = read(PLAYBACK);
+
+        int startPlayer = source.indexOf("protected void startPlayer(String key, Result result, boolean useParse, long timeout,");
+        assertTrue("the six-argument startPlayer must exist", startPlayer > 0);
+        int body = source.indexOf("MediaMetadata metadata, long startPositionMs) {", startPlayer);
+        assertTrue("the six-argument startPlayer body must be readable", body > startPlayer);
+        int route = source.indexOf("NovelRouter.isReaderUrl(result)", body);
+        assertTrue("the reader route must remain the first dispatch", route > body);
+
+        String guard = source.substring(body, route);
+        assertTrue("startPlayer must refuse starts after exit has begun", guard.contains("isPlaybackExiting()"));
+        assertTrue("startPlayer must refuse starts while finishing or destroyed",
+                guard.contains("isFinishing()") && guard.contains("isDestroyed()"));
+    }
+
     private static int countOccurrences(String text, String needle) {
         int count = 0;
         int index = 0;
