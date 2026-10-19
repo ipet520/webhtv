@@ -33,16 +33,28 @@ public final class LabRunner {
     private LabRunner() {
     }
 
+    static boolean isAlive(Process process) {
+        if (process == null) return false;
+        try {
+            process.exitValue();
+            return false;
+        } catch (IllegalThreadStateException alive) {
+            return true;
+        } catch (Throwable error) {
+            return false;
+        }
+    }
+
     public static boolean isRunning(String key) {
         Process process = RUNNING.get(key);
-        if (process != null && process.isAlive()) return true;
+        if (isAlive(process)) return true;
         return LabProcManager.recoveredAlive(key);
     }
 
     public static int runningCount() {
         java.util.Set<String> keys = new java.util.LinkedHashSet<>();
         for (Map.Entry<String, Process> entry : RUNNING.entrySet()) {
-            if (entry.getValue() != null && entry.getValue().isAlive()) keys.add(entry.getKey());
+            if (isAlive(entry.getValue())) keys.add(entry.getKey());
         }
         for (String key : LabProcManager.recoveredKeys()) {
             keys.add(key);
@@ -53,7 +65,7 @@ public final class LabRunner {
     public static java.util.List<String> runningKeys() {
         java.util.Set<String> keys = new java.util.LinkedHashSet<>();
         for (Map.Entry<String, Process> entry : RUNNING.entrySet()) {
-            if (entry.getValue() != null && entry.getValue().isAlive()) keys.add(entry.getKey());
+            if (isAlive(entry.getValue())) keys.add(entry.getKey());
         }
         keys.addAll(LabProcManager.recoveredKeys());
         return new java.util.ArrayList<>(keys);

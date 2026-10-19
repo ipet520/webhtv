@@ -370,3 +370,14 @@ Merge 提交用 combined diff 检查冲突解决路径；合并分支中的独�
 | INTEGRATION / NO UNIQUE COMBINED CHANGE | 35a5a63f8a526ca9e6a54d1bf59b941d1f03d840 | Merge pull request #428 from Silent1566/dev1 | — |
 | INTEGRATION / NO UNIQUE COMBINED CHANGE | fe1f725a12925b9d3ce84801f52c9d2a047e26b6 | Merge pull request #427 from Silent1566/dev1 | — |
 | INTEGRATION / NO UNIQUE COMBINED CHANGE | 86e1bfe3ce4edadc874121decf18ed7d99c7e327 | merge: 合并 origin/beta 最新代码（PR#425 C47 seek 加载圈窗口 / PR#426 首页菜单键弹窗对比度）并复评小说朗读补全 | — |
+
+### Checkpoint 1: Android 7 / API 24 compatibility
+
+- MpdSanitizer now uses StringBuffer for all five Matcher replacement/tail targets. Replacement logic and XML output are unchanged.
+- LabRunner exposes the API 1 exitValue probe; isRunning, runningCount, runningKeys, and LabTerminalActivity use it. A still-running Process maps to IllegalThreadStateException; a terminated or missing process maps to not alive. Recovered process checks remain unchanged.
+- GitCloudDialog and RemoteTrustDialog route autofill flags through ViewCompat. Existing local theme tokens and dialog colors are unchanged.
+- Added contract coverage: Android7ApiCompatContractTest (2), LabRunnerProcessCompatTest (2), MpdSanitizerMatcherMethodContractTest (2).
+- PASS: :app:testMobileArm64_v8aDebugUnitTest with the three focused classes; 6 tests, 0 failures, 0 errors, 0 skipped.
+- PASS: :app:testLeanbackArm64_v8aDebugUnitTest with the same classes; 6 tests, 0 failures, 0 errors, 0 skipped.
+- These are JVM/variant test results. No Android 7 device run was performed in this unit; device verification remains separate.
+- Task guard session: C53-android7-compat. Commit is pending after the final scoped diff check.

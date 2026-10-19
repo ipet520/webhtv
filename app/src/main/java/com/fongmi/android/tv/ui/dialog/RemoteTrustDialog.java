@@ -26,6 +26,7 @@ import android.view.inputmethod.InputMethodManager;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.widget.LinearLayoutCompat;
 import androidx.core.content.ContextCompat;
+import androidx.core.view.ViewCompat;
 import androidx.core.widget.NestedScrollView;
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentActivity;
@@ -3094,7 +3095,7 @@ public final class RemoteTrustDialog {
         input.setSingleLine(singleLine);
         input.setTextSize(14);
         input.setMinHeight(dp(context, 46));
-        input.setImportantForAutofill(View.IMPORTANT_FOR_AUTOFILL_NO);
+        ViewCompat.setImportantForAutofill(input, View.IMPORTANT_FOR_AUTOFILL_NO);
         input.setSelectAllOnFocus(false);
         input.setTextColor(tokens.colorOnSurface());
         input.setHintTextColor(tokens.colorOnSurfaceVariant());
