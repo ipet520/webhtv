@@ -115,7 +115,11 @@ public class KeepActivity extends BaseActivity implements KeepAdapter.OnClickLis
 
     private void onDelete() {
         if (mAdapter.isDelete()) {
-            new WebHtvAlertDialogBuilder(this).setTitle(R.string.dialog_delete_record).setMessage(R.string.dialog_delete_keep).setNegativeButton(R.string.dialog_negative, null).setPositiveButton(R.string.dialog_positive, (dialog, which) -> mAdapter.clear()).show();
+            new WebHtvAlertDialogBuilder(this).setTitle(R.string.dialog_delete_record).setMessage(R.string.dialog_delete_keep).setNegativeButton(R.string.dialog_negative, null).setPositiveButton(R.string.dialog_positive, (dialog, which) -> mAdapter.clear(() -> {
+                mBinding.progressLayout.showContent(true, mAdapter.getItemCount());
+                if (mAdapter.getItemCount() == 0) mAdapter.setDelete(false);
+                mBinding.recycler.post(this::updateMarquee);
+            })).show();
         } else if (mAdapter.getItemCount() > 0) {
             mAdapter.setDelete(true);
         }
@@ -151,6 +155,7 @@ public class KeepActivity extends BaseActivity implements KeepAdapter.OnClickLis
     @Override
     public void onItemDelete(Keep item) {
         mAdapter.remove(item.delete(), () -> {
+            mBinding.progressLayout.showContent(true, mAdapter.getItemCount());
             if (mAdapter.getItemCount() == 0) mAdapter.setDelete(false);
             mBinding.recycler.post(this::updateMarquee);
         });

@@ -586,3 +586,10 @@ Merge 提交用 combined diff 检查冲突解决路径；合并分支中的独�
 - 重叠比较：上游最终目标把 shape_sync_direction 改成 colorSurfaceContainer 并将徽标前景改为 colorPrimary；它是完整的视觉方案更换。当前本地共享版保留 PrimaryContainer 填充，并用 colorOnPrimaryContainer 作为配对文字，语义一一对应且 ThemeResolver 对自定义角色维持对比约束；main 版已经采用此配对。为避免改变本地 badge 的既有视觉，只把 Mobile 覆盖布局对齐到 main 的前景角色；错误字色则对齐两端已有 colorError。
 - 实施：仅替换 mobile item_following.xml 两个固定 textColor，不改填充、间距、卡片、按钮、错误状态或焦点样式。新增 MobileFollowingCardSemanticContractTest，锁定两端主色容器配对、错误语义色与不再出现两个硬编码常量。
 - 自动化验证：Mobile Following 语义合同 3/3；Mobile app 与 test Java 编译成功。尚未在真实浅/深色主题下检查卡片截图或文字边缘/字号显示。
+
+### 补充修复：History / Keep 删除最后一项后的空态
+
+- 根因：四个 Mobile/Leanback History、Keep 页面在首次加载时通过 `ProgressLayout.showContent(true, itemCount)` 显示空态；部分单项删除和清空路径只更新 adapter 列表，没有在 `AsyncListDiffer` 完成回调后重新评估 ProgressLayout。删掉最后一项时 RecyclerView 因而进入空列表，但页面仍停留在 CONTENT。
+- 修复：四个页面的单项删除回调均在 diff 完成后按最终 itemCount 调用已有 `showContent`。Mobile History/Keep 和 Leanback History 的清空操作也改用已有 `BaseDiffAdapter.clear(Runnable)` 完成回调后切换空态；列表归零时同时退出删除模式，Mobile 页面继续刷新 marquee。Leanback Keep 当前没有清空入口，因此只修复其单项删除路径。
+- 影响范围：复用现有 EMPTY/CONTENT 状态机、adapter diff 回调与删除交互，不引入新页面、文案、控件或数据行为；只在 adapter 已提交最终列表后切换状态。
+- 验证：新增 `HistoryKeepEmptyTransitionSourceTest` 锁定四端单项删除回调、现有清空入口的 diff 完成回调、归零退出删除模式，以及 `ProgressLayout` 的零行到 EMPTY 映射。Mobile `:app:testMobileArm64_v8aDebugUnitTest --tests ...HistoryKeepEmptyTransitionSourceTest` 与 Leanback 对应任务分别 3/3、failures=0、errors=0；两端 Java 编译通过。无真机验证。

@@ -61,7 +61,10 @@ public class HistoryActivity extends BaseActivity implements HistoryAdapter.OnCl
                 .setTitle(R.string.dialog_delete_record)
                 .setMessage(Setting.isGlobalHistoryEnabled() ? R.string.dialog_delete_global_history : R.string.dialog_delete_history)
                 .setNegativeButton(R.string.dialog_negative, null)
-                .setPositiveButton(R.string.dialog_positive, (dialog, which) -> mAdapter.clear())
+                .setPositiveButton(R.string.dialog_positive, (dialog, which) -> mAdapter.clear(() -> {
+                    mBinding.progressLayout.showContent(true, mAdapter.getItemCount());
+                    if (mAdapter.getItemCount() == 0) mAdapter.setDelete(false);
+                }))
                 .show();
         } else if (mAdapter.getItemCount() > 0) {
             mAdapter.setDelete(true);
