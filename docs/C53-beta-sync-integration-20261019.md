@@ -561,3 +561,10 @@ Merge 提交用 combined diff 检查冲突解决路径；合并分支中的独�
 - 每个重叠候选逐项比较最终上游实现和本地生产调用链；清晰现有 Bug 以最小适配方式吸收。对只改设计间距/圆角/动画的无行为优化，若没有可验证缺陷则保持现状。新增重试入口、独立错误页、跨设备能力、后台新服务或设置项按排除功能处理；同一提交中的窄错误修复可单独抽取。
 - Room 损坏恢复需单独证明原库及 WAL/SHM 的保全与恢复原子性；自动切换默认输出需核对设备级 Surface 保护与现有稳定性闸门；Direct Boot 变更需核对凭据加密存储初始化顺序。未满足这些具体验收条件前不改数据/默认输出。
 - 学术论文对 Android UI/资源映射和应用层状态机不构成决策性证据，列为不适用；无可连接设备时不以第三方个案替代真机验收。
+
+### 补充复评：TV 强制夜间下的主题资源上下文
+
+- 上游来源：`4c5f4dc842126a079922c74bbeccceab0004733e`。本地 `BaseActivity.onCreate()` 在首次 `setContentView()` 前调用 `ThemeController.applyFromPreferences(this)`，但原 `frozenPalette()` / `resolveWith()` 仍由 `Resources.getSystem()` 和 `App.get()` 探测表。Android API 28 的 AppCompat forced-night 只重写代理 Activity 的资源；进程级 App 上下文仍可解析成设备原始日间表。于是 `LightDialog.shell(activity)` 使用 `ThemeController.current()` 的面板色，而其 XML 前景来自 Activity 实际解析的夜间色表，存在同一对话框明暗表不一致的具体路径。
+- 比较与选择：上游最终实现把实际 inflate 上下文传给 resolved/compiled palette 判断。本地额外维护 `ThemeProfile`、动态 token 和焦点语义，因此只适配取表上下文及函数签名，不替换本地 ThemeResolver、ThemeBinder、ThemeProfile 或 selector；无 Activity 的探测入口继续沿用原 fallback。`Focused`、`Selected`、`Activated`、`Pressed` 状态资源未改。
+- 实施：`applyFromPreferences(activity)` 的 baseline 与 current 现在都从相同 Activity context 解析；该 Activity 为 null 时保持系统/App fallback。修正文档链接并加入固定上游目标树中的 `TvDialogPaletteModeTest`，另外更新原有 ThemeBinder/ThemeController 源码合同以锁定 Activity 资源消费。
+- 自动化验证：Leanback `ThemeBinderContractTest` 27/27、`ThemeControllerContractTest` 10/10、`TvDialogPaletteModeTest` 3/3；XML failures=0、errors=0。新测试覆盖 API 28 forced-night 对话框面板与 Activity 色表一致、正文/提示/描边动作对比度不低于 4.5:1，以及传入的夜/日 Context 决定色表。该结果是 Robolectric/静态资源验证，不是 Android TV 真机对比度测量；仍需在 API 28 或同等旧版本 TV 上检查系统日间 + App 深色设置，并复核自定义浅/深主题和动态 Focus token。

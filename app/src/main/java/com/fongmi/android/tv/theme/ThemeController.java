@@ -145,13 +145,13 @@ public final class ThemeController {
         } catch (RuntimeException ignored) {
             // Preference access is unavailable; Layer 1 defaults remain valid.
         }
-        return resolveWith(stored);
+        return resolveWith(stored, null);
     }
 
-    private static ThemeTokens resolveWith(ThemeProfile profile) {
+    private static ThemeTokens resolveWith(ThemeProfile profile, Context context) {
         // Explicit mode is the source of truth for the active palette. The compiled
         // table remains the baseline used to rebind already-inflated views.
-        boolean systemDark = resolvedDark();
+        boolean systemDark = resolvedDark(context);
         ThemeMode themeMode = currentThemeMode();
         int themeColor = com.fongmi.android.tv.setting.Setting.getThemeColor();
         if (themeColor == -1) {
@@ -169,13 +169,13 @@ public final class ThemeController {
      * <p>Every {@code ?attr/color*} attribute was resolved from the static
      * {@code webhtv_color_*} resources when the view was inflated, so this baseline
      * must ignore {@code theme_color}/{@code wall_color}: those preferences only
-     * reach the activity through {@link #resolveWith(ThemeProfile)}. Deriving the
+     * reach the activity through {@link #resolveWith(ThemeProfile, Context)}. Deriving the
      * baseline from the active seed made it describe colours no inflated view ever
      * held, and {@link ThemeBinder} then had nothing left to match - the feature
      * silently degraded to the legacy site dialog.
      */
-    private static ThemeTokens frozenPalette() {
-        return ThemeResolver.resolve(ThemeMode.SYSTEM, ThemeSeed.NONE, 0, 0, null, null, resolvedDark());
+    private static ThemeTokens frozenPalette(Context context) {
+        return ThemeResolver.resolve(ThemeMode.SYSTEM, ThemeSeed.NONE, 0, 0, null, null, resolvedDark(context));
     }
 
     private static ThemeMode currentThemeMode() {
@@ -186,7 +186,7 @@ public final class ThemeController {
     /**
      * Whether the palette the running build actually ships is the dark table.
      *
-     * <p>{@link #frozenPalette()} must describe the colours inflation produced, and
+     * <p>{@link #frozenPalette(Context)} must describe the colours inflation produced, and
      * those come from the compiled {@code webhtv_color_*} resources. Resource
      * selection is not purely a function of uiMode: a flavour may override
      * {@code values/} with a fixed table and ship no table of its own for the other
@@ -200,9 +200,11 @@ public final class ThemeController {
      * but it must not override an explicit user mode. A TV light choice therefore
      * selects the light semantic palette even if an older TV override was dark.
      */
-    private static boolean resolvedDark() {
-        boolean systemDark = (Resources.getSystem().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
-        return darkPaletteFor(compiledDarkPalette(), currentThemeMode(), systemDark);
+    static boolean resolvedDark(Context context) {
+        boolean systemDark = context == null
+                ? (Resources.getSystem().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+                : isNight(context);
+        return darkPaletteFor(compiledDarkPalette(context), currentThemeMode(), systemDark);
     }
 
     /**
@@ -227,9 +229,9 @@ public final class ThemeController {
      * an unmodelled future palette keeps the previous uiMode behaviour instead of
      * silently binding against the wrong baseline.
      */
-    private static Boolean compiledDarkPalette() {
-        Context context = App.get();
-        if (context == null) return null;
+    static Boolean compiledDarkPalette(Context context) {
+        Context probe = context == null ? App.get() : context;
+        if (probe == null) return null;
         ThemeTokens light = ThemeTokens.light();
         ThemeTokens dark = ThemeTokens.dark();
         boolean matchesLight = true;
@@ -237,7 +239,7 @@ public final class ThemeController {
         for (ThemeRole role : ThemeRole.values()) {
             int resource = colorResourceOf(role);
             if (resource == 0) continue;
-            int compiled = ContextCompat.getColor(context, resource);
+            int compiled = ContextCompat.getColor(probe, resource);
             matchesLight &= compiled == role.colorOf(light);
             matchesDark &= compiled == role.colorOf(dark);
         }
@@ -294,8 +296,10 @@ public final class ThemeController {
             // Preference access is unavailable; Layer 1 defaults remain valid.
         }
         profile = stored == null ? ThemeProfile.defaultProfile() : stored;
-        baseline = frozenPalette();
-        current = resolveWith(profile);
+        // `activity` owns the resources that inflate this screen, so resolve both snapshots
+        // against that same table, including AppCompat forced night mode on API < 31.
+        baseline = frozenPalette(activity);
+        current = resolveWith(profile, activity);
         if (activity == null || activity.isFinishing()) return;
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) return;
         if (activity.getWindow().getStatusBarColor() != android.graphics.Color.TRANSPARENT) {
