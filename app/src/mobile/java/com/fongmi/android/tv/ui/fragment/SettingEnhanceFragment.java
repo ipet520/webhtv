@@ -21,6 +21,8 @@ import com.fongmi.android.tv.lab.LabActivity;
 import com.fongmi.android.tv.playback.ViewingRecordSyncStore;
 import com.fongmi.android.tv.remote.RemoteStore;
 import com.fongmi.android.tv.setting.Setting;
+import com.fongmi.android.tv.theme.SettingsValuePresentation;
+import com.fongmi.android.tv.theme.ThemeController;
 import com.fongmi.android.tv.databinding.FragmentSettingEnhanceBinding;
 import com.fongmi.android.tv.setting.CustomCspSetting;
 import com.fongmi.android.tv.setting.ProxySetting;
@@ -196,8 +198,8 @@ public class SettingEnhanceFragment extends BaseFragment {
     private void setShellProxyText() {
         safeRun("shellProxy", () -> {
             int count = ProxySetting.count();
-            mBinding.shellProxyText.setText(getSwitch(Setting.isShellProxy()) + " · " + getString(R.string.setting_proxy_rule_count, count));
-            mBinding.shellProxyConfigText.setText(getString(R.string.setting_proxy_rule_count, count));
+            setSummary(mBinding.shellProxyText, getSwitch(Setting.isShellProxy()) + " · " + getString(R.string.setting_proxy_rule_count, count));
+            setSummary(mBinding.shellProxyConfigText, getString(R.string.setting_proxy_rule_count, count));
         }, () -> {
             setError(mBinding.shellProxyText);
             setError(mBinding.shellProxyConfigText);
@@ -212,12 +214,12 @@ public class SettingEnhanceFragment extends BaseFragment {
                 return;
             }
             CustomCspSetting.Count count = status.count();
-            mBinding.customCspText.setText(getSwitch(status.enabled()) + " · " + getString(R.string.setting_custom_csp_count, count.active(), count.enabled()));
+            setSummary(mBinding.customCspText, getSwitch(status.enabled()) + " · " + getString(R.string.setting_custom_csp_count, count.active(), count.enabled()));
         }, () -> setError(mBinding.customCspText));
     }
 
     private void safeSet(String name, TextView view, TextSupplier supplier) {
-        safeRun(name, () -> view.setText(supplier.get()), () -> setError(view));
+        safeRun(name, () -> setSummary(view, supplier.get()), () -> setError(view));
     }
 
     private void safeRun(String name, Runnable action, Runnable fallback) {
@@ -233,8 +235,14 @@ public class SettingEnhanceFragment extends BaseFragment {
         }
     }
 
+    private void setSummary(TextView view, CharSequence text) {
+        SettingsValuePresentation.summary(view, text);
+    }
+
     private void setError(TextView view) {
-        if (view != null) view.setText(R.string.error_config_get);
+        if (view == null) return;
+        view.setText(R.string.error_config_get);
+        SettingsValuePresentation.error(view, ThemeController.current());
     }
 
     private interface TextSupplier {
@@ -243,12 +251,12 @@ public class SettingEnhanceFragment extends BaseFragment {
 
     private void setDriveCheck(View view) {
         Setting.putDriveCheck(!Setting.isDriveCheck());
-        mBinding.driveCheckText.setText(getSwitch(Setting.isDriveCheck()));
+        setSummary(mBinding.driveCheckText, getSwitch(Setting.isDriveCheck()));
     }
 
     private void setDebugLog(View view) {
         Setting.putDebugLog(!Setting.isDebugLog());
-        mBinding.debugLogText.setText(getSwitch(Setting.isDebugLog()));
+        setSummary(mBinding.debugLogText, getSwitch(Setting.isDebugLog()));
         if (!Setting.isDebugLog()) return;
         DebugLogDialog.show(this);
     }
@@ -288,12 +296,12 @@ public class SettingEnhanceFragment extends BaseFragment {
 
     private void setPlaybackArtworkWall(View view) {
         Setting.putPlaybackArtworkWall(!Setting.isPlaybackArtworkWall());
-        mBinding.playbackArtworkWallText.setText(getSwitch(Setting.isPlaybackArtworkWall()));
+        setSummary(mBinding.playbackArtworkWallText, getSwitch(Setting.isPlaybackArtworkWall()));
     }
 
     private void setWebHomeFullscreen(View view) {
         Setting.putWebHomeFullscreen(!Setting.isWebHomeFullscreen());
-        mBinding.webHomeFullscreenText.setText(getSwitch(Setting.isWebHomeFullscreen()));
+        setSummary(mBinding.webHomeFullscreenText, getSwitch(Setting.isWebHomeFullscreen()));
         if (requireActivity() instanceof HomeActivity activity) {
             if (!Setting.isWebHomeFullscreen()) {
                 JsonObject object = new JsonObject();

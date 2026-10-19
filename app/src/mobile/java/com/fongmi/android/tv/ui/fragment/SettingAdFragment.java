@@ -16,6 +16,8 @@ import com.fongmi.android.tv.api.config.UserAdRuleStore;
 import com.fongmi.android.tv.databinding.FragmentSettingAdBinding;
 import com.fongmi.android.tv.player.IntroSkipKinds;
 import com.fongmi.android.tv.setting.Setting;
+import com.fongmi.android.tv.theme.SettingsValuePresentation;
+import com.fongmi.android.tv.theme.ThemeController;
 import com.fongmi.android.tv.ui.base.BaseFragment;
 import com.fongmi.android.tv.ui.dialog.AdBlockStatsDialog;
 import com.fongmi.android.tv.ui.dialog.AdRuleManageDialog;
@@ -62,7 +64,7 @@ public class SettingAdFragment extends BaseFragment {
         safeSet("adblock", mBinding.adblockText, () -> getSwitch(Setting.isAdblock()));
         safeRun("aiAdDetection", () -> {
             mBinding.aiAdDetection.setVisibility(Setting.isAiConfigReady() ? View.VISIBLE : View.GONE);
-            mBinding.aiAdDetectionText.setText(getSwitch(Setting.isAiAdDetection()));
+            setSummary(mBinding.aiAdDetectionText, getSwitch(Setting.isAiAdDetection()));
         }, () -> setError(mBinding.aiAdDetectionText));
         safeSet("adRuleManage", mBinding.adRuleManageText, () -> getString(R.string.ad_rule_count_with_pending,
                 UserAdRuleStore.load().size() + RuleConfig.get().getDefaultRules().size(),
@@ -76,7 +78,7 @@ public class SettingAdFragment extends BaseFragment {
     }
 
     private void safeSet(String name, TextView view, TextSupplier supplier) {
-        safeRun(name, () -> view.setText(supplier.get()), () -> setError(view));
+        safeRun(name, () -> setSummary(view, supplier.get()), () -> setError(view));
     }
 
     private void safeRun(String name, Runnable action, Runnable fallback) {
@@ -92,8 +94,14 @@ public class SettingAdFragment extends BaseFragment {
         }
     }
 
+    private void setSummary(TextView view, CharSequence text) {
+        SettingsValuePresentation.summary(view, text);
+    }
+
     private void setError(TextView view) {
-        if (view != null) view.setText(R.string.error_config_get);
+        if (view == null) return;
+        view.setText(R.string.error_config_get);
+        SettingsValuePresentation.error(view, ThemeController.current());
     }
 
     private interface TextSupplier {

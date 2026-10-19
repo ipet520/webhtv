@@ -15,6 +15,8 @@ import com.fongmi.android.tv.api.config.UserAdRuleStore;
 import com.fongmi.android.tv.databinding.ActivitySettingAdBinding;
 import com.fongmi.android.tv.player.IntroSkipKinds;
 import com.fongmi.android.tv.setting.Setting;
+import com.fongmi.android.tv.theme.SettingsValuePresentation;
+import com.fongmi.android.tv.theme.ThemeController;
 import com.fongmi.android.tv.ui.base.BaseActivity;
 import com.fongmi.android.tv.ui.dialog.AdBlockStatsDialog;
 import com.fongmi.android.tv.ui.dialog.AdRuleManageDialog;
@@ -72,7 +74,7 @@ public class SettingAdActivity extends BaseActivity {
     }
 
     private void safeSet(String name, TextView view, TextSupplier supplier) {
-        safeRun(name, () -> view.setText(supplier.get()), () -> setError(view));
+        safeRun(name, () -> setSummary(view, supplier.get()), () -> setError(view));
     }
 
     private void safeRun(String name, Runnable action, Runnable fallback) {
@@ -88,8 +90,14 @@ public class SettingAdActivity extends BaseActivity {
         }
     }
 
+    private void setSummary(TextView view, CharSequence text) {
+        SettingsValuePresentation.summary(view, text);
+    }
+
     private void setError(TextView view) {
-        if (view != null) view.setText(R.string.error_config_get);
+        if (view == null) return;
+        view.setText(R.string.error_config_get);
+        SettingsValuePresentation.error(view, ThemeController.current());
     }
 
     private interface TextSupplier {
