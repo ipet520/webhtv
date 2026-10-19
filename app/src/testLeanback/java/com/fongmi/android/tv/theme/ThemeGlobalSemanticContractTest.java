@@ -272,6 +272,11 @@ public class ThemeGlobalSemanticContractTest {
             assertNotNull(lab);
             lab.setState(new int[]{-android.R.attr.state_enabled, android.R.attr.state_pressed});
             assertEquals(ContextCompat.getColor(context, R.color.white_20), visibleFill(lab));
+
+            Drawable labAction = ContextCompat.getDrawable(context, R.drawable.shape_lab_click_btn);
+            assertNotNull(labAction);
+            labAction.setState(new int[]{-android.R.attr.state_enabled, android.R.attr.state_pressed});
+            assertEquals(ContextCompat.getColor(context, R.color.white_20), visibleFill(labAction));
         }
     }
 

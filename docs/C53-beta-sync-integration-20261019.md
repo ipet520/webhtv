@@ -526,6 +526,14 @@ Merge 提交用 combined diff 检查冲突解决路径；合并分支中的独�
 - 验收：D-pad 可达全屏可见控件；UP 返还之前控件；当前集激活边框在焦点移走后保留；焦点环仍由当前主题控制，focused 与 activated 不互相覆盖；简介在 DIRECT 模式显示且音频详情收起时不残留。定向 Leanback 测试及构建通过，设备交互待实测。
 - 外部证据：Android TV 官方导航文档 `https://developer.android.com/training/tv/get-started/navigation`（2026-10-19 访问，Grade A）要求 D-pad 到达所有可见控件、必要时显式配置 nextFocus，并清楚区分焦点和选择状态；它支持修复可达性，不规定 WebHTV 的颜色/激活动画。
 
+### 已确认的 Lab selector 状态优先级回归
+
+- 来源：实验室候选 `978bfa1e2644638430f6241d7cfd29b06a87dbc8` 的最终树把运行按钮 `state_pressed` 放在 `state_enabled=false` 之前；本地历史 `LOCAL_BASE=80766ab3e3455968aa64ee8489bafcdec6731d91` 原来是 disabled 优先。候选加入可见聚焦样式时改错了 selector 首匹配顺序。
+- 生产路径：`LabCommandSheet.updateRunState()` 会在站点未安装或命令不支持时执行 `sheetBtnRun.setEnabled(false)`。Android selector 从上向下匹配，因此同时给出 `-state_enabled` 与 `state_pressed` 时旧同步结果错误选中 pressed 颜色。Leanback `ThemeGlobalSemanticContractTest.disabledStateWinsOverActiveStateAcrossSharedSelectors` 第 274 行原有断言在未改变的情况下复现失败：期望 `white_20`（872415231），实际得到按下态蓝色（-870213901）。同步前的 `80766...` selector 顺序则让 disabled 项先命中。
+- 本地/上游比较：上游最终树沿用 pressed 在前的顺序，会保留 enabled 控件的 pressed 反馈，但无法满足本地 disabled 语义；本地修正只将 disabled 提到 pressed 之前，focused 项仍在两者之后。对 enabled 控件，pressed/focused 样式不变；禁用控件始终显示 disabled 样式。相同优先级也应用于点击动作 `shape_lab_click_btn`，其禁用态未来可用且不会依赖 View 一定抑制 pressed 状态。
+- 修复：保留原 run selector 断言并新增同样的 click selector 断言，未放宽或删除任何断言。没有修改焦点边框颜色、图标、按钮尺寸、导航关系或主题 Token。
+- 验证：Leanback `ThemeGlobalSemanticContractTest` 13/13；`com.fongmi.android.tv.lab.*` 31/31，全部通过。静态/自动化结果不代表遥控器真机操作已通过；仍需在 TV 上检查运行按钮被禁用时的视觉、D-pad 进入/离开命令卡片及命令详情焦点返回。
+
 ### 其余候选的准入规则
 
 - `LOCAL_BASE..SYNC_HEAD` 既有本地修复继续作为实际基线，不因上游更新而默认替换。
