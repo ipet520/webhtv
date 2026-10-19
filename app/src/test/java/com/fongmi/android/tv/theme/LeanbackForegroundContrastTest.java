@@ -102,7 +102,7 @@ public class LeanbackForegroundContrastTest {
         for (String file : new String[]{
                 "src/main/res/values/webhtv_tokens.xml",
                 "src/main/res/values/colors.xml",
-                "src/leanback/res/values/colors.xml"}) {
+                "src/leanback/res/values/tv_badge_colors.xml"}) {
             String source = readIfExists(file);
             if (source == null) continue;
             Matcher matcher = COLOR_ENTRY.matcher(withoutComments(source));
