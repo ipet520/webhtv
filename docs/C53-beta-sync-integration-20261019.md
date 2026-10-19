@@ -2,7 +2,7 @@
 
 审计日期：2026-10-19（Asia/Shanghai）
 
-文档状态：固定目标审计完成；选择性 App 移植进行中。
+文档状态：固定目标审计与选择性 App 移植已完成；全量测试仍有重复观察到的失败，本轮分支暂不发布。
 
 ## 范围与权限
 
@@ -476,3 +476,15 @@ Merge 提交用 combined diff 检查冲突解决路径；合并分支中的独�
 - PASS: `assembleMobileArm64_v8aDebug`, `assembleLeanbackArm64_v8aDebug`, `assembleMobileArm64_v8aRelease`, and `assembleLeanbackArm64_v8aRelease`. Release emitted existing resource/localization warnings; packaging succeeded.
 - Device verification: NOT RUN.
 - Task guard session: `C53-NO-CONFIG-STATE-01`; source, tests, and build evidence are listed above.
+
+### Checkpoint 13: Exo EOF recovery backoff and foreground preload yield
+
+- Sources: `c1fd4aa13f3de8d43729ba8f28407ea3cac1e725` ports the final upstream EOF retry/backoff and preload-yield behavior; `625bb0d9211421ecd55448813165d1413800c299` adds `Inputs.capture()` wiring coverage; `51d805e4a8c93eec4367b231963a5ce4aeb00ed6` fixes the missing `foreground-eof-recovery` hard-pause classification. From `51d805e4`, only the existing-preload-policy fix and tests were selected; the unrelated HistoryDao new capability was not copied.
+- `HttpEofRecoveryDataSource` keeps exact unread-range retries and the existing three-consecutive-retry cap, spaces retries by 100/250/500 ms, aborts a retry when close occurs during backoff, and publishes the recovery signal only for foreground data sources. The data-spec cancellation marker is volatile so the close thread's cancellation is visible to the reader.
+- The existing MediaSourceFactory chain is retained: preload sources are explicitly non-foreground; cache-backed playback sources are foreground. `AutoPreloadPolicy` yields for 15 seconds after a foreground EOF recovery, and `PreCache.isHardAutomaticPause` preserves that pause instead of degrading it to a one-thread continuous preload. No Exo network-speed guard strategy, cache-manager feature, or new dependency was imported.
+- Local risk: the 15-second window comes from upstream device observations and was not calibrated on a local device. Full retry backoff adds at most 850 ms across the three retry attempts. The device behavior of both values still needs real-device verification.
+- PASS: scoped Mobile Exo/preload regressions, 58 tests; scoped Leanback Exo/preload and close-during-backoff cancellation regressions, 60 tests. Both have 0 failures, 0 errors, and 0 skipped.
+- Full Mobile debug suite: 4,947 tests, 5 failures, 2 skipped. Full Leanback debug suite: 4,147 tests, 5 failures, 2 skipped. Both variants reported the same five failures: `MpvFontConfigTest.writeIfChanged_replacesStaleConfigurationAndCleansTemporaryFile`, `MpvHlsCacheCoordinatorTest.successfulCommitPublishesCompleteFileAndReleasesReservation`, `LiveActivitySourceFallbackSourceTest.eachFetchReplacesPreviousBufferingTimeout`, `LiveActivitySourceFallbackSourceTest.failedAttemptIsReleasedOnlyWhenReplacementStartsBuffering`, and `ThemeBaseWiringTest.controlSheetButtonTextStaysPaletteIndependent`. The same set was recorded at Checkpoint 12 before this checkpoint. No clean original-baseline comparison was performed; no root cause is claimed. The full-suite gate therefore remains unresolved.
+- PASS: `assembleMobileArm64_v8aDebug`, `assembleLeanbackArm64_v8aDebug`, `assembleMobileArm64_v8aRelease`, and `assembleLeanbackArm64_v8aRelease`.
+- Device verification: NOT RUN. No Mobile/Leanback real-device test, playback handoff, decoder fallback, or HLS recovery run was performed.
+- The dedicated branch remains at the locally validated sync state. It is not pushed because the required full-suite regression gate did not pass.
