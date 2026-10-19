@@ -543,6 +543,12 @@ Merge 提交用 combined diff 检查冲突解决路径；合并分支中的独�
 - 修复：保留原 run selector 断言并新增同样的 click selector 断言，未放宽或删除任何断言。没有修改焦点边框颜色、图标、按钮尺寸、导航关系或主题 Token。
 - 验证：Leanback `ThemeGlobalSemanticContractTest` 13/13；`com.fongmi.android.tv.lab.*` 31/31，全部通过。静态/自动化结果不代表遥控器真机操作已通过；仍需在 TV 上检查运行按钮被禁用时的视觉、D-pad 进入/离开命令卡片及命令详情焦点返回。
 
+### 复评：同版本号更新排序
+
+- 上游来源：`d8c9bdc650115daf21d9ea1abfa3efb7d8f0535a`。本地 `Update.hasUpdate()` 原逻辑把 `code != VERSION_CODE` 或标签不同都当作可更新；当前构建 versionCode 为 560，而上游回归样例中的 stable `v5.6.0-202609221328` 与 beta `v5.6.0-beta-202610091755` 可同 code，较旧 stable 会被推荐给更新的 beta 安装，之后又反向重复。更高 schema/version 包可被覆盖，构成现有升级链路缺陷。
+- 选择：高 code 始终可更新、低 code 永不可更新；同 code 再按标签中最新的 12/14 位构建时间比较。12 位时间补秒后比较，避免不同精度标签被误判为更新。无有效时间戳的非标准本地标签沿用旧“不同标签可更新”语义。未改渠道选择或下载流程。
+- Leanback/Mobile 定向验证：`UpdateOrderingTest` 5/5、`AppVersionBuildStampTest` 8/8；测试 XML 两端 failures=0/errors=0。测试覆盖真实 stable/beta 标签、同 code 降级拦截、code 高低优先级、无下载目标和 12/14 位时间戳顺序。
+
 ### 其余候选的准入规则
 
 - `LOCAL_BASE..SYNC_HEAD` 既有本地修复继续作为实际基线，不因上游更新而默认替换。

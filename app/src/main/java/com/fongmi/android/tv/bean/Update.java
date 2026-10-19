@@ -44,7 +44,9 @@ public class Update {
 
     public boolean hasUpdate() {
         if (!hasManifest()) return false;
-        return code != BuildConfig.VERSION_CODE || !AppVersion.isCurrent(name);
+        if (code > BuildConfig.VERSION_CODE) return true;
+        if (code < BuildConfig.VERSION_CODE) return false;
+        return AppVersion.isNewer(name);
     }
 
     public String getText() {
