@@ -64,6 +64,26 @@ public class PlayerDisplaySettingSyncTest {
     }
 
     @Test
+    public void playerOsdDiagnosticsReadRebufferCountPerEngine() throws Exception {
+        String source = read(mainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "custom", "PlayerOsdController.java")));
+
+        int count = source.indexOf("int rebufferCount =");
+        int total = source.indexOf("long rebufferTotalMs =");
+        assertTrue("diagnostics must compute the rebuffer count and total", count >= 0 && total > count);
+        String countExpr = source.substring(count, source.indexOf(';', count));
+        String totalExpr = source.substring(total, source.indexOf(';', total));
+
+        assertTrue("all non-Exo engines must read the shared rebuffer tracker",
+                countExpr.contains("player.isExo()")
+                        && countExpr.contains("snapshot.rebufferCount()")
+                        && countExpr.contains("player.getRebufferCount()"));
+        assertTrue("all non-Exo engines must read the shared rebuffer duration",
+                totalExpr.contains("player.isExo()")
+                        && totalExpr.contains("snapshot.rebufferTotalMs()")
+                        && totalExpr.contains("player.getRebufferTotalMs()"));
+    }
+
+    @Test
     public void backupIncludesPlaybackDisplayPreferences() throws Exception {
         String source = read(mainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "bean", "Backup.java")));
         assertTrue(source.contains("\"display_time\""));

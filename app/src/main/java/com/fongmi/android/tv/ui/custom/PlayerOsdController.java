@@ -408,9 +408,9 @@ public class PlayerOsdController {
         Format audio = snapshot.audioFormat();
         String state = stateText(player.getPlaybackState()) + (player.isLoading() ? " / 正在加载" : "");
         String buffer = join(" / ", formatDuration(player.getBufferedDuration()), player.getBufferedPercentage() > 0 ? player.getBufferedPercentage() + "%" : "");
-        // MPV has no Exo analytics snapshot; its buffering tracker belongs to PlayerManager.
-        int rebufferCount = player.isMpv() ? player.getRebufferCount() : snapshot.rebufferCount();
-        long rebufferTotalMs = player.isMpv() ? player.getRebufferTotalMs() : snapshot.rebufferTotalMs();
+        // Only Exo has an analytics snapshot; IJK and MPV use PlayerManager's engine-agnostic tracker.
+        int rebufferCount = player.isExo() ? snapshot.rebufferCount() : player.getRebufferCount();
+        long rebufferTotalMs = player.isExo() ? snapshot.rebufferTotalMs() : player.getRebufferTotalMs();
         String rebuffer = rebufferCount <= 0 ? "0 次" : rebufferCount + " 次 / " + formatDuration(rebufferTotalMs);
         long stableThroughput = player.getNetworkProtectionStableThroughput();
         long consumption = player.getNetworkProtectionConsumption();

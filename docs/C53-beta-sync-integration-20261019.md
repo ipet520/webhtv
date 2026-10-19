@@ -423,3 +423,11 @@ Merge 提交用 combined diff 检查冲突解决路径；合并分支中的独�
 - The same upstream commit also changes `stopPlayback()` to call `mService.suspend()` for non-owners. That portion is deferred: local `PlaybackService.suspend()` stops the shared player, so applying the upstream change could terminate playback owned by a newer page. The existing owner-key stop behavior remains intact.
 - PASS: `PlaybackOwnershipSourceTest` in Mobile and Leanback debug variants; 17 tests per variant, 0 failures/errors/skips.
 - Task guard session: `C53-PLAYBACK-EXIT-START-01`; source, tests, and verification evidence for this checkpoint are listed above.
+
+### Checkpoint 7: engine-correct OSD rebuffer diagnostics
+
+- Source: `f2ccce36c9aba490f40fb3800638a14749dd0090` (`fix(osd): 屏显诊断重缓冲计数按引擎正确分派，IJK 不再恒为 0`).
+- The OSD now reads `PlaybackAnalyticsListener.Snapshot` only for Exo. IJK and MPV use the existing `PlayerManager` tracker, so IJK no longer reads the empty Exo snapshot and reports zero indefinitely. No diagnostic storage, playback behavior, or user setting changed.
+- Added a source contract asserting both count and duration dispatch by engine type.
+- PASS: `PlayerDisplaySettingSyncTest` in Mobile and Leanback debug variants; 7 tests per variant, 0 failures/errors/skips.
+- Task guard session: `C53-OSD-REBUFFER-ENGINE-01`; source, tests, and verification evidence for this checkpoint are listed above.
