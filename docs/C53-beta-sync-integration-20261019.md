@@ -439,3 +439,11 @@ Merge 提交用 combined diff 检查冲突解决路径；合并分支中的独�
 - Added a source contract for semantic theme roles and status contrast correction. No focus or selected/activated/pressed/current state selectors were changed.
 - PASS: `SiteHealthReportDialogSourceTest` in Mobile and Leanback debug variants; 2 tests per variant, 0 failures/errors/skips.
 - Task guard session: `C53-SITE-HEALTH-THEME-COLOR-01`; source, tests, and verification evidence for this checkpoint are listed above.
+
+### Checkpoint 9: Mobile manual rotation survives episode changes
+
+- Source: `4f75fbe451f6a04bcdfbcdc3024fe2f8f0caa415` (`fix(mobile): 全屏手动旋转的方向在切集后保持`).
+- The rotate button records the user's explicit orientation choice. Video-size auto-correction stands down until fullscreen is exited or re-entered, when the current video shape establishes a fresh automatic baseline.
+- Added source-contract coverage for the explicit-choice marker, auto-correction guard, and reset points. No TV orientation behavior or global orientation preference changed.
+- PASS: `PlayerPlaybackRegressionSourceTest` Mobile debug variant; 15 tests, 0 failures/errors/skips.
+- Task guard session: `C53-MOBILE-MANUAL-ROTATE-01`; source, tests, and verification evidence for this checkpoint are listed above.

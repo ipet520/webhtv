@@ -453,6 +453,7 @@ private int mAudioBackgroundRandomNonce;
     private boolean revealManualSearch;
     private boolean useParse;
     private boolean rotate;
+    private boolean manualRotate;
     private boolean detailHealthRecorded;
     private boolean playHealthRecorded;
     private boolean mNativePersonalTmdbLoading;
@@ -3855,6 +3856,7 @@ private final Task.Scope mPersonalRecommendationTasks = new Task.Scope(Task.reco
     private void onRotate() {
         setR1Callback();
         setRotate(!isRotate());
+        manualRotate = true;
         setRequestedOrientation(PlaybackOrientation.getRotateOrientation(isRotate()));
     }
 
@@ -5369,6 +5371,7 @@ private final Task.Scope mPersonalRecommendationTasks = new Task.Scope(Task.reco
         mBinding.control.title.setVisibility(View.VISIBLE);
         setSizeText();
         setRotate(current.isPortrait());
+        manualRotate = false;
         mKeyDown.resetScale();
         // 短剧会话退出全屏后再双击/点全屏按钮进来不走 enterShortDramaFullscreen，
         // 这里也要按新形态重算，否则回到全屏时手势还是长视频那套轴向。
@@ -5411,6 +5414,7 @@ private final Task.Scope mPersonalRecommendationTasks = new Task.Scope(Task.reco
         syncShortDramaGesture();
         App.post(mR3, 2000);
         setRotate(false);
+        manualRotate = false;
         hideControl();
         logVideoFrame("exitFullscreen after");
     }
@@ -8131,6 +8135,7 @@ private final Task.Scope mPersonalRecommendationTasks = new Task.Scope(Task.reco
     }
 
 private void checkOrientation() {
+        if (manualRotate) return;
         if (isFullscreen() && !isRotate() && player().isPortrait()) {
             setRequestedOrientation(PlaybackOrientation.getPortraitVideoSizeOrientation());
             setRotate(true);
