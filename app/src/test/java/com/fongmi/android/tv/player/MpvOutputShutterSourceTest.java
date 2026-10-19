@@ -12,9 +12,8 @@ import static org.junit.Assert.assertTrue;
 
 /**
  * The automatic MPV output shutter hides the direct probe frame before a GPU
- * rebuild. That frame only exists when automatic output can actually reach
- * surface direct, so while the stability guard pins automatic mode to GPU the
- * shutter would only delay the first frame while audio already plays.
+ * rebuild. Automatic direct output is a Leanback-only path; Mobile stays on
+ * GPU and must not withhold its first picture while an output probe runs.
  */
 public class MpvOutputShutterSourceTest {
 
@@ -24,7 +23,8 @@ public class MpvOutputShutterSourceTest {
                 "public boolean shouldKeepVideoShutterClosed()", "public boolean isExo()");
 
         assertTrue("a shutter that can never hide a probe frame must not close",
-                method.contains("MpvPerformanceSetting.isAutoSurfaceDirectEnabled()"));
+                method.contains("Util.isLeanback()"));
+        assertTrue(method.contains("MpvPerformanceSetting.isAutoSurfaceDirectEnabled()"));
         assertTrue(method.contains("MpvPerformanceSetting.getOutputMode() == MpvPerformanceSetting.OUTPUT_AUTO"));
         assertTrue(method.contains("!mpvAutoOutputEvaluated"));
         // PlaybackActivity.syncShutter ORs this predicate with nativeOutputPending,

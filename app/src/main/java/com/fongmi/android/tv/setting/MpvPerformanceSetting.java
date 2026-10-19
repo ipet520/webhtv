@@ -35,8 +35,7 @@ public final class MpvPerformanceSetting {
     public static final int VULKAN_BACKEND_LEGACY = 2;
     public static final int VULKAN_BACKEND_STABLE = 3;
 
-    // Keep automatic Surface direct output paused independently from hardware decoder quirks.
-    private static final boolean SURFACE_AUTO_STABILITY_GUARD_ENABLED = true;
+    // Automatic TV direct output is decided per-device by the zero-copy guard below.
     private static final boolean ZERO_COPY_DEVICE_GUARD_ENABLED = true;
     private static final String KEY_OUTPUT_MODE = "perf_mpv_output_mode";
     private static final String KEY_HWDEC = "perf_mpv_hwdec";
@@ -77,7 +76,7 @@ public final class MpvPerformanceSetting {
     }
 
     public static boolean isAutoSurfaceDirectEnabled() {
-        return !SURFACE_AUTO_STABILITY_GUARD_ENABLED && !isZeroCopyBlocked();
+        return !isZeroCopyBlocked();
     }
 
     public static boolean isZeroCopyBlocked() {
@@ -97,7 +96,7 @@ public final class MpvPerformanceSetting {
         return switch (clamp(outputMode, OUTPUT_AUTO, OUTPUT_SURFACE_DIRECT)) {
             case OUTPUT_SURFACE_DIRECT -> true;
             case OUTPUT_GPU -> false;
-            default -> !SURFACE_AUTO_STABILITY_GUARD_ENABLED && leanback && autoEligible;
+            default -> leanback && autoEligible;
         };
     }
 

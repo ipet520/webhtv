@@ -1130,17 +1130,16 @@ public class PlayerManager implements ParseCallback {
      * Keep the native player's shutter visible while automatic MPV output is
      * still being selected. This prevents a failed direct DV probe from
      * exposing a stale poster or the last frame before the GPU rebuild.
-     * The probe frame only exists when automatic output can actually reach
-     * surface direct; while the stability guard pins automatic mode to GPU —
-     * or the device guard blocks zero copy, which makes
-     * {@link MpvPerformanceSetting#resolveSurfaceDirect} refuse direct output
-     * in every mode — there is nothing to hide, so holding the shutter would
-     * only withhold the picture while audio already plays.
+     * The probe frame only exists on Leanback when automatic output can
+     * actually reach surface direct. Mobile always uses GPU for automatic
+     * output, and known-incompatible devices are excluded by the zero-copy
+     * guard; neither path has a direct probe frame to hide.
      * Probing that gives up without a decision also releases the shutter,
      * otherwise the picture would stay hidden for the rest of the item.
      */
     public boolean shouldKeepVideoShutterClosed() {
         return isMpv()
+                && Util.isLeanback()
                 && MpvPerformanceSetting.isAutoSurfaceDirectEnabled()
                 && MpvPerformanceSetting.getOutputMode() == MpvPerformanceSetting.OUTPUT_AUTO
                 && !mpvAutoOutputEvaluated
