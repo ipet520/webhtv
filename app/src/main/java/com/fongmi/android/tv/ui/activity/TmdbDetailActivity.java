@@ -394,6 +394,8 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     private boolean useParse;
     private boolean inlineStarted;
     private boolean inlinePlaybackPending;
+    /** Request generation that owns {@link #inlinePlaybackPending}; 0 means no pending request. */
+    private int inlinePlaybackPendingGeneration;
     private final Runnable inlineLoadingSpeedRefresh = new Runnable() {
         @Override
         public void run() {
@@ -7595,6 +7597,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         inlinePlaybackPending = true;
         updateInlineLoading();
         int generation = ++inlinePlaybackGeneration;
+        inlinePlaybackPendingGeneration = generation;
         String key = getKeyText();
         String flag = selectedFlag.getFlag();
         String episodeUrl = selectedEpisode.getUrl();
@@ -7604,7 +7607,11 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
             try {
                 Result result = SiteApi.playerContent(key, flag, episodeUrl, playerKernel);
                 runOnAliveUi(() -> {
-                    if (!isInlinePlaybackRequestCurrent(generation, key, flag, episodeUrl)) return;
+                    if (!isInlinePlaybackRequestCurrent(generation, key, flag, episodeUrl)) {
+                        // This request was invalidated, so its own callback must release its marker.
+                        releaseInlinePlaybackPending(generation);
+                        return;
+                    }
                     inlinePlaybackPending = false;
                     String resolvedUrl = result.getUrl() == null ? "" : result.getUrl().v();
                     if (!TextUtils.isEmpty(failedUrl) && TextUtils.equals(failedUrl, resolvedUrl)) {
@@ -7617,7 +7624,10 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
             } catch (Throwable e) {
                 String message = e.getMessage();
                 runOnAliveUi(() -> {
-                    if (!isInlinePlaybackRequestCurrent(generation, key, flag, episodeUrl)) return;
+                    if (!isInlinePlaybackRequestCurrent(generation, key, flag, episodeUrl)) {
+                        releaseInlinePlaybackPending(generation);
+                        return;
+                    }
                     inlinePlaybackPending = false;
                     String fallback = TextUtils.isEmpty(failureMessage) ? getString(R.string.error_play_url) : failureMessage;
                     showInlineError(TextUtils.isEmpty(message) ? fallback : message);
@@ -8999,6 +9009,8 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         String episodeUrl = selectedEpisode.getUrl();
         if (TextUtils.isEmpty(flag) || TextUtils.isEmpty(episodeUrl)) return false;
         int generation = ++inlinePlaybackGeneration;
+        // Invalidate the prior pending inline request before refreshing for the new player.
+        releaseInlinePlaybackPending();
         long position = player().getPosition();
         float speed = player().getSpeed();
         boolean repeat = player().isRepeatOne();
@@ -9035,7 +9047,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
 
     private void cancelPendingInlinePlayerSwitch() {
         inlinePlaybackGeneration++;
-        updateInlineDisplayPanel();
+        releaseInlinePlaybackPending();
     }
 
     private boolean isInlinePlayerSwitchRequestCurrent(int generation, String key, String flag, String episodeUrl) {
@@ -9985,6 +9997,20 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         if (width >= ResUtil.dp2px(1200)) return 5;
         if (width >= ResUtil.dp2px(720)) return 4;
         return 3;
+    }
+
+    /** Release the loading marker left by an inline play request that no longer has a result path. */
+    private void releaseInlinePlaybackPending() {
+        if (!inlinePlaybackPending) return;
+        inlinePlaybackPending = false;
+        inlinePlaybackPendingGeneration = 0;
+        updateInlineDisplayPanel();
+    }
+
+    /** A stale callback may clear the marker only when it still owns that request generation. */
+    private void releaseInlinePlaybackPending(int generation) {
+        if (inlinePlaybackPendingGeneration != generation) return;
+        releaseInlinePlaybackPending();
     }
 
     private boolean isSamePendingInlinePlayback(Episode episode) {

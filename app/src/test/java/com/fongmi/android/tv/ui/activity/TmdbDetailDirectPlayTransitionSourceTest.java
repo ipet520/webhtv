@@ -50,6 +50,44 @@ public class TmdbDetailDirectPlayTransitionSourceTest {
         assertFalse(source.contains("cachedTmdbOverviewForLanguage(translations, \"zh-CN\")"));
     }
 
+    @Test
+    public void cancellingAnInlinePlaybackRequestReleasesItsLoadingFlag() throws Exception {
+        String source = Files.readString(SOURCE, StandardCharsets.UTF_8);
+
+        String switchMethod = methodBody(source, "private boolean refreshAndSwitchInlinePlayer(int playerType)");
+        assertFalse("refreshAndSwitchInlinePlayer must exist", switchMethod.isEmpty());
+        int switchGeneration = switchMethod.indexOf("++inlinePlaybackGeneration");
+        int switchRelease = switchMethod.indexOf("releaseInlinePlaybackPending();");
+        int switchSubmit = switchMethod.indexOf("detailTasks.submit(");
+        assertTrue("refreshAndSwitchInlinePlayer must release the loading flag it invalidates",
+                switchGeneration >= 0 && switchRelease > switchGeneration);
+        assertTrue("release must be synchronous and precede the replacement request",
+                switchSubmit > switchRelease);
+
+        String cancelMethod = methodBody(source, "private void cancelPendingInlinePlayerSwitch()");
+        assertFalse("cancelPendingInlinePlayerSwitch must exist", cancelMethod.isEmpty());
+        assertTrue("cancelPendingInlinePlayerSwitch must release the invalidated request",
+                cancelMethod.contains("inlinePlaybackGeneration++;")
+                        && cancelMethod.contains("releaseInlinePlaybackPending();"));
+
+        String playMethod = methodBody(source,
+                "private void playInline(long resumePosition, String failedUrl, String failureMessage)");
+        assertFalse("playInline must exist", playMethod.isEmpty());
+        int markGeneration = playMethod.indexOf("++inlinePlaybackGeneration");
+        assertTrue("playInline must record the generation that owns the pending flag",
+                markGeneration >= 0
+                        && playMethod.indexOf("inlinePlaybackPendingGeneration = generation;", markGeneration) > markGeneration);
+        int firstStaleRelease = playMethod.indexOf("releaseInlinePlaybackPending(generation);");
+        assertTrue("both stale success and failure branches must release their owned marker",
+                firstStaleRelease >= 0
+                        && playMethod.indexOf("releaseInlinePlaybackPending(generation);", firstStaleRelease + 1) > firstStaleRelease);
+
+        String ownedRelease = methodBody(source, "private void releaseInlinePlaybackPending(int generation)");
+        assertFalse("the generation-owned release must exist", ownedRelease.isEmpty());
+        assertTrue("an old callback must not clear a newer request's marker",
+                ownedRelease.contains("inlinePlaybackPendingGeneration != generation"));
+    }
+
     private static String methodBody(String source, String signature) {
         int start = source.indexOf(signature);
         if (start < 0) return "";

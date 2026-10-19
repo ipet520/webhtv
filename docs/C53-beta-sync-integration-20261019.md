@@ -398,3 +398,12 @@ Merge 提交用 combined diff 检查冲突解决路径；合并分支中的独�
 - Added regressions for refreshed/signed episode URLs and stale-key/name mismatch. No TMDB concurrency, episode metadata, detail-screen, or history behavior changed.
 - PASS: `TmdbUIAdapterTest` in Mobile debug variant; 61 tests, 0 failures/errors/skips. This class is in the Mobile test source set.
 - Task guard session: `C53-TMDB-ROUTE-KEY-01`; source, tests, and verification evidence for this checkpoint are listed above.
+
+### Checkpoint 4: TMDB inline request loading ownership
+
+- Sources: `7809ff4952788142008d0953697bfe29ded062b3` first released inline loading state on player-switch invalidation; final `d7b9439201cef70c9229b98c7356e0a7397103eb` adds request-generation ownership and stale success/error callback releases.
+- A stale inline callback now clears the pending marker only if the marker still belongs to its generation. Player-kernel switch/cancel paths release an invalidated marker synchronously. This prevents a stale callback from clearing a newer request while ensuring canceled work does not leave the detail page spinning or block replay of the same episode.
+- Added source-contract checks for both cancellation paths, generation ownership, both stale callback branches, and rejection of an old generation.
+- PASS: `TmdbDetailDirectPlayTransitionSourceTest` in Mobile and Leanback debug variants; 4 tests per variant, 0 failures/errors/skips.
+- No change to resume positions, History handoff, TMDB request concurrency, or the actual player/kernel selection.
+- Task guard session: `C53-TMDB-INLINE-LOADING-01`; source, tests, and verification evidence for this checkpoint are listed above.
