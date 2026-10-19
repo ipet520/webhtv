@@ -5,12 +5,14 @@ import android.text.TextUtils;
 import com.fongmi.android.tv.App;
 import com.fongmi.chaquo.Loader;
 import com.github.catvod.crawler.Spider;
+import com.github.catvod.crawler.SpiderDebug;
 import com.github.catvod.crawler.SpiderNull;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class PyLoader {
+    private static final String PY_TAG = "python-spider";
 
     private final ConcurrentHashMap<String, Spider> spiders;
     private final Loader loader;
@@ -42,7 +44,8 @@ public class PyLoader {
                 spider.init(App.get(), normalizeExt(ext));
                 return spider;
             } catch (Throwable e) {
-                e.printStackTrace();
+                SpiderDebug.log(PY_TAG, "spider init failed error=%s", e.getClass().getName());
+                SpiderDebug.log(PY_TAG, e);
                 return new SpiderNull();
             }
         });
