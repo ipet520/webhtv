@@ -455,3 +455,11 @@ Merge 提交用 combined diff 检查冲突解决路径；合并分支中的独�
 - Added XML-layout assertions for width, poster-edge alignment, and end ellipsis.
 - PASS: `VodAdapterLayoutTest` Mobile debug variant; 5 tests, 0 failures/errors/skips.
 - Task guard session: `C53-MOBILE-SITE-TAG-WIDTH-01`; source, tests, and verification evidence for this checkpoint are listed above.
+
+### Checkpoint 11: TV banner density resolution
+
+- Source: `c0ba0178852e7deba17b9cbfb4a0805f1b1edf80` (`fix(tv): TV 横幅按 320x180dp 出图，消除启动器放大导致的字标锯齿`).
+- Updated the generator and five Leanback banner assets to 320x180 dp at mdpi through xxxhdpi: 320x180, 480x270, 640x360, 960x540, and 1280x720 pixels. The wordmark artwork and banner colors are unchanged; only raster resolution changed.
+- Regenerated only those five scoped assets and inspected the 640x360 result; layout and wordmark remain intact.
+- PASS: `AppBrandingContractTest` in Mobile and Leanback debug variants; 13 tests per variant, 0 failures/errors/skips.
+- Task guard session: `C53-TV-BANNER-RESOLUTION-01`; generator, resources, tests, and evidence are listed above.
