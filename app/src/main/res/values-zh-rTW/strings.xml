@@ -1554,6 +1554,7 @@
     <string name="error_play_parse">播放網址解析失敗</string>
     <string name="error_play_drm">本設備不支援所需的 DRM scheme</string>
     <string name="error_play_url">播放網址載入失敗</string>
+    <string name="error_retry">重試</string>
     <string name="error_play_mpv_hls_unsupported">MPV 播放此 HLS 失敗，請手動切換播放器或更換線路</string>
     <string name="error_play_mpv_load_failed">MPV 載入媒體失敗，請檢查網路或更換線路</string>
     <string name="error_play_mpv_network_failed">MPV 網路載入失敗，請檢查網路、請求頭或更換線路</string>

@@ -380,6 +380,7 @@ private boolean runtimeSourceOnly;
     private static final java.util.concurrent.ConcurrentHashMap<String, AudioPlaybackResolver.Resolved> IMMERSIVE_AUDIO_LAUNCHES = new java.util.concurrent.ConcurrentHashMap<>();
 
     private ActivityVideoBinding mBinding;
+    private View mErrorFocusReturn;
     private ViewGroup.LayoutParams mFrameParams;
     private Observer<Result> mObserveDetail;
     private Observer<Result> mObservePlayer;
@@ -1612,6 +1613,7 @@ private boolean runtimeSourceOnly;
         mBinding.control.action.lut.setOnClickListener(guarded(this::onLut));
         mBinding.control.action.speed.setOnClickListener(guarded(this::onSpeed));
         mBinding.control.action.reset.setOnClickListener(guarded(this::onReset));
+        mBinding.widget.retry.setOnClickListener(guarded(this::onReset));
         mBinding.control.action.title.setOnClickListener(guarded(this::onTitle));
         mBinding.control.action.player.setOnClickListener(guarded(this::onPlayerKernel));
         mBinding.control.action.player.setOnLongClickListener(view -> onPlayerKernelLong());
@@ -5155,14 +5157,30 @@ private boolean runtimeSourceOnly;
     }
 
     private void showError(String text) {
+        if (mBinding.widget.error.getVisibility() != View.VISIBLE) {
+            View currentFocus = getCurrentFocus();
+            mErrorFocusReturn = currentFocus == null || currentFocus == mBinding.widget.retry
+                    ? mBinding.video : currentFocus;
+        }
         mBinding.widget.error.setVisibility(View.VISIBLE);
         mBinding.widget.text.setText(text);
+        mBinding.widget.retry.requestFocus();
         hideProgress();
     }
 
     private void hideError() {
+        boolean retryHadFocus = mBinding.widget.retry.hasFocus();
         mBinding.widget.error.setVisibility(View.GONE);
         mBinding.widget.text.setText("");
+        if (!retryHadFocus) {
+            mErrorFocusReturn = null;
+            return;
+        }
+        View target = mErrorFocusReturn;
+        mErrorFocusReturn = null;
+        if (target == null || target == mBinding.widget.retry || !target.isShown() || !target.isFocusable() || !target.requestFocus()) {
+            mBinding.video.requestFocus();
+        }
     }
 
     private void showInfo() {

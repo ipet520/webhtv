@@ -5,7 +5,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
-    <com.google.android.material.textview.MaterialTextView
+    <androidx.appcompat.widget.LinearLayoutCompat
         android:id="@+id/error"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -13,11 +13,33 @@
         android:layout_marginTop="24dp"
         android:background="@drawable/shape_widget"
         android:gravity="center"
-        android:textColor="@color/white"
-        android:textSize="14sp"
+        android:orientation="vertical"
         android:visibility="gone"
-        tools:text="@string/error_play_url"
-        tools:visibility="visible" />
+        tools:visibility="visible">
+
+        <com.google.android.material.textview.MaterialTextView
+            android:id="@+id/errorText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:textColor="@color/white"
+            android:textSize="14sp"
+            tools:text="@string/error_play_url" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/errorRetry"
+            style="@style/Widget.WebHTV.Button.Tonal"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:minWidth="0dp"
+            android:minHeight="0dp"
+            android:text="@string/error_retry"
+            android:textSize="13sp" />
+
+    </androidx.appcompat.widget.LinearLayoutCompat>
 
     <androidx.appcompat.widget.LinearLayoutCompat
         android:id="@+id/seek"
