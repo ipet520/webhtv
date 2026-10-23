@@ -5,9 +5,10 @@ import android.os.SystemClock;
 import com.github.catvod.Init;
 import com.github.catvod.crawler.diagnostics.DiagnosticEvent;
 import com.github.catvod.crawler.diagnostics.DiagnosticLogBuffer;
-import com.github.catvod.crawler.diagnostics.RollingDiagnosticFile;
-import com.github.catvod.crawler.diagnostics.JournaledDiagnosticFile;
+import com.github.catvod.crawler.diagnostics.InMemoryDiagnosticFile;
 import com.github.catvod.crawler.diagnostics.DiagnosticCategories;
+import com.github.catvod.crawler.diagnostics.JournaledDiagnosticFile;
+import com.github.catvod.crawler.diagnostics.RollingDiagnosticFile;
 import com.github.catvod.utils.Prefers;
 
 import java.io.ByteArrayInputStream;
@@ -21,6 +22,8 @@ public class DebugLogStore {
     private static final String PREF_CATEGORIES = "debug_log_categories";
     private static volatile int categories = DiagnosticCategories.ALL;
     private static boolean crashHandlerInstalled;
+    private static volatile boolean crashSession;
+    private static volatile boolean crashSessionTemporary;
 
     public static boolean isEnabled() { return enabled; }
     public static int categories() { return categories; }
@@ -50,14 +53,18 @@ public class DebugLogStore {
             DiagnosticLogBuffer.Limits limits = DiagnosticLogBuffer.Limits.standard();
             buffer = new DiagnosticLogBuffer(limits, new com.github.catvod.crawler.diagnostics.IncidentDiagnosticFile(new JournaledDiagnosticFile(
                     new RollingDiagnosticFile(Init.context().getCacheDir(), limits), Init.context().getFilesDir()), Init.context().getCacheDir()),
-                    new DiagnosticLogBuffer.Clock() {
-                        @Override public long wallMillis() { return System.currentTimeMillis(); }
-                        @Override public long monotonicNanos() { return SystemClock.elapsedRealtimeNanos(); }
-                        @Override public int processId() { return android.os.Process.myPid(); }
-                    });
+                    clock());
             installCrashHandler();
         }
         return buffer;
+    }
+
+    private static DiagnosticLogBuffer.Clock clock() {
+        return new DiagnosticLogBuffer.Clock() {
+            @Override public long wallMillis() { return System.currentTimeMillis(); }
+            @Override public long monotonicNanos() { return SystemClock.elapsedRealtimeNanos(); }
+            @Override public int processId() { return android.os.Process.myPid(); }
+        };
     }
 
     private static void installCrashHandler() {
@@ -99,6 +106,40 @@ public class DebugLogStore {
         if (!enabled) return;
         create().start(true);
         beginCollection("restore");
+    }
+
+    public static boolean isCrashSession() { return crashSession; }
+
+    public static boolean isCrashSessionTemporary() { return crashSessionTemporary; }
+
+    /**
+     * Starts a crash-only capture without changing the user's debug-log preference. If the user
+     * had not enabled logging, the new diagnostic buffer is memory-only and dies with this process.
+     */
+    public static synchronized boolean beginCrashSession() {
+        if (crashSession) return crashSessionTemporary;
+        crashSession = true;
+        categories = Prefers.getInt(PREF_CATEGORIES, DiagnosticCategories.ALL) & DiagnosticCategories.ALL;
+        boolean temporary = !Prefers.getBoolean(PREF_ENABLED);
+        crashSessionTemporary = temporary;
+        if (temporary) {
+            if (buffer != null) buffer.close();
+            buffer = new DiagnosticLogBuffer(DiagnosticLogBuffer.Limits.standard(), new InMemoryDiagnosticFile(), clock());
+            installCrashHandler();
+            buffer.start(false);
+            enabled = true;
+        } else if (!enabled) {
+            if (buffer == null) create();
+            buffer.start(true);
+            enabled = true;
+        }
+        return temporary;
+    }
+
+    /** Crash context bypasses category filters so it remains present in the served session. */
+    public static void appendCrashContext(String text) {
+        DiagnosticLogBuffer current = buffer;
+        if (enabled && current != null && text != null && !text.isEmpty()) current.add("crash", text, true);
     }
 
     private static void beginCollection(String reason) {

@@ -120,9 +120,18 @@ scripts/build-arm64.ps1
 - 回归：新增 `HomeActivityDeferredFragmentWorkTest` 3 项，验证事务守卫、延迟刷新合并、回前台清理/刷新顺序；命令 `:app:testLeanbackArm64_v8aDebugUnitTest --tests com.fongmi.android.tv.ui.activity.HomeActivityDeferredFragmentWorkTest --no-daemon` 通过，3/3，无失败。该任务同时编译 `compileLeanbackArm64_v8aDebugJavaWithJavac` 成功。
 - 设备验证：未执行；主题切换与旧回调竞态仍需 Leanback 真机/模拟器验收。
 
+### 阶段 2：崩溃报告与临时诊断会话
+
+- 对应上游：`30324abe36f4f11baf3e74b8f1659f9c0c0c4a02`，最终评审 `c5ef7ec829b75ad3291b6ae5b11d26378d68090a`，PR #475 / merge `2f83884f2145259b740d7f8840d3a257b3a7144d`。
+- 修改：`Startup` 在 CAOC 崩溃处理器安装后包裹异常处理器，崩溃进程以原子写入保存最多 3 份、每份有界且脱敏的报告；`:error_activity` 只读取 5 分钟内的新报告，并只保留崩溃 PID 的 logcat 行，PID 不明时导出空尾部。调试日志偏好关闭时强制使用内存持久层，关闭旧 writer 且不写回用户偏好；修复现有缓冲已停用时仍可能沿用磁盘持久层的边界。现有调试页在临时会话中标注状态并隐藏清空/开关采集操作。崩溃 Activity 存活期间提供本机及局域网地址、复制/打开动作，结束时关闭 Server；报告失败不替代 CAOC 原处理器。
+- 本地兼容：将日志入口最小加入现有 Mobile / Leanback 崩溃页，保留两端原有按钮类型与视觉样式，并加可滚动容器；错误详情继续走本地 `WebHtvAlertDialogBuilder`。未引入上游 EXO 原始 Throwable logcat 输出。现有 `/debug/logs` LAN HTTP 端点不新增认证，用户应只在可信局域网使用并避免转发地址。
+- 修改路径：`Startup.java`、`DebugLogs.java`、`CrashActivity.java`、`CrashLogSession.java`、`CrashLogText.java`、`CrashReport.java`、`DebugLogStore.java`、`InMemoryDiagnosticFile.java`、两套 `activity_crash.xml`、三份 crash strings 资源，以及 `CrashLogTextTest` / `CrashLogWiringTest`。
+- 回归：两端各运行 `CrashLogTextTest` 10 项与 `CrashLogWiringTest` 8 项，均通过；两端 ARM64 Debug Java 编译通过。Leanback 全量任务共 4,287 项，3 项失败均在受保护的 `MihomoRoutingIntegrationTest`：`loopbackControllerAndLocalInterfaceNeverLoopThroughProxyOrWildcard`、`explicitWildcardStillWinsOverAutomaticDefault`、`appAndSiteExplicitRulesRetainPriorityAndPreferencesRemainUnchanged`，错误为 Gson 无法反射访问 JDK `java.net.Proxy#type`（`InaccessibleObjectException`，测试位置 `MihomoRoutingIntegrationTest.java:85`）。这些测试/代理文件未被 C54 修改；未在基线单独复跑，因此不把它归因为 C54，也不宣称已证明环境根因。
+- 设备验证：未执行；需在 Mobile 与 Leanback 验收崩溃后日志服务启动、复制/打开地址、地址在前后台流程中的可用性及 Activity 结束后端口关闭。
+
 ### 后续阶段
 
-实现与验证完成后，分别按崩溃/生命周期、播放器、TMDB、Dialog/UI 范围记录文件、兼容适配、定向用例和结果。C54 不推送、不更新 Suite gitlink、不改 WOGG 或 WebHome。
+播放器、TMDB、Dialog/UI 尚未施工；按领域分别记录文件、兼容适配、定向用例和结果。C54 不推送、不更新 Suite gitlink、不改 WOGG 或 WebHome。
 
 ## 最终交付状态
 
