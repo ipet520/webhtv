@@ -284,6 +284,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     private static final int CHIP_STROKE_DP = 1;
     private static final int CHIP_MAX_WIDTH_DP = 240;
     private static final int PHOTO_PRELOAD_RADIUS = 2;
+    private static final int DISAMBIGUATION_CONCURRENCY = 3;
     private static final long BACKDROP_SLIDE_DELAY_MS = 10_000L;
     private static final long BACKDROP_SLIDE_RETRY_MS = 2_500L;
     private static final int SHORT_DRAMA_SCALE = 0;
@@ -12506,16 +12507,18 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         TmdbCandidate second = null;
         int count = Math.min(6, candidates.size());
         logTmdbMatch("详情消歧开始拉取候选详情：候选数量=%d，拉取上限=%d", candidates.size(), count);
+        JsonObject[] details = fetchDisambiguationDetails(candidates, count);
         for (int i = 0; i < count; i++) {
             TmdbCandidate candidate = candidates.get(i);
+            JsonObject detail = details[i];
+            if (detail == null) continue;
             try {
-                TmdbBundle bundle = loadTmdbBundle(candidate.item);
-                int peopleScore = hasSourcePeople(sourceVod) ? scoreTmdbPeople(bundle.detail(), sourceVod) : 0;
-                int splitSeasonScore = TmdbMatchPolicy.splitSeasonDetailScore(tmdbMatchSourceText(keyword, sourceVod), bundle.detail());
+                int peopleScore = hasSourcePeople(sourceVod) ? scoreTmdbPeople(detail, sourceVod) : 0;
+                int splitSeasonScore = TmdbMatchPolicy.splitSeasonDetailScore(tmdbMatchSourceText(keyword, sourceVod), detail);
                 int score = candidate.score + peopleScore + splitSeasonScore;
                 logTmdbMatch("详情消歧候选：标题=%s，年份=%d，基础分=%d，演员主创分=%d，分季分=%d，总分=%d",
                         candidate.item.getTitle(), tmdbItemYear(candidate.item), candidate.score, peopleScore, splitSeasonScore, score);
-                TmdbCandidate scored = new TmdbCandidate(candidate.item, candidate.titleScore, score, bundle);
+                TmdbCandidate scored = new TmdbCandidate(candidate.item, candidate.titleScore, score, detail);
                 if (best == null || scored.score > best.score) {
                     second = best;
                     best = scored;
@@ -12523,10 +12526,10 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
                     second = scored;
                 }
             } catch (Throwable ignored) {
-                logTmdbMatch("详情消歧候选加载失败：标题=%s，错误=%s", candidate.item.getTitle(), ignored.getMessage());
+                logTmdbMatch("详情消歧候选打分失败：标题=%s，错误=%s", candidate.item.getTitle(), ignored.getMessage());
             }
         }
-        if (best == null || best.bundle == null) {
+        if (best == null || best.detail == null) {
             logTmdbMatch("详情消歧结束：没有成功加载的候选详情");
             return Setting.isTmdbSmartMatch() ? chooseSmartTmdbBundle(items, keyword, sourceVod) : null;
         }
@@ -12534,8 +12537,40 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         boolean accepted = best.score >= 420 && gap >= 50;
         logTmdbMatch("详情消歧判定：最佳=%s(%d年, 分=%d)，第二=%s，分差=%d，结果=%s",
                 best.item.getTitle(), tmdbItemYear(best.item), best.score, second == null ? "无" : second.item.getTitle() + "(" + second.score + ")", gap, accepted ? "通过" : "不通过");
-        if (accepted) return best.bundle;
+        if (accepted) return loadDisambiguationWinner(best.item);
         return Setting.isTmdbSmartMatch() ? chooseSmartTmdbBundle(items, keyword, sourceVod) : null;
+    }
+
+    private JsonObject[] fetchDisambiguationDetails(List<TmdbCandidate> candidates, int count) {
+        JsonObject[] details = new JsonObject[count];
+        for (int start = 0; start < count; start += DISAMBIGUATION_CONCURRENCY) {
+            int end = Math.min(count, start + DISAMBIGUATION_CONCURRENCY);
+            List<Future<JsonObject>> futures = new ArrayList<>(end - start);
+            for (int i = start; i < end; i++) {
+                TmdbItem item = candidates.get(i).item;
+                futures.add(detailTasks.submitCallable(Task.largeExecutor(),
+                        () -> tmdbService.detailForDisambiguation(item, tmdbConfig)));
+            }
+            for (int i = start; i < end; i++) {
+                TmdbItem item = candidates.get(i).item;
+                try {
+                    details[i] = futures.get(i - start).get();
+                } catch (Throwable e) {
+                    logTmdbMatch("详情消歧候选加载失败：标题=%s，错误=%s", item.getTitle(), e.getMessage());
+                }
+            }
+        }
+        return details;
+    }
+
+    @Nullable
+    private TmdbBundle loadDisambiguationWinner(TmdbItem item) {
+        try {
+            return loadTmdbBundle(item);
+        } catch (Throwable e) {
+            logTmdbMatch("详情消歧赢家完整详情加载失败：标题=%s，错误=%s", item.getTitle(), e.getMessage());
+            return null;
+        }
     }
 
     private List<TmdbCandidate> scoreTmdbCandidates(List<TmdbItem> items, String keyword, @Nullable Vod sourceVod) {
@@ -12585,19 +12620,21 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         List<TmdbCandidate> scored = new ArrayList<>();
         int count = Math.min(6, candidates.size());
         logTmdbMatch("智能匹配开始拉取候选详情：关键词=%s，候选数量=%d，拉取上限=%d", keyword, candidates.size(), count);
+        JsonObject[] details = fetchDisambiguationDetails(candidates, count);
         for (int i = 0; i < count; i++) {
             TmdbCandidate candidate = candidates.get(i);
+            JsonObject detail = details[i];
+            if (detail == null) continue;
             try {
-                TmdbBundle bundle = loadTmdbBundle(candidate.item);
-                int detailScore = scoreTmdbCountry(bundle.detail(), sourceVod)
-                        + scoreTmdbPeople(bundle.detail(), sourceVod)
-                        + TmdbMatchPolicy.splitSeasonDetailScore(tmdbMatchSourceText(keyword, sourceVod), bundle.detail());
+                int detailScore = scoreTmdbCountry(detail, sourceVod)
+                        + scoreTmdbPeople(detail, sourceVod)
+                        + TmdbMatchPolicy.splitSeasonDetailScore(tmdbMatchSourceText(keyword, sourceVod), detail);
                 int score = candidate.score + detailScore;
                 logTmdbMatch("智能匹配候选：标题=%s，媒体=%s，年份=%d，基础分=%d，详情分=%d，总分=%d",
                         candidate.item.getTitle(), candidate.item.getMediaType(), tmdbItemYear(candidate.item), candidate.score, detailScore, score);
-                scored.add(new TmdbCandidate(candidate.item, candidate.titleScore, score, bundle));
+                scored.add(new TmdbCandidate(candidate.item, candidate.titleScore, score, detail));
             } catch (Throwable ignored) {
-                logTmdbMatch("智能匹配候选加载失败：标题=%s，错误=%s", candidate.item.getTitle(), ignored.getMessage());
+                logTmdbMatch("智能匹配候选打分失败：标题=%s，错误=%s", candidate.item.getTitle(), ignored.getMessage());
             }
         }
         if (scored.isEmpty()) {
@@ -12612,7 +12649,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         boolean accepted = best.score >= smartAcceptScore(sourceYear) && (gap >= 25 || isUniqueNewest(best, scored, sourceYear));
         logTmdbMatch("智能匹配判定：最佳=%s(%d年, 分=%d)，第二=%s，分差=%d，结果=%s",
                 best.item.getTitle(), tmdbItemYear(best.item), best.score, second == null ? "无" : second.item.getTitle() + "(" + second.score + ")", gap, accepted ? "通过" : "不通过");
-        return accepted ? best.bundle : null;
+        return accepted ? loadDisambiguationWinner(best.item) : null;
     }
 
     private List<TmdbCandidate> scoreSmartTmdbCandidates(List<TmdbItem> items, String keyword, @Nullable Vod sourceVod) {
@@ -13616,7 +13653,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         }
     }
 
-    private record TmdbCandidate(TmdbItem item, int titleScore, int score, @Nullable TmdbBundle bundle) {
+    private record TmdbCandidate(TmdbItem item, int titleScore, int score, @Nullable JsonObject detail) {
     }
 
     private record RatingChipTag(String platform, int color) {

@@ -147,6 +147,17 @@ public class TmdbService {
         return requestJson(url, config, "detail", sourceDetailCacheKey(item, seasonNumber, config, missing), fallbackKeys, DETAIL_CACHE_TTL, "TMDB 详情返回为空", "TMDB 详情失败: HTTP ", false);
     }
 
+    /**
+     * 自动匹配消歧只需要候选的基础字段、credits 和（剧集）aggregate_credits。
+     * 使用独立缓存命名空间，避免精简结果覆盖详情页需要的完整 payload。
+     */
+    public JsonObject detailForDisambiguation(@NonNull TmdbItem item, @NonNull TmdbConfig config) throws Exception {
+        ensureReady(config);
+        String url = detailUrl(item, config, false, true);
+        return requestJson(url, config, "detail-lite", disambiguationCacheKey(item, config), List.of(), DETAIL_CACHE_TTL,
+                "TMDB 详情返回为空", "TMDB 详情失败: HTTP ", false);
+    }
+
     private String detailAppend(@NonNull TmdbItem item, boolean includeRelated) {
         boolean tv = "tv".equalsIgnoreCase(item.getMediaType());
         String append = tv
@@ -155,10 +166,18 @@ public class TmdbService {
         return includeRelated ? append + ",recommendations,similar" : append;
     }
 
+    private String disambiguationAppend(@NonNull TmdbItem item) {
+        return "tv".equalsIgnoreCase(item.getMediaType()) ? "credits,aggregate_credits" : "credits";
+    }
+
     private String detailUrl(@NonNull TmdbItem item, @NonNull TmdbConfig config, boolean includeRelated) {
+        return detailUrl(item, config, includeRelated, false);
+    }
+
+    private String detailUrl(@NonNull TmdbItem item, @NonNull TmdbConfig config, boolean includeRelated, boolean disambiguation) {
         return apiBuilder(config.getApiBase() + "/" + item.getMediaType() + "/" + item.getTmdbId(), config)
                 .addQueryParameter("language", requestLanguage(config))
-                .addQueryParameter("append_to_response", detailAppend(item, includeRelated))
+                .addQueryParameter("append_to_response", disambiguation ? disambiguationAppend(item) : detailAppend(item, includeRelated))
                 .addQueryParameter("include_image_language", requestLanguage(config) + ",null")
                 .build()
                 .toString();
@@ -812,7 +831,7 @@ public class TmdbService {
         long start = System.currentTimeMillis();
         File file = cacheFile(type, cacheKey);
         List<File> lookupFiles = cacheFiles(type, cacheKey, fallbackCacheKeys, url);
-        JsonObject cached = refresh ? null : readFirstCache(lookupFiles, ttl, "detail".equals(type));
+        JsonObject cached = refresh ? null : readFirstCache(lookupFiles, ttl, "detail".equals(type) || "detail-lite".equals(type));
         if (cached != null) {
             SpiderDebug.log("tmdb", "requestJson type=%s source=cache cost=%dms", type, System.currentTimeMillis() - start);
             return cached;
@@ -916,6 +935,10 @@ public class TmdbService {
 
     String detailCacheKey(@NonNull TmdbItem item, @NonNull TmdbConfig config, boolean includeRelated) {
         return cacheKey("detail", item.getMediaType(), item.getTmdbId(), cacheLanguage(config), includeRelated ? "full" : "core");
+    }
+
+    String disambiguationCacheKey(@NonNull TmdbItem item, @NonNull TmdbConfig config) {
+        return cacheKey("detail-lite", item.getMediaType(), item.getTmdbId(), cacheLanguage(config));
     }
 
     String sourceDetailCacheKey(@NonNull TmdbItem item, int seasonNumber, @NonNull TmdbConfig config, @NonNull Set<String> missing) {

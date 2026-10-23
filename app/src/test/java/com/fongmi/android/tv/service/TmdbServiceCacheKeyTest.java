@@ -47,6 +47,21 @@ public class TmdbServiceCacheKeyTest {
     }
 
     @Test
+    public void disambiguationDetailCacheDoesNotAliasFullOrCoreDetail() {
+        TmdbService service = new TmdbService();
+        TmdbItem item = new TmdbItem(123, "tv", "庆余年", "", "", "", "");
+        TmdbConfig config = config("https://api.tmdb.org/3", "test-key", "zh-CN");
+        String lite = service.disambiguationCacheKey(item, config);
+
+        assertNotEquals(service.detailCacheKey(item, config, true), lite);
+        assertNotEquals(service.detailCacheKey(item, config, false), lite);
+        assertEquals(lite, service.disambiguationCacheKey(item,
+                config("https://mirror.example.com/tmdb/3", "other-key", "ZH-Hans")));
+        assertNotEquals(lite, service.disambiguationCacheKey(item,
+                config("https://api.tmdb.org/3", "test-key", "zh-TW")));
+    }
+
+    @Test
     public void cacheKeysNormalizeLanguageCaseAndAliases() {
         TmdbService service = new TmdbService();
         TmdbItem item = new TmdbItem(123, "tv", "庆余年", "", "", "", "");
