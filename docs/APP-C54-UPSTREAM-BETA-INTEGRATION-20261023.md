@@ -336,3 +336,11 @@ READY_FOR_RELEASE_FINALIZATION = PENDING
 - Workspace: 本阶段变更仅限 `PlaybackOwnershipKeys.java`、`PlaybackService.java`、`PlaybackActivity.java`、两项归属测试和本报告；此前 33 条用户 dirty path 保持受保护。阶段提交坐标将在 task guard 完成后由最终交付段汇总。
 - Device follow-up: 在 Leanback 真机连续播放至少 3 集，确认每集均有画面且只推进一集；在 Mobile 播放页面复测连续自动下一集；观察 EXO、MPV、软/硬解切换时 Surface 与 ASS/副字幕仍正常；确认退出/释放行为与原本地策略一致。
 - Next action: 独立提交本阶段，然后继续播放器历史、同步、预缓存候选及 Dialog/TMDB P1 审查。
+
+## Checkpoint 7: 2026-10-23 一键同步陈旧回调隔离
+
+- Completed: 从固定目标内的 `541220ac7cdb5472cd6570ccd5c0ca6031551727` 提取 OneKeySync 的代际守卫。每次同步捕获独立 generation 和 push/pull 方向；打包取消信号、请求发出前校验、延迟重试、网络回调、准备/上传进度以及 View 销毁均关联该代际，旧回调不能重置新一次同步的按钮或进度，也不能再触碰已销毁的 binding。
+- Compatibility: 保留现有单按钮方向切换和主题化 UI，不纳入上游两段式方向选择器。另在取消/请求登记间加轻量锁，取消会立即递增 generation 并取消已登记 Call；请求登记后再次验证代际，避免准备线程与用户取消交错时仍发起旧请求。异步失败仍清理本轮临时归档；UI 提示只由当前 view 和当前代际更新。
+- Files: `OneKeySyncDialog.java` 与 `OneKeySyncGenerationGuardTest.java`。测试锁定方向与代际快照、打包与发请求前守卫、重试链、异步回调归属、进度回调以及取消/销毁时递增代际。
+- Validation: Mobile `:app:testMobileArm64_v8aDebugUnitTest --tests com.fongmi.android.tv.ui.dialog.OneKeySyncGenerationGuardTest` 与 Leanback 对应任务均 `BUILD SUCCESSFUL`，各 3 项测试通过；Java 编译也成功。首次 Mobile 运行的一条新增测试断言要求代际增量语句直接写在方法体，未识别同步锁内赋值；只调整了源码定位断言后两端重跑通过，行为守卫断言未放宽。未做设备验证。此修复不涉及同步协议字段、请求 URL、备份内容或方向 UI 新能力。
+- Next action: 独立提交这一修复组；再进入全屏/近全屏 Dialog 安全区及 TMDB 详情性能候选。
