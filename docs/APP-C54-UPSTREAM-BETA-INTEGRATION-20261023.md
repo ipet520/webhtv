@@ -344,3 +344,12 @@ READY_FOR_RELEASE_FINALIZATION = PENDING
 - Files: `OneKeySyncDialog.java` 与 `OneKeySyncGenerationGuardTest.java`。测试锁定方向与代际快照、打包与发请求前守卫、重试链、异步回调归属、进度回调以及取消/销毁时递增代际。
 - Validation: Mobile `:app:testMobileArm64_v8aDebugUnitTest --tests com.fongmi.android.tv.ui.dialog.OneKeySyncGenerationGuardTest` 与 Leanback 对应任务均 `BUILD SUCCESSFUL`，各 3 项测试通过；Java 编译也成功。首次 Mobile 运行的一条新增测试断言要求代际增量语句直接写在方法体，未识别同步锁内赋值；只调整了源码定位断言后两端重跑通过，行为守卫断言未放宽。未做设备验证。此修复不涉及同步协议字段、请求 URL、备份内容或方向 UI 新能力。
 - Next action: 独立提交这一修复组；再进入全屏/近全屏 Dialog 安全区及 TMDB 详情性能候选。
+
+## Checkpoint 8: 2026-10-23 全屏与近全屏 Dialog 系统栏安全区
+
+- Completed: 选择性吸收 `1bb216efec156709ca3d1b027701c6331749d986` 与 `29733de98d32760a4e5a743d4e420b48f5d59f61` 的系统栏安全区修复。新增 `DialogSafeArea`，优先使用已观察的 dialog window insets，其次使用 host root insets，再以 host content 与 display 差值兜底；按 system bars/display cutout 取左右/顶部/底部，并以 gesture inset 修正底边。几何仍复用本地 `ThemeDialogLayout.safeArea/width/height`；只替换屏幕尺寸来源，不改原配色、主题 Token、焦点及布局比例。
+- Paths/behavior: 站点健康报表从原始 display bounds 改为 safe area，且在 dialog insets 到达/变化时重新应用尺寸；其他 25 个上游已存在的全屏或近全屏 dialog 和 Mobile/Leanback 两套 AdBlockStatsDialog 改为同一安全区尺寸。不存在于本地的 `CacheManagementDialog` 新页未引入。上游同提交对 Codec、GitCloud、WebHome Extension 等主题绑定/调色的删除均未吸收；本地 ThemeDialog 两 flavor 的独立 insets listener 和面板背景语义未动。
+- Comparison: 上游方案复用本地 `ThemeDialogLayout`，安全区算术保持同一来源；本地 ThemeDialog 对 dialog 自身 insets 的优先级和重排行为继续使用原实现。泛用 helper 只负责向既有尺寸参数提供安全 area，TV 没有 system bars 时仍从全显示尺寸退化，实际面板显示需真机确认。
+- Tests: Mobile ARM64 Debug 6 suites / 42 tests、Leanback ARM64 Debug 4 suites / 27 tests，均 0 failures/errors/skipped：`DialogSafeAreaTest`、`SiteHealthReportDialogSourceTest`、`SiteHealthReportSourceTest`、`ThemeDialogLayoutTest`，Mobile 另含 `AdBlockStatsDialogLayoutTest`、`AiRecommendationInfoDialogLayoutTest`。两端 Java 编译和目标 `test...UnitTest` 均 `BUILD SUCCESSFUL`。未执行 Android 仪器测试或设备视觉验收。
+- Device follow-up: Mobile 三键导航与手势导航各检查健康报表底部取消按钮、AdBlockStats 页脚和其它 near-full dialogs；旋转后确认报表重排。Leanback 检查 ThemeDialog 的边缘间距、AdBlockStats 焦点和 overscan 显示；核实全屏 TV 未出现尺寸收缩或焦点丢失。
+- Next action: 独立提交安全区几何修复组；继续复核 TMDB 详情性能和历史同步/预缓存候选。

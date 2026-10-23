@@ -54,6 +54,10 @@ final class ThemeDialogLayout {
             return new Insets(0, 0, 0, 0);
         }
 
+        boolean isEmpty() {
+            return left <= 0 && top <= 0 && right <= 0 && bottom <= 0;
+        }
+
         /**
          * Insets implied by the display bounds minus the host content view.
          *

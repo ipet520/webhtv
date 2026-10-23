@@ -34,4 +34,17 @@ public class SiteHealthReportDialogSourceTest {
                 source.contains("readableOnPanel(color)"));
         assertTrue(source.contains("ThemeController.current().colorSurfaceContainerHigh()"));
     }
+
+    @Test
+    public void windowSizingUsesInsetsWithoutChangingReportTheme() throws Exception {
+        String source = Files.readString(Path.of(
+                "src/main/java/com/fongmi/android/tv/ui/dialog/SiteHealthReportDialog.java"));
+
+        assertTrue(source.contains("DialogSafeArea.follow(requireActivity(), window"));
+        assertTrue(source.contains("DialogSafeArea.area(requireActivity(), window)"));
+        assertTrue(source.contains("ThemeDialogLayout.width(area.width(), margin)"));
+        assertTrue(source.contains("ThemeDialogLayout.height(area.height(), margin)"));
+        assertFalse(source.contains("ResUtil.getScreenHeight(requireContext()) - margin * 2"));
+        assertTrue(source.contains("ThemeController.current().colorOnSurface"));
+    }
 }

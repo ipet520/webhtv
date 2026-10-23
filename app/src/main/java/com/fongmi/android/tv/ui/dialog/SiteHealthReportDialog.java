@@ -1,5 +1,6 @@
 package com.fongmi.android.tv.ui.dialog;
 
+import android.app.Dialog;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.ColorDrawable;
@@ -7,6 +8,7 @@ import android.text.Editable;
 import android.text.TextUtils;
 import android.text.TextWatcher;
 import android.text.format.DateFormat;
+import android.view.Gravity;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
@@ -63,18 +65,25 @@ public class SiteHealthReportDialog extends BaseAlertDialog {
     @Override
     public void onStart() {
         super.onStart();
-        if (getDialog() == null) return;
-        Window window = getDialog().getWindow();
-        if (window == null) return;
+        Dialog dialog = getDialog();
+        if (dialog == null || dialog.getWindow() == null) return;
+        Window window = dialog.getWindow();
+        configureWindow(window);
+        DialogSafeArea.follow(requireActivity(), window, () -> configureWindow(window));
+        binding.close.requestFocus();
+    }
+
+    private void configureWindow(Window window) {
         WindowManager.LayoutParams params = window.getAttributes();
         window.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
         window.getDecorView().setPadding(0, 0, 0, 0);
         int margin = ResUtil.dp2px(ResUtil.isLand(requireContext()) ? 24 : 16);
-        params.width = Math.max(1, ResUtil.getScreenWidth(requireContext()) - margin * 2);
-        params.height = Math.max(1, ResUtil.getScreenHeight(requireContext()) - margin * 2);
+        ThemeDialogLayout.Area area = DialogSafeArea.area(requireActivity(), window);
+        params.width = ThemeDialogLayout.width(area.width(), margin);
+        params.height = ThemeDialogLayout.height(area.height(), margin);
+        params.gravity = Gravity.CENTER;
         window.setAttributes(params);
         window.setLayout(params.width, params.height);
-        binding.close.requestFocus();
     }
 
     @Override
