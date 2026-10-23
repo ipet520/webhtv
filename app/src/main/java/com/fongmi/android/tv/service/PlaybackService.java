@@ -34,6 +34,7 @@ import com.fongmi.android.tv.browse.BrowseTree;
 import com.fongmi.android.tv.event.ActionEvent;
 import com.fongmi.android.tv.event.ConfigEvent;
 import com.fongmi.android.tv.playback.PlaybackEventCollector;
+import com.fongmi.android.tv.player.PlaybackOwnershipKeys;
 import com.fongmi.android.tv.player.PlayerManager;
 import com.fongmi.android.tv.player.engine.PlaySpec;
 import com.fongmi.android.tv.player.lyrics.DesktopLyricsWindow;
@@ -448,7 +449,7 @@ private AudioHistory.Record audioHistoryRecord;
     }
 
     private boolean isNavigationOwner() {
-        return isPlayerAvailable() && (navigationKey == null || navigationKey.equals(player.getKey()));
+        return isPlayerAvailable() && PlaybackOwnershipKeys.sameSession(navigationKey, player.getKey());
     }
 
     public void addPlayerCallback(PlayerCallback callback) {

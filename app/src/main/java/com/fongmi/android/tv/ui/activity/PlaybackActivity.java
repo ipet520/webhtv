@@ -41,6 +41,7 @@ import com.fongmi.android.tv.bean.Result;
 import com.fongmi.android.tv.bean.Sub;
 import com.fongmi.android.tv.bean.Vod;
 import com.fongmi.android.tv.player.PlaybackAutoContext;
+import com.fongmi.android.tv.player.PlaybackOwnershipKeys;
 import com.fongmi.android.tv.player.PlaybackServiceReleasePolicy;
 import com.fongmi.android.tv.player.PlaybackTelemetry;
 import com.fongmi.android.tv.player.PlayerManager;
@@ -197,12 +198,13 @@ public abstract class PlaybackActivity extends BaseActivity implements MediaCont
      *
      * <p>{@link #getPlaybackKey()} 由子类从 intent 现算，而 intent 的 id 会在起播之后被
      * 详情结果改写（TMDB 富集回来的 vodId，见 VideoActivity#updateVod）。播放器里的 key 是
-     * 起播那一刻固化进 PlaySpec 的，之后无从更改；两者一旦不等，{@link #isOwner()} 便永久
-     * 为 false，于是 STATE_READY 不再下发（转圈不收）、每秒的进度采样直接返回（进度不落库、
-     * 刷新回起点）、切集也因 PlaybackService#isNavigationOwner 失配而不派发。
+     * 起播那一刻固化进 PlaySpec 的，之后无从更改。不同会话的 key 不等时，{@link #isOwner()}
+     * 必须仍为 false。自动下一集会给同一会话套上 {@code VE:<historyKey>|<line>|<index>} 选集键，
+     * 因而归属比较需要先去掉这层导航包装，否则重建回调会跳过 {@code setRender()}，新引擎拿不到
+     * Surface。TMDB id 漂移仍由起播时固定的 key 处理，不能改为每次从 intent 重算。
      *
      * <p>该 key 的语义是"归属与路由令牌"，必须在一次播放会话内保持稳定；History 行的 key
-     * 迁移是另一件事，二者解耦。因此起播时钉住，会话结束或换集重新起播时再更新。
+     * 迁移是另一件事，二者解耦。因此起播时钉住，会话结束或换条目重新起播时再更新。
      */
     protected final String activePlaybackKey() {
         return pinnedPlaybackKey != null ? pinnedPlaybackKey : getPlaybackKey();
@@ -219,7 +221,7 @@ public abstract class PlaybackActivity extends BaseActivity implements MediaCont
     protected boolean isOwner() {
         String key = activePlaybackKey();
         PlayerManager manager = player();
-        return key == null || (manager != null && key.equals(manager.getKey()));
+        return PlaybackOwnershipKeys.sameSession(key, manager == null ? null : manager.getKey());
     }
 
     public final boolean pauseForOverlayPlayback() {

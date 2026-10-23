@@ -15,9 +15,9 @@ import java.nio.file.Path;
  *
  * <p>getPlaybackKey() 由子类从 intent 现算，而 intent 的 id 会在起播之后被详情结果改写
  * （TMDB 富集回来的 vodId，见 VideoActivity#updateVod）。播放器里的 key 是起播那一刻固化进
- * PlaySpec 的，之后无从更改。两者一旦不等，isOwner() 便永久为 false，同时打断三条链：
- * STATE_READY 不再下发（转圈不收）、每秒进度采样直接返回（进度不落库、刷新回起点）、
- * 切集因 PlaybackService#isNavigationOwner 失配而不派发。
+ * PlaySpec 的，之后无从更改。自动下一集还会用 {@code VE:<historyKey>|<line>|<index>} 包装同一会话 key；
+ * intent 漂移不能窃取既有会话，选集包装则仍要识别成同一会话，否则重建时 {@code isOwner()} 会
+ * 阻止 {@code setRender()}，新引擎拿不到视频 Surface。
  */
 public class PlaybackOwnershipSourceTest {
 
@@ -28,13 +28,32 @@ public class PlaybackOwnershipSourceTest {
         String source = read(PLAYBACK);
 
         int owner = source.indexOf("protected boolean isOwner()");
-        int ownerEnd = source.indexOf('}', source.indexOf("return key == null", owner));
+        int ownerEnd = source.indexOf("\n    }", owner);
+        assertTrue("isOwner must exist", owner > 0 && ownerEnd > owner);
         String body = source.substring(owner, ownerEnd);
 
-        assertTrue("isOwner must exist", owner > 0);
         assertTrue("ownership must read the pinned session key", body.contains("activePlaybackKey()"));
+        assertTrue("episode navigation keys must compare by playback session",
+                body.contains("PlaybackOwnershipKeys.sameSession("));
         assertFalse("ownership must not recompute the key from the live intent",
                 body.contains("getPlaybackKey()"));
+    }
+
+    @Test
+    public void serviceNavigationOwnershipUsesTheSameSessionComparison() throws Exception {
+        String source = read("app/src/main/java/com/fongmi/android/tv/service/PlaybackService.java");
+        int owner = source.indexOf("private boolean isNavigationOwner()");
+        int ownerEnd = source.indexOf("\n    }", owner);
+
+        assertTrue("service navigation ownership must exist", owner > 0 && ownerEnd > owner);
+        assertTrue("service navigation must normalize the episode key to its session",
+                source.substring(owner, ownerEnd).contains("PlaybackOwnershipKeys.sameSession("));
+        assertTrue("the producer and consumer must retain the same episode prefix",
+                read("app/src/main/java/com/fongmi/android/tv/browse/VodBrowse.java")
+                        .contains("static final String VOD_EP = \"VE:\";"));
+        assertTrue("the ownership helper must use the episode prefix",
+                read("app/src/main/java/com/fongmi/android/tv/player/PlaybackOwnershipKeys.java")
+                        .contains("EPISODE_PREFIX = \"VE:\";"));
     }
 
     @Test
@@ -154,6 +173,13 @@ public class PlaybackOwnershipSourceTest {
                 detach > 0 && rebind > detach);
         assertFalse("attachment must no longer depend on the view merely being empty",
                 body.contains("if (getExoView().getPlayer() == null)"));
+
+        int rebuild = source.indexOf("public void onPlayerRebuild(Player player, boolean resetVideoSurface)");
+        int rebuildEnd = source.indexOf("\n        }", rebuild);
+        assertTrue("player rebuild callback must remain owner-gated", rebuild > 0 && rebuildEnd > rebuild);
+        assertTrue("the matching session must enter the existing render reset and attach path",
+                source.substring(rebuild, rebuildEnd).contains("if (isOwner())")
+                        && source.substring(rebuild, rebuildEnd).contains("setRender();"));
     }
 
     @Test

@@ -326,3 +326,13 @@ READY_FOR_RELEASE_FINALIZATION = PENDING
 - Risk: 最长直播退避总窗口约 12.8 秒，点播约 1.8 秒；HTTP 错误先由已有来源交接回调处理，本机代理的既有有限重试仍先执行。自动化测试覆盖计数、策略边界和陈旧回调拒绝，未在真实网络抖动或本机代理故障现场验证实际时序。
 - Workspace: 源码改动仅在 `PlaybackErrorClassifier.java`、`PlayerManager.java` 及对应 3 个播放器测试；报告追加本检查点。原有 33 条用户 dirty path 指纹保持不变。任务 guard 当前登记范围匹配，尚待本阶段原子提交后填入提交坐标。
 - Next action: 完成本阶段独立提交；然后继续审核 Surface 自动下一集绑定、播放历史/同步/预缓存、Dialog 系统栏安全区及 TMDB 详情性能候选。
+
+## Checkpoint 6: 2026-10-23 自动下一集会话归属与 Surface 重绑
+
+- Completed: 选择性移植 `da7ac6440a9d1da247bcabdb4f2ed291bf29001c` 的会话键比较修复（PR #476 最终树）。`VodBrowse` 生成 `VE:<historyKey>|<line>|<index>`；本地 Activity 与 Service 原先都按原始字符串比较，造成 Activity 的 `onPlayerRebuild()` 因 `isOwner()==false` 跳过 `setRender()`，Service 也可能把 ENDED 误判为无主而再次 `navigateItem(1)`。两处现在统一通过纯 Java `PlaybackOwnershipKeys.sameSession()`，只将结构有效的 `VE:` 键归一到其 history key；空白字符串保持原精确比较，null expected 保持本地原有“不限归属”语义，格式错误的包装键仍作为原始字符串。
+- Local implementation comparison: `PlaybackActivity.attachSurface()` 已按旧/新 Player 实例身份判断并先 detach 旧 Player 再 bind 新 Player；`setRender()` 已经走该路径。修复 ownership gate 即恢复自动连播重建时这条已有 Surface 绑定链，因此没有复制上游额外的 RESUMED/BUFFERING/READY top-up 轮询，也未加入 `SurfaceDiagnosticCollector` 扩展字段。上游 `stopPlayback()` 将非归属页退出改为 `mService.suspend()` 属更广的服务停止语义；该改动不属于此处已确认的归属根因，可能影响仍在使用同一服务的其他消费者，故保留本地 owner shutdown / controller stop 实现。
+- Tests: Mobile ARM64 Debug 运行 `PlaybackOwnershipKeysTest`、`PlaybackOwnershipSourceTest`、`PlaybackStateReconciliationTest`、`PlaybackServiceReleasePolicyTest`、`PlayerPlaybackRegressionSourceTest` 共 41 项，0 failures/errors/skipped；Leanback ARM64 Debug 运行前四类共 23 项，0 failures/errors/skipped。源码契约验证了 Activity owner 门控、Service 导航 owner、`VE:` 生产者与消费者前缀以及 `onPlayerRebuild()` 到现有 `setRender()`/实例身份绑定路径。两端 Gradle 定向任务均 `BUILD SUCCESSFUL`；未做真机验证。
+- Preserved behavior: 未修改 `PlaybackActivity.stopPlayback()`、服务释放策略、Exo/MPV 原生 surface 处理、ASS 与字幕 session attach/detach，也未移植上游额外重绑诊断机制。测试中的 malformed/empty key 边界保护会阻止无效 `VE:` 结构误认成其他会话。
+- Workspace: 本阶段变更仅限 `PlaybackOwnershipKeys.java`、`PlaybackService.java`、`PlaybackActivity.java`、两项归属测试和本报告；此前 33 条用户 dirty path 保持受保护。阶段提交坐标将在 task guard 完成后由最终交付段汇总。
+- Device follow-up: 在 Leanback 真机连续播放至少 3 集，确认每集均有画面且只推进一集；在 Mobile 播放页面复测连续自动下一集；观察 EXO、MPV、软/硬解切换时 Surface 与 ASS/副字幕仍正常；确认退出/释放行为与原本地策略一致。
+- Next action: 独立提交本阶段，然后继续播放器历史、同步、预缓存候选及 Dialog/TMDB P1 审查。
