@@ -185,6 +185,11 @@ public class EpisodeListDialog extends BaseAlertDialog implements FlagAdapter.On
             public void onChildViewHolderSelected(@NonNull RecyclerView parent, @Nullable RecyclerView.ViewHolder child, int position, int subposition) {
                 if (child != null) alignEpisodeScroll(position);
             }
+
+            @Override
+            public void onChildViewHolderSelectedAndPositioned(@NonNull RecyclerView parent, @Nullable RecyclerView.ViewHolder child, int position, int subposition) {
+                if (child != null) alignEpisodeScroll(position);
+            }
         });
     }
 
@@ -389,20 +394,15 @@ public class EpisodeListDialog extends BaseAlertDialog implements FlagAdapter.On
 
     private void alignEpisodeScroll(int position) {
         if (position == RecyclerView.NO_POSITION || episodeAdapter == null) return;
-        int column = Math.max(1, episodeAdapter.getColumn());
-        int rowStart = Math.max(0, position - position % column);
-        binding.episode.post(() -> {
+        binding.episode.postOnAnimation(() -> {
             if (binding == null) return;
-            if (rowStart == 0) {
-                binding.getRoot().scrollTo(0, 0);
-                return;
-            }
-            int rowIndex = rowStart / Math.max(1, episodeAdapter.getColumn());
-            int targetY = binding.episode.getTop() + rowIndex * (getEpisodeRowHeight() + ResUtil.dp2px(8)) - ResUtil.dp2px(8);
-            binding.getRoot().scrollTo(0, Math.max(0, targetY));
+            // Read the current laid-out selection, not an earlier queued row/segment.
+            RecyclerView.ViewHolder holder = binding.episode.findViewHolderForAdapterPosition(
+                    binding.episode.getSelectedPosition());
+            if (holder == null || !holder.itemView.hasFocus()) return;
+            EpisodeScrollVisibility.reveal(binding.getRoot(), holder.itemView, ResUtil.dp2px(8));
         });
     }
-
     private void keepArrayFocus(int position) {
         binding.array.post(() -> {
             if (binding == null) return;
