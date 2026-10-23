@@ -68,6 +68,7 @@ public class MediaSourceFactory implements MediaSource.Factory {
     private static final String CONCAT_DURATION_SEPARATOR_REGEX = "\\|\\|\\|";
     private static final PriorityTaskManager PLAYBACK_PRIORITY_MANAGER = new PriorityTaskManager();
     private static final CacheCapacityState CACHE_CAPACITY_STATE = new CacheCapacityState();
+    private static final LiveManifestRetryPolicy LIVE_LOAD_ERROR_POLICY = new LiveManifestRetryPolicy();
 
     private static StandaloneDatabaseProvider databaseProvider;
     private static Cache cache;
@@ -318,6 +319,7 @@ public class MediaSourceFactory implements MediaSource.Factory {
                 ? Media3DiagnosticBridge.extractors(buildExtractorsFactory(fonts), mediaItem)
                 : getExtractorsFactory();
         return new DefaultMediaSourceFactory(getDataSourceFactory(headers), itemExtractors)
+                .setLoadErrorHandlingPolicy(LIVE_LOAD_ERROR_POLICY)
                 .setLoadOnlySelectedTracks(PlaybackPerformanceSetting.isLoadOnlySelectedTracksEnabled());
     }
 

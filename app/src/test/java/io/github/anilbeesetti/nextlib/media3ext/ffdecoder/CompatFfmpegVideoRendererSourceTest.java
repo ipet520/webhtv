@@ -44,12 +44,25 @@ public class CompatFfmpegVideoRendererSourceTest {
     }
 
     @Test
-    public void hardwareOnlyMode_neverRegistersFfmpegFallback() throws Exception {
+    public void hardModeRegistersFfmpegAfterPlatformOnlyWhenFallbackIsEnabled() throws Exception {
         String exoUtil = readSource(EXO_UTIL_PATH);
 
+        int start = exoUtil.indexOf("private static int getVideoRenderMode(int decode)");
+        assertTrue("getVideoRenderMode must exist", start >= 0);
+        int end = exoUtil.indexOf("\n    }", start);
+        String mode = exoUtil.substring(start, end > start ? end : exoUtil.length());
+        String normalized = exoUtil.replaceAll("\\s+", " ");
+
+        assertTrue(mode, mode.contains("PlaybackPerformanceSetting.isDecoderFallbackEnabled()"));
+        assertTrue(mode, mode.contains("EXTENSION_RENDERER_MODE_ON"));
+        assertTrue(mode, mode.contains("EXTENSION_RENDERER_MODE_OFF"));
+        assertTrue(normalized.contains("decoderRuntimeSession != null && videoRenderMode != EXTENSION_RENDERER_MODE_PREFER"));
+        assertTrue(exoUtil.contains("if (videoRenderMode == EXTENSION_RENDERER_MODE_PREFER) return mediaCodecSelector;"));
+        assertTrue(exoUtil.contains("if (info.hardwareAccelerated) hardwareInfos.add(info);"));
         assertTrue(exoUtil.contains("if (videoRenderMode == EXTENSION_RENDERER_MODE_OFF) return;"));
-        assertFalse(exoUtil.contains("buildHardwareOnlyFfmpegVideoRenderer"));
-        assertFalse(exoUtil.contains("new CompatFfmpegVideoRenderer("));
+        assertTrue(exoUtil.contains("buildFfmpegVideoRenderer("));
+        assertTrue("Preserve the existing 5 ms late-drop contract",
+                exoUtil.contains("ENHANCED_LATE_THRESHOLD_TO_DROP_INPUT_US = 5_000L;"));
     }
 
     private static String readSource() throws Exception {

@@ -375,7 +375,10 @@ public class ExoUtil {
     }
 
     private static int getVideoRenderMode(int decode) {
-        return decode == PlayerEngine.HARD ? DefaultRenderersFactory.EXTENSION_RENDERER_MODE_OFF : DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER;
+        if (decode != PlayerEngine.HARD) return DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER;
+        return PlaybackPerformanceSetting.isDecoderFallbackEnabled()
+                ? DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON
+                : DefaultRenderersFactory.EXTENSION_RENDERER_MODE_OFF;
     }
 
     private static int getAudioRenderMode() {
@@ -1099,7 +1102,7 @@ public class ExoUtil {
             } catch (Throwable ignored) {
             }
             if (decoderRuntimeSession != null
-                    && videoRenderMode == EXTENSION_RENDERER_MODE_OFF) {
+                    && videoRenderMode != EXTENSION_RENDERER_MODE_PREFER) {
                 out.add(new ExoRuntimeAwareVideoRenderer(
                         context,
                         getCodecAdapterFactory(),
@@ -1131,8 +1134,8 @@ public class ExoUtil {
                         dolbyVisionPlaybackState));
             } catch (Throwable ignored) {
             }
-            // Video decode mode is explicit: hardware mode must never register
-            // a software fallback. Audio has its own policy.
+            // HARD mode can register FFmpeg only when the existing fallback switch is on.
+            // EXTENSION_RENDERER_MODE_ON keeps it after platform MediaCodec renderers.
             if (videoRenderMode == EXTENSION_RENDERER_MODE_OFF) return;
             try {
                 out.add(getExtensionRendererIndex(videoRenderMode, videoPrefer, out), buildFfmpegVideoRenderer(allowedVideoJoiningTimeMs, eventHandler, eventListener));
@@ -1146,7 +1149,7 @@ public class ExoUtil {
         }
 
         private MediaCodecSelector getVideoCodecSelector(MediaCodecSelector mediaCodecSelector) {
-            if (videoRenderMode != EXTENSION_RENDERER_MODE_OFF) return mediaCodecSelector;
+            if (videoRenderMode == EXTENSION_RENDERER_MODE_PREFER) return mediaCodecSelector;
             return (mimeType, requiresSecureDecoder, requiresTunnelingDecoder) -> {
                 List<MediaCodecInfo> infos = mediaCodecSelector.getDecoderInfos(mimeType, requiresSecureDecoder, requiresTunnelingDecoder);
                 if (mimeType == null || !mimeType.startsWith("video/")) return infos;
