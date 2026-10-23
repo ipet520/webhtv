@@ -137,6 +137,9 @@ public class HomeActivity extends BaseActivity implements ExitConfirmDialog.List
     private boolean webToolbarVisible = true;
     private boolean loadingHomeCategory;
     private boolean skipNextVodConfigRefresh;
+    private boolean mPendingCategoryCleanup;
+    private boolean mPendingContentRefresh;
+    private boolean mPendingContentRefreshForceNative;
     private boolean noConfigVisible;
     private boolean pendingOpenVod; // 手动点击"点播"后等待数据加载完成再进分类页
     private boolean webConfirmKeyDown;
@@ -346,7 +349,7 @@ public class HomeActivity extends BaseActivity implements ExitConfirmDialog.List
         if (mFolder != null && mFolder.isAdded() && !mFolder.isHidden()) {
             mFolder.clearContentFocusRequest();
             mFolder.setUserVisibleHint(false);
-            getSupportFragmentManager().beginTransaction().hide(mFolder).commit();
+            if (canCommitFragmentTransaction()) getSupportFragmentManager().beginTransaction().hide(mFolder).commit();
         }
     }
 
@@ -424,6 +427,14 @@ public class HomeActivity extends BaseActivity implements ExitConfirmDialog.List
         clearCategoryContent();
     }
 
+    private boolean canCommitFragmentTransaction() {
+        return !isFinishing() && !isDestroyed() && !getSupportFragmentManager().isStateSaved();
+    }
+
+    private boolean canDeferFragmentWork() {
+        return !isFinishing() && !isDestroyed();
+    }
+
     private void clearCategoryContent() {
         invalidatePendingFocusRequests();
         mBinding.typeRecycler.removeCallbacks(mTypeSwitch);
@@ -433,6 +444,14 @@ public class HomeActivity extends BaseActivity implements ExitConfirmDialog.List
         mBinding.progressLayout.setVisibility(View.VISIBLE);
         mBinding.categoryContainer.setVisibility(View.GONE);
 
+        if (!canCommitFragmentTransaction()) {
+            if (canDeferFragmentWork()) mPendingCategoryCleanup = true;
+            return;
+        }
+        removeCategoryFragments();
+    }
+
+    private void removeCategoryFragments() {
         FragmentTransaction transaction = null;
         for (Fragment fragment : getSupportFragmentManager().getFragments()) {
             if (!(fragment instanceof FolderFragment folder)) continue;
@@ -710,6 +729,13 @@ public class HomeActivity extends BaseActivity implements ExitConfirmDialog.List
 
     private void getVideo(boolean forceNative) {
         syncCategorySite();
+        if (!canCommitFragmentTransaction()) {
+            if (canDeferFragmentWork()) {
+                mPendingContentRefresh = true;
+                mPendingContentRefreshForceNative |= forceNative;
+            }
+            return;
+        }
         if (!forceNative && WebHomeTarget.canLoad(getHome())) {
             ensureWebView();
         }
@@ -1314,6 +1340,20 @@ public class HomeActivity extends BaseActivity implements ExitConfirmDialog.List
         refreshFollowingCount();
         syncTypeItems();
         resumeTypeSwitch();
+        resumeDeferredFragmentWork();
+    }
+
+    private void resumeDeferredFragmentWork() {
+        if (!canCommitFragmentTransaction()) return;
+        if (mPendingCategoryCleanup) {
+            mPendingCategoryCleanup = false;
+            removeCategoryFragments();
+        }
+        if (!mPendingContentRefresh) return;
+        mPendingContentRefresh = false;
+        boolean forceNative = mPendingContentRefreshForceNative;
+        mPendingContentRefreshForceNative = false;
+        getVideo(forceNative);
     }
 
     @Override

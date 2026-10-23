@@ -113,6 +113,13 @@ scripts/build-arm64.ps1
 - 本地未提交修改已登记 33 路径并纳入 task guard 保护；C54 目前没有触碰这些路径。
 - 施工、测试、构建与提交记录继续追加于本报告。
 
+### 阶段 1：Leanback 外观/配置重建事务守卫
+
+- 对应上游：`cae6e4b6e9405ce34b1b29391aa4406a7c82acc4`，最终评审 `bccb5b5a35dd7fc5a74cf3d8a38be844c6ba1416`，PR #477 / merge `d72134c5aa42047612ebd5525e6d82cbbb8f1f4b`。
+- 修改：`HomeActivity` 在 FragmentManager 已保存、Activity 正在结束或已销毁时不再提交 hide/remove 事务；存活且仅状态已保存的实例会记录分类清理与首页刷新，回到前台后先清理旧站点分类 Fragment，再合并执行刷新。多次刷新折叠成一次，并用 OR 保留 `forceNative` 请求。未使用 `commitAllowingStateLoss`；TV 分类选择、WebHome/原生来源选择及本地焦点恢复结构保留。
+- 回归：新增 `HomeActivityDeferredFragmentWorkTest` 3 项，验证事务守卫、延迟刷新合并、回前台清理/刷新顺序；命令 `:app:testLeanbackArm64_v8aDebugUnitTest --tests com.fongmi.android.tv.ui.activity.HomeActivityDeferredFragmentWorkTest --no-daemon` 通过，3/3，无失败。该任务同时编译 `compileLeanbackArm64_v8aDebugJavaWithJavac` 成功。
+- 设备验证：未执行；主题切换与旧回调竞态仍需 Leanback 真机/模拟器验收。
+
 ### 后续阶段
 
 实现与验证完成后，分别按崩溃/生命周期、播放器、TMDB、Dialog/UI 范围记录文件、兼容适配、定向用例和结果。C54 不推送、不更新 Suite gitlink、不改 WOGG 或 WebHome。
