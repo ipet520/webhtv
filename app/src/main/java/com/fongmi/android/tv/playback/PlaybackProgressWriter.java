@@ -213,7 +213,7 @@ public final class PlaybackProgressWriter {
         history.setVodFlag(input.flag);
         applySourceBindingKey(history, input);
         history.setVodRemarks(input.episodeName);
-        history.setEpisodeUrl(input.episodeUrl);
+        history.setEpisodeUrl(resolveEpisodeUrl(local, input, sameEpisode));
         if (input.hasTmdbEpisodeIdentity()) {
             history.setTmdbId(input.tmdbId);
             history.setMediaType(input.mediaType);
@@ -273,6 +273,25 @@ public final class PlaybackProgressWriter {
     static boolean isSameEpisode(History local, PlaybackProgressInput input) {
         if (local == null || input == null) return false;
         return Episode.create(input.episodeName, input.episodeUrl).matchesPlayback(local.getEpisode());
+    }
+
+    /** Preserve an omitted URL only when the payload still proves it is the same episode. */
+    static String resolveEpisodeUrl(History local, PlaybackProgressInput input, boolean sameEpisode) {
+        if (input == null || TextUtils.isEmpty(input.episodeUrl)) {
+            if (local == null || sameEpisode || sameEpisodeFingerprint(local, input)) {
+                return local == null ? "" : local.getEpisodeUrl();
+            }
+            return "";
+        }
+        return input.episodeUrl;
+    }
+
+    /** Fingerprint fallback for peers that receive episodeId but never receive the signed URL. */
+    static boolean sameEpisodeFingerprint(History local, PlaybackProgressInput input) {
+        if (local == null || input == null) return false;
+        String localId = PlaybackRecord.episodeId(local.getEpisodeUrl());
+        String inputId = input.episodeId;
+        return !TextUtils.isEmpty(localId) && !TextUtils.isEmpty(inputId) && localId.equals(inputId);
     }
 
     static void applySpeed(History history, float speed, Boolean speedOverride) {

@@ -12,6 +12,8 @@ public class PlaybackFieldPolicy {
     private static final Set<String> STANDARD = set("appVersion", "client");
     private static final Set<String> FULL = set("episodeUrl", "episodeIndex", "clientKey");
     private static final Set<String> OPTIONAL = set("episodeUrl", "episodeIndex", "appVersion", "client", "clientKey");
+    // Read API-only derived fields. Keep this out of CUSTOM_SAFE/webhook configuration.
+    private static final Set<String> API_SAFE_EXTRA = set("episodeId");
     private static final Set<String> CUSTOM_SAFE = customSafe();
 
     private final Set<String> fields;
@@ -26,6 +28,7 @@ public class PlaybackFieldPolicy {
         Set<String> fields = base();
         fields.remove("event");
         fields.remove("eventId");
+        fields.addAll(API_SAFE_EXTRA);
         return new PlaybackFieldPolicy(fields, false);
     }
 

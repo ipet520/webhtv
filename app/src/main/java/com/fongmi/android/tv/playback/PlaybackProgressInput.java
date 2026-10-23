@@ -35,6 +35,9 @@ public class PlaybackProgressInput {
     public String episodeName;
     @SerializedName("episodeUrl")
     public String episodeUrl;
+    /** SHA-256 identity of an episode URL; read APIs send this instead of signed URLs. */
+    @SerializedName("episodeId")
+    public String episodeId;
     @SerializedName("mediaType")
     public String mediaType;
     @SerializedName("tmdbId")
@@ -78,6 +81,9 @@ public class PlaybackProgressInput {
         sourceBindingKey = safe(sourceBindingKey);
         episodeName = safe(episodeName);
         episodeUrl = safe(episodeUrl);
+        episodeId = safe(episodeId);
+        // Older peers may still send the URL directly; derive the same identity locally.
+        if (empty(episodeId) && !empty(episodeUrl)) episodeId = PlaybackRecord.episodeId(episodeUrl);
         mediaType = safe(mediaType).toLowerCase(Locale.ROOT);
         if (!"tv".equals(mediaType) && !"movie".equals(mediaType)) mediaType = "";
         if (seasonNumber < 0) seasonNumber = -1;
@@ -153,6 +159,7 @@ public class PlaybackProgressInput {
         input.sourceBindingKey = firstString(input.sourceBindingKey, object, "flagKey", "source_binding_key");
         input.episodeName = firstString(input.episodeName, object, "episode", "episodeTitle", "vodRemarks", "remarks");
         input.episodeUrl = firstString(input.episodeUrl, object, "url", "playUrl", "episode_url");
+        input.episodeId = firstString(input.episodeId, object, "episode_id", "episodeHash");
         input.mediaType = firstString(input.mediaType, object, "media_type", "type");
         input.tmdbId = firstInt(input.tmdbId, object, "tmdb_id", "tmdb");
         input.seasonNumber = firstInt(input.seasonNumber, object, "season", "season_number", "tmdbSeasonNumber");

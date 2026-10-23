@@ -46,6 +46,8 @@ public class PlaybackRecord {
     public String episodeName;
     public String episodeUrl;
     public Integer episodeIndex;
+    /** SHA-256 of episodeUrl, safe to return without exposing signed playback URLs. */
+    public String episodeId;
     public String mediaType;
     public int tmdbId;
     public int seasonNumber;
@@ -81,6 +83,7 @@ public class PlaybackRecord {
         this.sourceBindingKey = "";
         this.episodeName = "";
         this.episodeUrl = "";
+        this.episodeId = "";
         this.mediaType = "";
         this.seasonNumber = -1;
         this.tmdbEpisodeNumber = -1;
@@ -114,6 +117,7 @@ public class PlaybackRecord {
         record.sourceBindingKey = safe(history.getSourceBindingKey());
         record.episodeName = safe(history.getVodRemarks());
         record.episodeUrl = safe(history.getEpisodeUrl());
+        record.episodeId = episodeId(record.episodeUrl);
         applyTmdbIdentity(record, history);
         record.positionMs = position(history, player);
         record.durationMs = duration(history, player);
@@ -197,6 +201,7 @@ public class PlaybackRecord {
         if (policy.includes("sourceBindingKey")) record.sourceBindingKey = sourceBindingKey;
         if (policy.includes("episodeName")) record.episodeName = episodeName;
         if (policy.includes("episodeUrl")) record.episodeUrl = episodeUrl;
+        if (policy.includes("episodeId")) record.episodeId = episodeId;
         if (policy.includes("episodeIndex")) record.episodeIndex = episodeIndex;
         if (policy.includes("mediaType")) record.mediaType = mediaType;
         if (policy.includes("tmdbId")) record.tmdbId = tmdbId;
@@ -239,6 +244,7 @@ public class PlaybackRecord {
         if (policy.includes("sourceBindingKey")) object.addProperty("sourceBindingKey", sourceBindingKey);
         if (policy.includes("episodeName")) object.addProperty("episodeName", episodeName);
         if (policy.includes("episodeUrl")) object.addProperty("episodeUrl", episodeUrl);
+        if (policy.includes("episodeId") && !TextUtils.isEmpty(episodeId)) object.addProperty("episodeId", episodeId);
         if (policy.includes("episodeIndex") && episodeIndex != null) object.addProperty("episodeIndex", episodeIndex);
         if (policy.includes("mediaType") && !TextUtils.isEmpty(mediaType)) object.addProperty("mediaType", mediaType);
         if (policy.includes("tmdbId") && tmdbId > 0) object.addProperty("tmdbId", tmdbId);
@@ -281,6 +287,7 @@ public class PlaybackRecord {
         record.episodeName = episodeName;
         record.episodeUrl = episodeUrl;
         record.episodeIndex = episodeIndex;
+        record.episodeId = episodeId;
         record.mediaType = mediaType;
         record.tmdbId = tmdbId;
         record.seasonNumber = seasonNumber;
@@ -320,6 +327,7 @@ public class PlaybackRecord {
         sourceBindingKey = "";
         episodeName = "";
         episodeUrl = "";
+        episodeId = "";
         episodeIndex = null;
         mediaType = "";
         tmdbId = 0;
@@ -460,5 +468,9 @@ public class PlaybackRecord {
         } catch (Exception e) {
             return "";
         }
+    }
+
+    public static String episodeId(String episodeUrl) {
+        return TextUtils.isEmpty(episodeUrl) ? "" : sha256(episodeUrl);
     }
 }
