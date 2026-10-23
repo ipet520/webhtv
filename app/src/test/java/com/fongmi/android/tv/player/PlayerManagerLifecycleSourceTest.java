@@ -29,6 +29,28 @@ public class PlayerManagerLifecycleSourceTest {
                 source.contains("public boolean isVod() {\n        return engine != null && engine.isVod();"));
     }
 
+    @Test
+    public void transientRetryCallbackRejectsStalePrepareSpecAttemptAndGeneration() throws Exception {
+        String source = readPlayerManager();
+        String retry = methodBody(source, "private boolean retryTransientSourceFailure(");
+
+        assertTrue("the delayed retry must capture the prepare generation",
+                retry.contains("int expectedPrepareSeq = prepareSeq;"));
+        assertTrue("the delayed retry must capture PlaySpec identity",
+                retry.contains("PlaySpec expectedSpec = spec;"));
+        assertTrue("the delayed retry must capture its retry generation",
+                retry.contains("long expectedGeneration = ++transientSourceRetryGeneration;"));
+        int guard = retry.indexOf("isCurrentTransientSourceRetry(expectedPrepareSeq, prepareSeq,");
+        int restart = retry.indexOf("setMediaItem();");
+        assertTrue("stale delayed work must be rejected before it starts another item",
+                guard >= 0 && restart > guard);
+        assertTrue("the guard must compare the sequence, spec identity, attempt, and generation",
+                source.contains("expectedPrepareSeq == currentPrepareSeq")
+                        && source.contains("expectedSpec == currentSpec")
+                        && source.contains("expectedAttempt == currentAttempt")
+                        && source.contains("expectedGeneration == currentGeneration"));
+    }
+
     /**
      * Slices one method body. Relies on the body containing no closing brace at four-space
      * indentation; every method asserted here satisfies that today. If a nested block ever

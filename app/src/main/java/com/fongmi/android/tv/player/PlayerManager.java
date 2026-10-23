@@ -164,6 +164,9 @@ public class PlayerManager implements ParseCallback {
     private static final long EXO_DV7_FIRST_FRAME_FALLBACK_DELAY_MS = 1200;
     private static final long MPV_AUTO_OUTPUT_PROBE_INTERVAL_MS = 250;
     private static final int LOCAL_PROXY_MAX_RETRY = 2;
+    private static final int TRANSIENT_SOURCE_MAX_RETRY = 6;
+    private static final int TRANSIENT_SOURCE_VOD_MAX_RETRY = 2;
+    private static final long[] TRANSIENT_SOURCE_RETRY_DELAYS_MS = {600, 1200, 2000, 3000, 3000, 3000};
     // 以内核常量为下标，长度随顺序表推导，避免新增内核时标记表长度漏改。
     private static final int PLAYER_COUNT = PlayerSetting.kernelIndexSize();
     private static final int MPV_AUTO_OUTPUT_PROBE_MAX_ATTEMPTS = 20;
@@ -309,6 +312,8 @@ public class PlayerManager implements ParseCallback {
     private int playerType;
     private int retry;
     private int localProxyRetry;
+    private int transientSourceRetry;
+    private long transientSourceRetryGeneration;
     private int prepareSeq;
     private int lutApplySeq;
     private long parseHealthStartedAt;
@@ -1745,6 +1750,7 @@ public class PlayerManager implements ParseCallback {
         else resetNetworkProtectionSession("reset");
         retry = 0;
         localProxyRetry = 0;
+        resetTransientSourceRetry();
         resetPlayerFallback();
         hardDecodeSwitchRetryArmed = false;
         clearPendingSwitchRestore();
@@ -1752,6 +1758,7 @@ public class PlayerManager implements ParseCallback {
 
     public void clear() {
         prepareSeq++;
+        resetTransientSourceRetry();
         if (engine != null) engine.cancelPendingPrepare();
         lutApplySeq++;
         clearExoDecoderResourceRecovery(true);
@@ -5907,6 +5914,7 @@ public void resetTrack(int type) {
         this.playWhenReady = playWhenReady;
         manualPlayerSwitchPending = false;
         localProxyRetry = 0;
+        resetTransientSourceRetry();
         resetPlayerFallback();
         hardDecodeSwitchRetryArmed = false;
         setMediaItem(timeout);
@@ -5935,6 +5943,7 @@ public void resetTrack(int type) {
         this.playWhenReady = playWhenReady;
         manualPlayerSwitchPending = false;
         localProxyRetry = 0;
+        resetTransientSourceRetry();
         parseHealthStartedAt = System.currentTimeMillis();
         parseHealthRecorded = false;
         resetPlayerFallback();
@@ -8615,6 +8624,7 @@ public void resetTrack(int type) {
             if (decoderRuntimeObserved && retryExoDecoderRuntimeFailure(e)) return;
             if (action == PlayerEngine.ErrorAction.DECODE && retryHardDecodeSwitch(e)) return;
             if (action == PlayerEngine.ErrorAction.FATAL && retryLocalProxy(e)) return;
+            if (retryTransientSourceFailure(e, failure)) return;
             if (shouldStopOnManualSwitchFailure(manualPlayerSwitchPending, action)) {
                 finishPlaybackProfileAbSession(
                         "manual-switch-error", SystemClock.elapsedRealtime());
@@ -9131,6 +9141,86 @@ public void resetTrack(int type) {
         return true;
     }
 
+    private boolean retryTransientSourceFailure(PlaybackException e, PlaybackErrorClassifier.Failure failure) {
+        if (spec == null || spec.getUrl() == null || engine == null || failure == null) return false;
+        if (!shouldRetryTransientSourceFailure(manualPlayerSwitchPending,
+                engine instanceof ExoPlayerEngine, failure.stage(), e.errorCode)) return false;
+        int maxRetry = transientSourceRetryLimit(isLive());
+        if (transientSourceRetry >= maxRetry) return false;
+        int attempt = ++transientSourceRetry;
+        long delay = transientSourceRetryDelayMs(attempt);
+        int expectedPrepareSeq = prepareSeq;
+        PlaySpec expectedSpec = spec;
+        long expectedGeneration = ++transientSourceRetryGeneration;
+        PlaybackTrace.log("player", playbackTrace.current(),
+                "transient-source-retry attempt=%d/%d delay=%d stage=%s errorCode=%s",
+                attempt, maxRetry, delay, failure.stage().label(), failure.errorCode());
+        App.removeCallbacks(runnable);
+        App.post(() -> {
+            if (!isCurrentTransientSourceRetry(expectedPrepareSeq, prepareSeq,
+                    expectedSpec, spec, attempt, transientSourceRetry,
+                    expectedGeneration, transientSourceRetryGeneration)) return;
+            if (SpiderDebug.isEnabled()) SpiderDebug.log("player", "transient-source-retry start attempt=%d/%d stage=%s", attempt, maxRetry, failure.stage().label());
+            setMediaItem();
+        }, delay);
+        return true;
+    }
+
+    static boolean shouldRetryTransientSourceFailure(boolean manualSwitchPending, boolean isExo,
+            PlaybackErrorClassifier.Stage stage, int errorCode) {
+        return !manualSwitchPending
+                && PlaybackErrorClassifier.isTransientSourceFailure(stage, errorCode)
+                && !isExoManifestFailureHandledByLoadPolicy(isExo, stage, errorCode);
+    }
+
+    static boolean isExoManifestFailureHandledByLoadPolicy(boolean isExo,
+            PlaybackErrorClassifier.Stage stage, int errorCode) {
+        return isExo
+                && stage == PlaybackErrorClassifier.Stage.MEDIA_PARSING
+                && errorCode == PlaybackException.ERROR_CODE_PARSING_MANIFEST_MALFORMED;
+    }
+
+    static int transientSourceRetryLimit(boolean live) {
+        return live ? TRANSIENT_SOURCE_MAX_RETRY : TRANSIENT_SOURCE_VOD_MAX_RETRY;
+    }
+
+    static long transientSourceRetryDelayMs(int attempt) {
+        if (attempt <= 0) return 0L;
+        return TRANSIENT_SOURCE_RETRY_DELAYS_MS[
+                Math.min(attempt - 1, TRANSIENT_SOURCE_RETRY_DELAYS_MS.length - 1)];
+    }
+
+    static boolean isCurrentTransientSourceRetry(int expectedPrepareSeq, int currentPrepareSeq,
+            PlaySpec expectedSpec, PlaySpec currentSpec, int expectedAttempt, int currentAttempt,
+            long expectedGeneration, long currentGeneration) {
+        return expectedPrepareSeq == currentPrepareSeq
+                && expectedSpec != null && expectedSpec == currentSpec
+                && expectedAttempt == currentAttempt
+                && expectedGeneration == currentGeneration;
+    }
+
+    private void resetTransientSourceRetry() {
+        transientSourceRetry = 0;
+        transientSourceRetryGeneration++;
+    }
+
+    private boolean isExoManifestFailure(PlaybackException e) {
+        if (e == null || !(engine instanceof ExoPlayerEngine)) return false;
+        PlaybackErrorClassifier.Failure failure = PlaybackErrorClassifier.classify(
+                e, getEffectivePlaybackRoute());
+        return isExoManifestFailureHandledByLoadPolicy(true, failure.stage(), e.errorCode);
+    }
+
+    private boolean isKernelFallbackEligible(PlaybackException e) {
+        PlaybackErrorClassifier.Failure failure = PlaybackErrorClassifier.classify(
+                e, getEffectivePlaybackRoute());
+        if (!PlaybackErrorClassifier.isTransientSourceFailure(failure.stage(), e.errorCode)) return true;
+        PlaybackTrace.log("player", playbackTrace.current(),
+                "skip-kernel-fallback stage=%s errorCode=%s",
+                failure.stage().label(), failure.errorCode());
+        return false;
+    }
+
     private boolean fallbackPlayback(PlaybackException e) {
         if (engine == null) return false;
         if (retryMpvGpuCopyFailure(e)) return true;
@@ -9143,6 +9233,7 @@ public void resetTrack(int type) {
 
     private boolean fallbackDecode(PlaybackException e) {
         if (spec == null || spec.getUrl() == null || engine == null || !engine.isHard()) return false;
+        if (isExoManifestFailure(e)) return false;
         SpiderDebug.log("player", "fallback decode player=%s from=hard to=soft spec=%s cause=%s", getPlayerText(playerType), debugSpec(), causeChain(e));
         App.removeCallbacks(runnable);
         localProxyRetry = 0;
@@ -9153,6 +9244,7 @@ public void resetTrack(int type) {
 
     private boolean fallbackPlayer(PlaybackException e) {
         if (spec == null || spec.getUrl() == null || engine == null) return false;
+        if (!isKernelFallbackEligible(e)) return false;
         int next = nextFallbackPlayer();
         if (next == PlayerSetting.NONE) return false;
         String from = getPlayerText(playerType);

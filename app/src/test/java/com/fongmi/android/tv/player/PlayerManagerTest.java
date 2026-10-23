@@ -119,6 +119,60 @@ public class PlayerManagerTest {
     }
 
     @Test
+    public void transientSourceRetry_usesShortVodAndBoundedLiveBudgets() {
+        assertEquals(6, PlayerManager.transientSourceRetryLimit(true));
+        assertEquals(2, PlayerManager.transientSourceRetryLimit(false));
+        assertEquals(0L, PlayerManager.transientSourceRetryDelayMs(0));
+        assertEquals(600L, PlayerManager.transientSourceRetryDelayMs(1));
+        assertEquals(1200L, PlayerManager.transientSourceRetryDelayMs(2));
+        assertEquals(2000L, PlayerManager.transientSourceRetryDelayMs(3));
+        assertEquals(3000L, PlayerManager.transientSourceRetryDelayMs(4));
+        assertEquals(3000L, PlayerManager.transientSourceRetryDelayMs(6));
+        assertEquals(3000L, PlayerManager.transientSourceRetryDelayMs(20));
+    }
+
+    @Test
+    public void transientSourceRetry_preservesManualSwitchAndManifestPolicyBoundaries() {
+        assertTrue(PlayerManager.shouldRetryTransientSourceFailure(false, false,
+                PlaybackErrorClassifier.Stage.NETWORK_IO,
+                PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED));
+        assertTrue(PlayerManager.shouldRetryTransientSourceFailure(false, false,
+                PlaybackErrorClassifier.Stage.MEDIA_PARSING,
+                PlaybackException.ERROR_CODE_PARSING_MANIFEST_MALFORMED));
+        assertFalse(PlayerManager.shouldRetryTransientSourceFailure(true, false,
+                PlaybackErrorClassifier.Stage.NETWORK_IO,
+                PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED));
+        assertFalse(PlayerManager.shouldRetryTransientSourceFailure(false, true,
+                PlaybackErrorClassifier.Stage.MEDIA_PARSING,
+                PlaybackException.ERROR_CODE_PARSING_MANIFEST_MALFORMED));
+        assertFalse(PlayerManager.shouldRetryTransientSourceFailure(false, true,
+                PlaybackErrorClassifier.Stage.MEDIA_PARSING,
+                PlaybackException.ERROR_CODE_PARSING_CONTAINER_MALFORMED));
+        assertFalse(PlayerManager.shouldRetryTransientSourceFailure(false, true,
+                PlaybackErrorClassifier.Stage.MEDIA_PARSING,
+                PlaybackException.ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED));
+    }
+
+    @Test
+    public void transientSourceRetry_callbackRequiresSamePrepareSpecAttemptAndGeneration() {
+        PlaySpec expected = PlaySpec.from("key", "https://example.com/live.m3u8", null, null);
+        PlaySpec replacement = PlaySpec.from("other", "https://example.com/other.m3u8", null, null);
+
+        assertTrue(PlayerManager.isCurrentTransientSourceRetry(7, 7,
+                expected, expected, 2, 2, 11L, 11L));
+        assertFalse(PlayerManager.isCurrentTransientSourceRetry(7, 8,
+                expected, expected, 2, 2, 11L, 11L));
+        assertFalse(PlayerManager.isCurrentTransientSourceRetry(7, 7,
+                expected, replacement, 2, 2, 11L, 11L));
+        assertFalse(PlayerManager.isCurrentTransientSourceRetry(7, 7,
+                expected, expected, 2, 3, 11L, 11L));
+        assertFalse(PlayerManager.isCurrentTransientSourceRetry(7, 7,
+                expected, expected, 2, 2, 11L, 12L));
+        assertFalse(PlayerManager.isCurrentTransientSourceRetry(7, 7,
+                null, null, 2, 2, 11L, 11L));
+    }
+
+    @Test
     public void shouldRetryMpvCopy_retriesAutomaticGpuHardFailures() {
         assertTrue(PlayerManager.shouldRetryMpvCopy(
                 true, true, false, false, false,

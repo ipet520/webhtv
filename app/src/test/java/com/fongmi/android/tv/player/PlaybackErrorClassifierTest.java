@@ -14,6 +14,7 @@ import java.net.SocketTimeoutException;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 public class PlaybackErrorClassifierTest {
 
@@ -75,6 +76,34 @@ public class PlaybackErrorClassifierTest {
 
         assertEquals(PlaybackErrorClassifier.Stage.NETWORK_IO, network.stage());
         assertEquals(PlaybackErrorClassifier.Stage.MEDIA_PARSING, parser.stage());
+    }
+
+    @Test
+    public void transientSourceFailuresDoNotHideUnsupportedMediaFromKernelFallback() {
+        assertTrue(PlaybackErrorClassifier.isTransientSourceFailure(
+                PlaybackErrorClassifier.Stage.NETWORK_IO,
+                PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS));
+        assertTrue(PlaybackErrorClassifier.isTransientSourceFailure(
+                PlaybackErrorClassifier.Stage.LOCAL_ENDPOINT,
+                PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED));
+        assertTrue(PlaybackErrorClassifier.isTransientSourceFailure(
+                PlaybackErrorClassifier.Stage.MEDIA_PARSING,
+                PlaybackException.ERROR_CODE_PARSING_MANIFEST_MALFORMED));
+
+        assertFalse(PlaybackErrorClassifier.isTransientSourceFailure(
+                PlaybackErrorClassifier.Stage.MEDIA_PARSING,
+                PlaybackException.ERROR_CODE_PARSING_MANIFEST_UNSUPPORTED));
+        assertFalse(PlaybackErrorClassifier.isTransientSourceFailure(
+                PlaybackErrorClassifier.Stage.MEDIA_PARSING,
+                PlaybackException.ERROR_CODE_PARSING_CONTAINER_MALFORMED));
+        assertFalse(PlaybackErrorClassifier.isTransientSourceFailure(
+                PlaybackErrorClassifier.Stage.DECODER,
+                PlaybackException.ERROR_CODE_DECODER_INIT_FAILED));
+        assertFalse(PlaybackErrorClassifier.isTransientSourceFailure(
+                PlaybackErrorClassifier.Stage.UNKNOWN,
+                PlaybackException.ERROR_CODE_UNSPECIFIED));
+        assertFalse(PlaybackErrorClassifier.isTransientSourceFailure(
+                null, PlaybackException.ERROR_CODE_UNSPECIFIED));
     }
 
     @Test

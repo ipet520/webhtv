@@ -135,6 +135,20 @@ public final class PlaybackErrorClassifier {
         return new Failure(stage, confidence, evidence, PlaybackException.getErrorCodeName(errorCode), route);
     }
 
+    /**
+     * Returns whether retrying the same source can help more than switching decoders.
+     * Unsupported or malformed media containers remain eligible for another player;
+     * only malformed manifests are treated as transient parse failures.
+     */
+    public static boolean isTransientSourceFailure(Stage stage, int errorCode) {
+        if (stage == null) return false;
+        return switch (stage) {
+            case LOCAL_ENDPOINT, NETWORK_IO -> true;
+            case MEDIA_PARSING -> errorCode == PlaybackException.ERROR_CODE_PARSING_MANIFEST_MALFORMED;
+            default -> false;
+        };
+    }
+
     public enum Stage {
         LOCAL_ENDPOINT("local-endpoint"),
         NETWORK_IO("network-io"),

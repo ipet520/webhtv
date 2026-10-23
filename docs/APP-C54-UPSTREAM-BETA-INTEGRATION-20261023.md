@@ -316,3 +316,13 @@ READY_FOR_RELEASE_FINALIZATION = PENDING
 - Evidence: Media3 官方 `LoadErrorInfo` 提供 `mediaLoadData`，其中 `MediaLoadData.dataType` 可区分 manifest 与媒体数据；官方 `LoadErrorHandlingPolicy` 定义重试预算及退避接口。官方 `DefaultRenderersFactory` 源码用于确认 `EXTENSION_RENDERER_MODE_ON` 的扩展渲染器顺序。参考：`https://developer.android.com/reference/androidx/media3/exoplayer/upstream/LoadErrorHandlingPolicy.LoadErrorInfo`、`https://developer.android.com/reference/androidx/media3/exoplayer/upstream/LoadErrorHandlingPolicy`、`https://developer.android.com/media/media3/exoplayer/customization`、`https://github.com/androidx/media/blob/release/libraries/exoplayer/src/main/java/androidx/media3/exoplayer/DefaultRenderersFactory.java`。
 - Workspace / rollback: 仍在 `main`，起始 HEAD `406f75900f754958e063a023b5056915570c6925`；未触碰原 33 个用户 dirty paths。回滚锚点仍为该 HEAD，提交后以单独 revert 回退，不改写历史。
 - Next action: 单独实现和验证 `PlayerManager` 的短期源重试、Exo manifest 策略避免双层重试、`prepareSeq`/`PlaySpec`/attempt 过期守卫及内核回退资格；通过两端定向测试后单独提交。之后继续 Surface 自动下一集绑定、播放历史、Dialog 安全区及 TMDB 等剩余 P1。
+
+## Checkpoint 5: 2026-10-23 播放源短期重试与回退边界
+
+- Completed: 移植固定目标中的 `203bb7d567ec56960aa2276e865db680b983b020`（取流失败不应伪装成换核失败；对源做有限重试）。以 `d9da14dcb77e84d4beb158e83efa74124a1116f7` 最终树为准：直播最多 6 次、点播最多 2 次，退避为 600/1200/2000/3000ms 封顶。
+- Compatibility: 保留本地 `PlaybackErrorClassifier`，只将网络、本机端点及 manifest 格式错误视作源暂时不可用；容器损坏、manifest 不支持、编解码错误继续保留现有内核/解码回退机会。HTTP 状态仍先交给现有 `onSourceHttpError`，手动切核期间不启动同源重试。Exo manifest 失败由现有 Media3 manifest `LoadErrorHandlingPolicy` 局部预算处理，Manager 不再追加整项重试；因此避免两套退避相乘。`fallbackDecode` 对 Exo manifest 格式错误也不切换软解码，播放器内核回退仍遵循错误分类。
+- Lifecycle: 延迟任务捕获 `prepareSeq`、`PlaySpec` 对象身份、attempt 和 generation；新播放、清理、重置及手动轨道切换都会重置预算并推进 generation，旧回调在再次准备媒体前失效。此处比上游只比较当前 `spec` 和 attempt 多了 ABA/generation 防护，以适应本地复用 `PlaySpec` 的路径。
+- Tests: Mobile ARM64 Debug 定向过滤 8 个类共 68 项，0 failures/errors/skipped：`PlayerManagerTest`、`PlaybackErrorClassifierTest`、`PlayerManagerLifecycleSourceTest`、`ExoHlsAdblockDataSourceTest`、`LiveManifestRetryPolicyTest`、`CompatFfmpegVideoRendererSourceTest`、`MobilePlayerErrorRetryContractTest`、`PlayerPlaybackRegressionSourceTest`。Leanback ARM64 Debug 过滤 6 个共享类共 51 项，0 failures/errors/skipped：除两个 Mobile-only 契约类外的上述类。两次 Gradle 命令分别成功；未执行设备验证。
+- Risk: 最长直播退避总窗口约 12.8 秒，点播约 1.8 秒；HTTP 错误先由已有来源交接回调处理，本机代理的既有有限重试仍先执行。自动化测试覆盖计数、策略边界和陈旧回调拒绝，未在真实网络抖动或本机代理故障现场验证实际时序。
+- Workspace: 源码改动仅在 `PlaybackErrorClassifier.java`、`PlayerManager.java` 及对应 3 个播放器测试；报告追加本检查点。原有 33 条用户 dirty path 指纹保持不变。任务 guard 当前登记范围匹配，尚待本阶段原子提交后填入提交坐标。
+- Next action: 完成本阶段独立提交；然后继续审核 Surface 自动下一集绑定、播放历史/同步/预缓存、Dialog 系统栏安全区及 TMDB 详情性能候选。
