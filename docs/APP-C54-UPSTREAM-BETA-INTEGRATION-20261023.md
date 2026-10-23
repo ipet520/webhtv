@@ -383,3 +383,52 @@ READY_FOR_RELEASE_FINALIZATION = PENDING
 - Mihomo status: the reported intermittent start/stop crash was not reproduced or diagnosed. C54 did not modify the protected Mihomo implementation. The routing test reflection failures do not establish the cause of the separate runtime crash.
 - Protected local work: after all implementation commits and both builds, the 33 initial protected-path fingerprints still match exactly (33 unchanged, 0 changed). This includes Mihomo auto-proxy/rule routing, Lab UI and focus work, second-subtitle focus background, local dialog/player themes, and `scripts/build-arm64.ps1`. No C54 code touched WebHome, WOGG or the Suite parent pointer. Final `git diff --check` passed.
 - Release gate: ready to begin the dual-flavor Release build step after deciding the native ABI packaging and reviewing the unresolved Mihomo test/runtime items. Device verification was not run; theme recreation, TV/Mobile focus/visual behavior, player Surface timing, live HLS recovery and Mihomo start/stop still require device acceptance. This report does not mark a Release build or device acceptance as passed.
+
+## C54-B Release 收尾（2026-10-24）
+
+用户确认 C54 初步真机验收未发现其他问题，并确认 R1 TV 真机验证通过。R1 仅4个登记路径（弹窗、矩形可视性 helper、回归测试、R1报告），独立提交 `4a30e7cee262737bbf24e6c289b6c53625bd750e`，恢复标签 `recovery/C54-R1/20261023172644-4a30e7cee262`。提交守卫核验33条保护路径；采用逐文件 `git add --`，没有使用 `git add .` 或 `git add -A`。R1已有4项自动化回归和Debug构建通过，依用户验收沿用结果，不重复修改业务逻辑。
+
+### 构建与身份
+
+按原配置执行 `:app:assembleMobileArm64_v8aRelease :app:assembleLeanbackArm64_v8aRelease`，4分28秒，BUILD SUCCESSFUL；R8、资源压缩和 lintVital 均保留。JDK21、Gradle9.5.1。源码构建身份为 `4a30e7cee262737bbf24e6c289b6c53625bd750e`，BUILD_TIME=`202610240127`，GIT_STATE=`dirty`。33条既有用户修改参与当前源码构建，仍未提交；APK不能只靠此提交SHA完全重建。
+
+两端 applicationId=`com.silent.android.webhtv`，versionName=`5.6.0`，versionCode=`560`，minSdk=`24`（Android7），targetSdk=`28`，compileSdk=`37`。以下为实际产物，未复制覆盖用户保存的Release/apk归档。
+
+| 项目 | Mobile | Leanback |
+| --- | --- | --- |
+| APK | `app/build/outputs/apk/mobileArm64_v8a/release/mobile-arm64_v8a.apk` | `app/build/outputs/apk/leanbackArm64_v8a/release/leanback-arm64_v8a.apk` |
+| 字节数 | 171556791 | 171267700 |
+| SHA256 | D7883B7AFE82FA7559264653CCDC2C2BC79DD87A7340F56B1626427E50CDFF67 | 81730191B172D9CC3B404B2DFEAC1EA22C476119603033B9CF2711EFEF5F888A |
+
+### 签名阻断
+
+local.properties缺少Release签名登记；现有build.gradle会回退到signingConfigs.debug，未更改此配置。Android build-tools36.0.0 apksigner核验两包均Verifies、v2=true，v1/v3/v3.1/v4=false，单签名者 `C=US, O=Android, CN=Android Debug`。证书SHA256均为 `97598e0d573df77d8bc58f3946865f6c5d2a4119726d1bcd5276a494d7385dc5`。APK不是未签名，但确实使用Debug证书，正式Release交付被阻断；后续需用户指定正式签名身份再按既有签名机制构建，不能宣称已满足发布签名要求。
+
+### ABI与原生内容
+
+两包aapt2实际ABI均仅`arm64-v8a`，不是只含32位库。各有30个`lib/arm64-v8a/*.so`，逐个ELF头均Class2、Machine183（64位AArch64）：
+
+```text
+libavcodec.so libavif_android.so libavutil.so libc++_shared.so
+libchaquopy_java.so libcnode.so libcrypto_chaquopy.so libcrypto_python.so
+libdovi_android.so libexo_ass.so libexo_dovi_renderer.so libijkffmpeg.so
+libijkplayer.so libijksdl.so libjpa.so libmedia3ext.so
+libpl_droidsonroids_gif.so libpython3.10.so libquickjs-android-wrapper.so
+librtmp-jni.so libsherpa-onnx-jni.so libsqlite3_chaquopy.so libsqlite3_python.so
+libssl_chaquopy.so libssl_python.so libswresample.so libswscale.so
+libtensorflowlite_jni.so libxl_stat.so libxl_thunder_sdk.so
+```
+
+MPV不在常规lib目录，它由MPVLib从assets复制并按LOAD_ORDER加载；两包`assets/mpv-libs/arm64-v8a/`均有全部10项且均ELF64/AArch64：libc++_shared、libmvutil、libmwresample、libmwscale、libmvcodec、libmvformat、libmvfilter、libmvdevice、libmpv、libplayer（均.so）。Chaquopy bootstrap 12个.so及Lab两个.so亦为ARM64。另有`assets/libmitv.so`为ELF32/Machine40（32位ARM）；定向源码检索未定位到调用方，不能确认其功能可在当前64位进程使用，保留兼容性待验收风险，不重建依赖。
+
+常规lib与MPV加载清单未发现缺项；这不能代替所有原生动态链接/播放路径真机验证。当前adb只列出两个offline连接，未获取目标TV的SUPPORTED_ABIS。安装需设备系统提供arm64-v8a用户空间；仅CPU为64位不足以确认支持；32位Android系统不能安装本ARM64包。
+
+### 完整性、警告与剩余风险
+
+两包aapt2 badging和Manifest解析成功；存在4个classes dex、AndroidManifest.xml和resources.arsc，Manifest保留HomeActivity/启动alias、PlaybackService、CrashActivity，Leanback含LEANBACK_LAUNCHER。ZIP所有entry流完整读取成功；`zipalign -c -P 16 4`两包退出0。对齐检查不等于所有.so的ELF段16KB页兼容性或运行验证。
+
+日志仍有CXX5202“仅32位库”配置警告，但最终APK实际lib内容已按上述检查；另有Room ConfigDao查询字段不全、资源字符串g命名空间提示及Gradle弃用提示。未建立Release前同配置日志对照，因此不声称所有警告均已证明为旧问题；本轮未改依赖、关闭检查或更改业务修复。
+
+既有Leanback全量4287测试中的3项Mihomo Gson反射失败仍独立保留，未归因C54，也未宣称全量绿色。Mihomo启停偶发崩溃未在本轮诊断。TMDB预取、Exo帧调度、全局TV窗口、片尾快捷焦点继续延期。用户R1 TV验收不等于这两份新Release产物已在设备运行验收。
+
+READY_FOR_RELEASE=NO（Debug签名为明确阻断；设备ABI与32位资产功能待验收，既有Mihomo风险保留）。源码修复完成且双端Release变体构建成功；未推送、未对外发布。Suite索引gitlink仍为74af2c5137a9380cd454c78098668806b1b27e6a，未改写；保护脚本和33条原有改动保留。最终文档提交不改变APK源码身份，实际最终main SHA见交付回复。
