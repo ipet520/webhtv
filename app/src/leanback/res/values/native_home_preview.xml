@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="nhp_home">⌂</string>
+    <string name="nhp_source">站源</string>
+    <string name="nhp_placeholder">%1$s · 本地演示</string>
+    <string name="nhp_card_description">%1$s，评分 %2$s，%3$s</string>
+    <string-array name="nhp_categories">
+        <item>更新推荐</item><item>热播电影</item><item>热播剧集</item><item>热播综艺</item>
+        <item>电影筛选</item><item>电视筛选</item><item>电影榜单</item><item>电视剧榜单</item>
+    </string-array>
+
+    <string name="nhp_vod_pending">点播分类尚未接入沉浸主页</string>
+</resources>
+

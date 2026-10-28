@@ -117,6 +117,7 @@ import com.fongmi.android.tv.theme.WebHtvAlertDialogBuilder;
 import com.fongmi.android.tv.ui.detail.DetailModeHost;
 import com.fongmi.android.tv.ui.detail.EnhancedDetailController;
 import com.fongmi.android.tv.ui.detail.FusionDetailController;
+import com.fongmi.android.tv.ui.detail.FusionFloatingPanel;
 import com.fongmi.android.tv.ui.detail.PlayerDetailController;
 import com.fongmi.android.tv.ui.detail.TmdbDetailModeController;
 import com.fongmi.android.tv.ui.host.TmdbDetailHost;
@@ -378,6 +379,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     private Episode inlinePlaybackEpisode;
     private String inlinePlaybackKey = "";
     private String inlinePlaybackFlag = "";
+    private String inlinePlaybackFlagKey = "";
     private TmdbEpisodeAdapter episodeAdapter;
     private TmdbPersonAdapter castAdapter;
     private TmdbPersonAdapter creatorAdapter;
@@ -452,6 +454,8 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     private View mNightModeOverlay;
     private int mNightModeLevel = PlayerSetting.NIGHT_MODE_OFF;
     private boolean inlinePiPLayout;
+    private FusionFloatingPanel fusionFloating;
+    private boolean fusionFloatingReload, fusionFullscreenFromFloating;
     private boolean inlinePiPSourceFrozen;
     private long inlineStartPosition = C.TIME_UNSET;
     private int selectedSeasonNumber = -1;
@@ -748,6 +752,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     }
 
     private void resetDetailState() {
+        if (isFusionFloating()) fusionFloatingReload = true;
         cancelAiSeasonAnalysis(false);
         closeInlineSearch();
         tmdbConfig = TmdbConfig.effectiveCurrent();
@@ -1052,6 +1057,11 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
                     binding.headerBar.getPaddingBottom()
             );
             if (!modeController.isCinemaStyle()) TmdbDetailLayoutUtils.setHeightDp(binding.heroSpacer, defaultHeroSpacerHeightDp());
+            if (Util.isLeanback()) {
+                androidx.core.graphics.Insets safe = insets.getInsets(WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout());
+                binding.scroll.setPadding(safe.left, safe.top, safe.right, safe.bottom);
+                if (modeController.isFusionMode() && !inlineFullscreen && !inlinePiPLayout) applyInlinePlayerEmbeddedLayout();
+            }
             return insets;
         });
         ViewCompat.requestApplyInsets(binding.root);
@@ -1543,7 +1553,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
 
         // playerPanelSpacer 作为焦点桥梁：获得焦点时立即转给 playerPanel
         binding.playerPanelSpacer.setOnFocusChangeListener((v, hasFocus) -> {
-            if (hasFocus && !inlineFullscreen) binding.playerPanel.requestFocus();
+            if (hasFocus && !inlineFullscreen && !isFusionFloating()) binding.playerPanel.requestFocus();
         });
     }
 
@@ -2072,6 +2082,31 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     private void applyDetailTemplate() {
         if (modeController.isCinemaStyle()) applyCinemaDetailTemplate();
         else applyDefaultDetailTemplate();
+        if (Util.isLeanback()) {
+            TmdbDetailLayoutUtils.setWidthMatch(binding.detailActions);
+            TmdbDetailLayoutUtils.compactDetailActions(binding.detailActions, binding.play);
+            TmdbDetailLayoutUtils.compactActionRow(binding.fusionActions, null, true);
+            applyTvFusionActionsWidth();
+        }
+        if (isFusionFloating()) fusionFloating.refreshLayout();
+    }
+
+    private TmdbDetailLayoutUtils.TvPlayerSize tvDetailPlayerSize() {
+        int width = binding.root.getWidth();
+        if (width <= 0) width = Math.round(getResources().getConfiguration().screenWidthDp * getResources().getDisplayMetrics().density);
+        return TmdbDetailLayoutUtils.tvPlayerSize(width, binding.scroll.getPaddingLeft(), binding.scroll.getPaddingRight(), getResources().getDisplayMetrics().density);
+    }
+
+    private void applyTvFusionActionsWidth() {
+        if (!Util.isLeanback()) return;
+        var size = tvDetailPlayerSize();
+        int available = Math.max(1, size.width() + size.left() + size.right() - binding.scroll.getPaddingLeft() - binding.scroll.getPaddingRight() - ResUtil.dp2px(32));
+        int width = Math.min(available, size.width() + ResUtil.dp2px(32));
+        LinearLayout.LayoutParams params = (LinearLayout.LayoutParams) binding.fusionActions.getLayoutParams();
+        if (params.width == width && params.gravity == Gravity.CENTER_HORIZONTAL) return;
+        params.width = width;
+        params.gravity = Gravity.CENTER_HORIZONTAL;
+        binding.fusionActions.setLayoutParams(params);
     }
 
     private void applyDefaultDetailTemplate() {
@@ -2275,7 +2310,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     private void setPlayerCard(ThemeColors colors) {
         if (!isInlinePlayerMode()) return;
         binding.playerPanel.setCardBackgroundColor(0xFF000000);
-        binding.playerPanel.setRadius(inlineFullscreen || inlinePiPLayout ? 0 : ResUtil.dp2px(20));
+        binding.playerPanel.setRadius(inlineFullscreen || inlinePiPLayout || isFusionFloating() ? 0 : ResUtil.dp2px(20));
         updatePlayerPanelFocus(colors);
     }
 
@@ -2285,7 +2320,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
 
     private void updatePlayerPanelFocus(ThemeColors colors) {
         if (!isInlinePlayerMode()) return;
-        if (inlineFullscreen || inlinePiPLayout) {
+        if (inlineFullscreen || inlinePiPLayout || isFusionFloating()) {
             binding.playerPanel.setStrokeColor(0x00000000);
             binding.playerPanel.setStrokeWidth(0);
             return;
@@ -2306,9 +2341,9 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     }
 
     private void focusInlinePlayerPanel() {
-        if (!isInlinePlayerMode()) return;
+        if (!isInlinePlayerMode() || isFusionFloating()) return;
         binding.playerPanel.post(() -> {
-            if (!isFinishing() && binding.playerPanel.getVisibility() == View.VISIBLE && !inlineFullscreen) binding.playerPanel.requestFocus();
+            if (!isFinishing() && binding.playerPanel.getVisibility() == View.VISIBLE && !inlineFullscreen && !isFusionFloating()) binding.playerPanel.requestFocus();
         });
     }
 
@@ -6580,11 +6615,17 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     private void updatePlayLabel() {
         if (selectedEpisode != null) {
             boolean canResume = history != null && isHistoryEpisode(selectedEpisode, history) && history.getPosition() > 0;
-            binding.play.setText(canResume ? getString(R.string.detail_play_resume, historyEpisodeTitle(selectedEpisode)) : getString(R.string.detail_play_now));
+            setDetailPlayLabel(canResume, historyEpisodeTitle(selectedEpisode));
             return;
         }
         boolean hasResume = history != null && history.getPosition() > 0 && !TextUtils.isEmpty(history.getVodRemarks());
-        binding.play.setText(hasResume ? getString(R.string.detail_play_resume, history.getVodRemarks()) : getString(R.string.detail_play_now));
+        setDetailPlayLabel(hasResume, history == null ? "" : history.getVodRemarks());
+    }
+
+    private void setDetailPlayLabel(boolean resume, String episode) {
+        String full = resume ? getString(R.string.detail_play_resume, episode) : getString(R.string.detail_play_now);
+        binding.play.setText(Util.isLeanback() && resume ? getString(R.string.detail_play_resume_compact) : full);
+        if (Util.isLeanback()) binding.play.setContentDescription(full);
     }
 
     private void onPlay() {
@@ -7548,7 +7589,8 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
                 && episode != null
                 && episode.equals(inlinePlaybackEpisode)
                 && TextUtils.equals(getKeyText(), inlinePlaybackKey)
-                && TextUtils.equals(selectedFlag.getFlag(), inlinePlaybackFlag);
+                && TextUtils.equals(selectedFlag.getFlag(), inlinePlaybackFlag)
+                && TextUtils.equals(selectedSeasonFlagKey(), inlinePlaybackFlagKey);
     }
 
     private boolean enterInlineFullscreenIfCurrentInlinePlayback(Episode episode) {
@@ -7651,6 +7693,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         inlinePlaybackEpisode = null;
         inlinePlaybackKey = "";
         inlinePlaybackFlag = "";
+        inlinePlaybackFlagKey = "";
         introSkipPlayback.reset();
         if (service() == null || player() == null || player().isEmpty()) {
             updateInlineButtons(false);
@@ -7704,6 +7747,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         inlinePlaybackEpisode = selectedEpisode;
         inlinePlaybackKey = getKeyText();
         inlinePlaybackFlag = selectedFlag == null ? "" : selectedFlag.getFlag();
+        inlinePlaybackFlagKey = selectedFlag == null ? "" : selectedSeasonFlagKey();
         pendingInlineResult = null;
         hideInlineControls();
         resetInlineShortDramaMode();
@@ -7730,7 +7774,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         subtitlePlaybackSession.onPlaybackStarted(this, result);
         modeController.onPlaybackStarted();
         searchInlineDanmaku(result);
-        binding.playerPanel.requestFocus();
+        if (!isFusionFloating()) binding.playerPanel.requestFocus();
     }
 
     private void searchInlineDanmaku(Result result) {
@@ -7803,6 +7847,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     }
 
     private void showInlineControls(boolean show, boolean focus) {
+        if (isFusionFloating()) return;
         if (!isInlinePlayerMode()) return;
         if (!show) {
             hideInlineControls();
@@ -7829,7 +7874,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         }
         hideMobileFusionPlayerActionDock();
         App.removeCallbacks(inlineHideControls);
-        if (hadControlFocus) binding.playerPanel.requestFocus();
+        if (hadControlFocus && !isFusionFloating()) binding.playerPanel.requestFocus();
         updateInlineDisplayPanel();
     }
 
@@ -10093,6 +10138,11 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
 
     private void enterInlineFullscreen() {
         if (inlineFullscreen || inlinePiPLayout || isInPictureInPictureMode()) return;
+        fusionFullscreenFromFloating = isFusionFloating();
+        if (fusionFloating != null) {
+            fusionFloating.suspend();
+            binding.playerPanel.setTranslationX(0f);
+        }
         inlineFullscreen = true;
         updateDetailThemeButtonVisibility();
         requestedOrientation = getRequestedOrientation();
@@ -10230,11 +10280,17 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
      */
     private void setupInlinePlayerSpacerSync() {
         if (binding == null || binding.playerPanelSpacer == null) return;
+        if (Util.isLeanback() && modeController.isFusionMode() && fusionFloating == null)
+            fusionFloating = new FusionFloatingPanel(this, binding.root, binding.playerPanel,
+                    binding.playerPanelSpacer, binding.scroll, this::onFusionFloatingLayoutChanged);
         // playerPanel 常驻 root，进入页面即套用内嵌尺寸；全屏时才切换到铺满布局。
         if (!inlineFullscreen && !inlinePiPLayout) applyInlinePlayerEmbeddedLayout();
         binding.scroll.setOnScrollChangeListener((androidx.core.widget.NestedScrollView.OnScrollChangeListener)
                 (v, scrollX, scrollY, oldScrollX, oldScrollY) -> syncInlinePlayerToSpacer());
         binding.playerPanelSpacer.addOnLayoutChangeListener((view, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> syncInlinePlayerToSpacer());
+        if (Util.isLeanback()) binding.root.addOnLayoutChangeListener((view, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> {
+            if (modeController.isFusionMode() && !inlineFullscreen && !inlinePiPLayout && (right - left != oldRight - oldLeft || bottom - top != oldBottom - oldTop)) applyInlinePlayerEmbeddedLayout();
+        });
     }
 
     /**
@@ -10244,6 +10300,27 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
      */
     private void applyInlinePlayerEmbeddedLayout() {
         if (binding == null) return;
+        if (isFusionFloating()) {
+            alignInlinePlayerSpacerHeight();
+            fusionFloating.refreshLayout();
+            return;
+        }
+        if (Util.isLeanback() && modeController.isFusionMode()) {
+            var size = tvDetailPlayerSize();
+            FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) binding.playerPanel.getLayoutParams();
+            int top = ResUtil.dp2px(22), bottom = ResUtil.dp2px(20);
+            boolean rtl = binding.root.getLayoutDirection() == View.LAYOUT_DIRECTION_RTL;
+            int start = rtl ? size.right() : size.left(), end = rtl ? size.left() : size.right();
+            if (params.width != size.width() || params.height != size.height() || params.leftMargin != size.left() || params.rightMargin != size.right() || params.topMargin != top || params.bottomMargin != bottom || params.getMarginStart() != start || params.getMarginEnd() != end || params.gravity != (Gravity.TOP | Gravity.START)) {
+                params.width = size.width(); params.height = size.height(); params.gravity = Gravity.TOP | Gravity.START;
+                params.setMargins(size.left(), top, size.right(), bottom); params.setMarginStart(start); params.setMarginEnd(end);
+                binding.playerPanel.setLayoutParams(params);
+            }
+            alignInlinePlayerSpacerHeight();
+            applyTvFusionActionsWidth();
+            syncInlinePlayerToSpacer();
+            return;
+        }
         // 融合模式上下 margin (22dp/20dp) 比普通模式 (14dp/16dp) 略大
         int topMarginDp = modeController.isFusionMode() ? 22 : 14;
         int bottomMarginDp = modeController.isFusionMode() ? 20 : 16;
@@ -10287,7 +10364,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         if (binding == null || binding.playerPanelSpacer == null) return;
         ViewGroup.LayoutParams sp = binding.playerPanelSpacer.getLayoutParams();
         if (sp == null) return;
-        int target = ResUtil.dp2px(252);
+        int target = Util.isLeanback() && modeController.isFusionMode() ? tvDetailPlayerSize().height() : ResUtil.dp2px(252);
         int topMargin = ResUtil.dp2px(modeController.isFusionMode() ? 22 : 14);
         int bottomMargin = ResUtil.dp2px(modeController.isFusionMode() ? 20 : 16);
         boolean changed = sp.height != target;
@@ -10310,6 +10387,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     private void syncInlinePlayerToSpacer() {
         if (binding == null || inlineFullscreen || inlinePiPLayout) return;
         if (binding.playerPanel.getVisibility() != View.VISIBLE) return;
+        if (updateFusionFloatingLayout()) return;
         View spacer = binding.playerPanelSpacer;
         if (spacer == null || spacer.getWidth() <= 0) return;
         int[] rootLoc = new int[2];
@@ -10329,8 +10407,47 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         }
     }
 
+    private boolean isFusionFloating() {
+        return fusionFloating != null && fusionFloating.isFloating();
+    }
+
+    private boolean updateFusionFloatingLayout() {
+        if (fusionFloating == null) return false;
+        boolean wasFloating = isFusionFloating();
+        boolean video = inlineStarted && service() != null && player() != null && !player().isReleased()
+                && !player().isEmpty() && player().haveTrack(C.TRACK_TYPE_VIDEO);
+        boolean ready = video && binding.playerError.getVisibility() != View.VISIBLE;
+        // New episode/source loading is still the original playback business, not a layout exit.
+        boolean loading = fusionFloatingReload || inlinePlaybackPending || (inlineStarted && player() != null
+                && !player().isReleased() && (player().getPlaybackState() != Player.STATE_READY || video));
+        boolean allowed = Util.isLeanback() && modeController.isFusionMode() && !inlineFullscreen
+                && !inlinePiPLayout && !isInPictureInPictureMode() && !isFinishing() && !isDestroyed() && !isPlaybackExiting();
+        // A fullscreen round-trip may finish while the next episode/source is still buffering.
+        // Only a previously established floating session can retain that layout during loading.
+        boolean floating = fusionFloating.update(allowed, ready || (fusionFullscreenFromFloating && loading), loading);
+        if (wasFloating && !floating && allowed) applyInlinePlayerEmbeddedLayout();
+        return floating;
+    }
+
+    private void onFusionFloatingLayoutChanged() {
+        if (isFusionFloating()) {
+            hideInlineControls();
+            hideInlineGestureOverlays();
+        }
+        updatePlayerPanelFocus();
+        // Reuse existing playback trace/logging and the already-bound SurfaceDiagnosticCollector.
+        // It records Surface created/changed/destroyed without attaching a second collector.
+        if (SpiderDebug.isEnabled() && player() != null && !player().isReleased()) {
+            View surface = binding.exo.getVideoSurfaceView();
+            SpiderDebug.log("playback-lifecycle", "fusion layout=%s trace=%s manager=%x player=%x view=%x surface=%x position=%d focus=%s",
+                    isFusionFloating() ? "floating" : "inline", player().getPlaybackTraceId(),
+                    System.identityHashCode(player()), System.identityHashCode(player().getPlayer()),
+                    System.identityHashCode(binding.exo), System.identityHashCode(surface), player().getPosition(), getCurrentFocus());
+        }
+    }
+
     private void restoreInlineDetailScrollAfterOverlay() {
-        if (binding == null || !isInlinePlayerMode()) return;
+        if (binding == null || !isInlinePlayerMode() || fusionFullscreenFromFloating) return;
         binding.scroll.scrollTo(0, 0);
     }
 
@@ -10371,6 +10488,11 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         prepareInlinePlayerTransition();
         inlineFullscreen = false;
         setInlineLock(false);
+        if (fusionFullscreenFromFloating) {
+            // Re-establish inline chrome before a floating entry snapshots its restore state.
+            binding.playerPanel.setTranslationZ(0f);
+            setPlayerCard(lightTheme ? ThemeColors.light() : ThemeColors.dark());
+        }
         // 恢复 root 层内嵌尺寸，不再 reparent
         applyInlinePlayerEmbeddedLayout();
         resetInlineShortDramaMode();
@@ -10382,7 +10504,10 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         Util.toggleFullscreen(this, false);
         updateMobileInlineSideControlMargins();
         setRequestedOrientation(requestedOrientation);
-        focusInlinePlayerPanel();
+        if (fusionFloating != null) syncInlinePlayerToSpacer();
+        if (fusionFullscreenFromFloating && isFusionFloating()) fusionFloating.returnToDetails();
+        else focusInlinePlayerPanel();
+        fusionFullscreenFromFloating = false;
         requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED;
         updateDetailThemeButtonVisibility();
     }
@@ -10480,6 +10605,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         inlinePlaybackEpisode = null;
         inlinePlaybackKey = "";
         inlinePlaybackFlag = "";
+        inlinePlaybackFlagKey = "";
         useParse = false;
         updateInlineButtons(false);
         DanmakuApi.cancel();
@@ -10569,6 +10695,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     public boolean dispatchKeyEvent(KeyEvent event) {
         if (binding != null && KeyUtil.isActionUp(event) && KeyUtil.isBackKey(event) && binding.lutQuick.hideIfVisible()) return true;
         if (binding != null && isVisible(binding.lutQuick)) return dispatchInlineLutQuickKey(event);
+        if (fusionFloating != null && fusionFloating.key(event, binding.root.findFocus())) return true;
         if (handleInlineFullscreenHiddenKey(event)) return true;
         if (handleDetailEpisodeNavigationKey(event)) return true;
         if (handleInlineKey(event)) return true;
@@ -11069,6 +11196,8 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     @Override
     protected void onStateChanged(int state) {
         if (!isInlinePlayerMode()) return;
+        if (state == Player.STATE_READY && inlineStarted && currentInlineResult != null) fusionFloatingReload = false;
+        if (fusionFloating != null) syncInlinePlayerToSpacer();
         if (state == Player.STATE_READY) {
             // 新集媒体真正就绪：此后播放器读数才属于本集，进度写入重新放行。
             inlinePlayerMediaReady = true;
@@ -11092,6 +11221,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     @Override
     protected void onTracksChanged() {
         if (!isInlinePlayerMode() || !inlineStarted || !isOwner()) return;
+        if (fusionFloating != null) syncInlinePlayerToSpacer();
         updateInlineButtons(service() != null && !player().isEmpty() && player().isPlaying());
         updateInlineDisplayPanel();
         // 轨道要等新引擎 prepare 完才回来，重建那一刻宿主的音轨/字幕按钮是 GONE，
@@ -11216,7 +11346,10 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     @Override
     public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
-        if (hasFocus) flushPendingManualTmdbEpisodeRebind();
+        if (hasFocus) {
+            flushPendingManualTmdbEpisodeRebind();
+            if (fusionFloating != null) fusionFloating.refreshBounds();
+        } else if (fusionFloating != null) fusionFloating.cancelOperation();
     }
 
     @Override
@@ -11266,6 +11399,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
 
     @Override
     protected void onDestroy() {
+        if (fusionFloating != null) fusionFloating.dispose();
         introSkipPlayback.reset();
         loadGeneration++;
         cancelAiSeasonAnalysis(false);
@@ -11342,6 +11476,10 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         }
         if (isInlineControlsVisible()) {
             hideInlineControls();
+            return;
+        }
+        if (fusionFloating != null && fusionFloating.isMoving()) {
+            fusionFloating.cancelOperation();
             return;
         }
         if (Util.isLeanback() && inlineFullscreen) {

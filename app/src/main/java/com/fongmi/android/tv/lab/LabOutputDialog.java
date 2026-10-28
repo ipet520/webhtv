@@ -39,8 +39,9 @@ public final class LabOutputDialog implements LabRunner.OutputListener {
                 .setView(scroll)
                 .setNegativeButton("停止", (d, w) -> LabRunner.stop(key))
                 .setPositiveButton("关闭", (d, w) -> d.dismiss())
-                .setCancelable(false)
+                .setCancelable(true)
                 .create();
+        dialog.setCanceledOnTouchOutside(false);
         dialog.show();
     }
 

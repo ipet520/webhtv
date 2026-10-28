@@ -200,6 +200,49 @@ public class TrackDialogTest {
                         && adapter.contains("mItems.add(0, item)"));
     }
 
+    @Test
+    public void secondSubtitleUsesBoundedThemeRippleAndKeepsSearchIndependent() throws Exception {
+        Path root = moduleRoot();
+        String leanbackLayout = read(root.resolve(Path.of("src", "leanback", "res", "layout", "dialog_track.xml")));
+        String dialog = read(root.resolve(Path.of("src", "main", "java", "com", "fongmi", "android", "tv", "ui", "dialog", "TrackDialog.java")));
+        String secondary = elementForId(leanbackLayout, "secondary");
+        String search = elementForId(leanbackLayout, "search");
+
+        assertTrue("second subtitle keeps text-sized bounds and its TV remote focusability",
+                secondary.contains("android:layout_width=\"wrap_content\"")
+                        && secondary.contains("android:layout_height=\"36dp\"")
+                        && secondary.contains("android:paddingHorizontal=\"12dp\"")
+                        && secondary.contains("android:focusable=\"true\""));
+        assertTrue("the text control uses a bounded, theme-resolved ripple within its own bounds",
+                secondary.contains("android:background=\"?attr/selectableItemBackground\""));
+        assertTrue("the neighboring search icon retains its normal icon-sized borderless ripple",
+                search.contains("android:layout_width=\"wrap_content\"")
+                        && search.contains("android:layout_height=\"wrap_content\"")
+                        && search.contains("android:background=\"?attr/selectableItemBackgroundBorderless\""));
+        assertFalse("the fix must not force the text control and search icon to the same width",
+                secondary.contains("android:layout_width=\"24dp\"") || search.contains("android:layout_width=\"36dp\""));
+        assertTrue("the theme attribute remains responsible for day and night ripple colors",
+                secondary.contains("?attr/selectableItemBackground") && !secondary.contains("#"));
+        assertTrue("second-subtitle and search actions retain their separate handlers",
+                dialog.contains("binding.secondary.setOnClickListener(this::onSecondary)")
+                        && dialog.contains("binding.search.setOnClickListener(this::onSearch)"));
+        assertTrue("switching the subtitle role refreshes the same dialog without retaining a selected state",
+                dialog.contains("secondarySubtitle = !secondarySubtitle;")
+                        && dialog.contains("refreshTrackList();")
+                        && !dialog.contains("binding.secondary.setActivated")
+                        && !dialog.contains("binding.secondary.setSelected"));
+        assertFalse("the player layout has no focus scale animation on these controls",
+                leanbackLayout.contains("scaleX") || leanbackLayout.contains("scaleY") || leanbackLayout.contains("stateListAnimator"));
+    }
+
+    private static String elementForId(String xml, String id) {
+        int attribute = xml.indexOf("android:id=\"@+id/" + id + "\"");
+        if (attribute < 0) return "";
+        int start = xml.lastIndexOf('<', attribute);
+        int end = xml.indexOf('>', attribute);
+        return start < 0 || end < 0 ? "" : xml.substring(start, end + 1);
+    }
+
     private static String read(Path path) throws Exception {
         return new String(Files.readAllBytes(path), StandardCharsets.UTF_8);
     }

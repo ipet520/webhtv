@@ -30,7 +30,7 @@ import okhttp3.Response;
 
 public class WebCall {
 
-    private static final OkHttpClient CLIENT = new OkHttpClient.Builder().followRedirects(true).followSslRedirects(true).dns(OkHttp.dns()).proxySelector(OkHttp.selector()).proxyAuthenticator(OkHttp.authenticator()).build();
+    private static final OkHttpClient CLIENT = new OkHttpClient.Builder().connectionPool(OkHttp.selector().registerRuntimePool(new okhttp3.ConnectionPool())).followRedirects(true).followSslRedirects(true).dns(OkHttp.dns()).proxySelector(OkHttp.selector()).proxyAuthenticator(OkHttp.authenticator()).build();
 
     public static String request(JsonObject payload) {
         return request(payload, null);

@@ -28,6 +28,8 @@ public class LabTvFocusSourceTest {
     private static final String ACTIVITY = "src/main/java/com/fongmi/android/tv/lab/LabDetailActivity.java";
     private static final String ADAPTER = "src/main/java/com/fongmi/android/tv/lab/LabCommandAdapter.java";
     private static final String DETAIL_LAYOUT = "src/main/res/layout/activity_lab_detail.xml";
+    private static final String COMMAND_ROW_LAYOUT = "src/main/res/layout/adapter_lab_command_compact.xml";
+    private static final String COMMAND_SHEET_LAYOUT = "src/main/res/layout/dialog_lab_command_sheet.xml";
 
     /** 实验室自己绘制的可聚焦控件：缺 state_focused 就等于遥控看不到焦点。 */
     private static final String[] FOCUS_VISIBLE_DRAWABLES = {
@@ -36,7 +38,11 @@ public class LabTvFocusSourceTest {
             "src/main/res/drawable/shape_lab_stop_btn.xml",
             "src/main/res/drawable/shape_lab_click_btn.xml",
             "src/main/res/drawable/selector_lab_group_tab.xml",
-            "src/main/res/drawable/selector_lab_icon_btn.xml"
+            "src/main/res/drawable/selector_lab_icon_btn.xml",
+            "src/main/res/drawable/selector_lab_command_row.xml",
+            "src/main/res/drawable/selector_lab_package_row.xml",
+            "src/main/res/drawable/selector_lab_terminal_shortcut.xml",
+            "src/main/res/drawable/selector_lab_terminal_history.xml"
     };
 
     /**
@@ -265,6 +271,96 @@ public class LabTvFocusSourceTest {
                 layout.contains("?attr/selectableItemBackgroundBorderless"));
     }
 
+    /** 整行与行内「运行」按钮分别绘制自己的焦点态，不叠加父容器 foreground。 */
+    @Test
+    public void commandRowAndActionButtonHaveIndependentFocusVisuals() throws Exception {
+        String layout = stripComments(read(COMMAND_ROW_LAYOUT));
+        int rootStart = layout.indexOf("<LinearLayout");
+        String root = layout.substring(rootStart, layout.indexOf('>', rootStart) + 1);
+        String action = elementForId(layout, "btnAction");
+        String rowBackground = stripComments(read("src/main/res/drawable/selector_lab_command_row.xml"));
+        String actionBackground = stripComments(read("src/main/res/drawable/shape_lab_run_btn.xml"));
+        String adapter = stripComments(read(ADAPTER));
+
+        assertTrue("the complete command row must be reachable with the remote", root.contains("android:focusable=\"true\""));
+        assertTrue("the row owns one focus selector", root.contains("android:background=\"@drawable/selector_lab_command_row\""));
+        assertFalse("the same row must not overlay a second focus ripple foreground", root.contains("android:foreground="));
+        assertTrue("the child action button must keep its own focus drawable", action.contains("@drawable/shape_lab_run_btn"));
+        assertTrue("the action button must not inherit the parent's drawable state", action.contains("android:duplicateParentState=\"false\""));
+        assertTrue("the row selector must render focus and preserve pressed feedback",
+                rowBackground.contains("android:state_focused=\"true\"")
+                        && rowBackground.contains("android:state_pressed=\"true\""));
+        assertTrue("the action selector keeps its independent focused state",
+                actionBackground.contains("android:state_focused=\"true\""));
+        assertTrue("opening a row and running its child remain separate operations",
+                adapter.contains("holder.itemView.setOnClickListener")
+                        && adapter.contains("holder.btnAction.setOnClickListener"));
+        assertFalse("the row and button have no focus scale animation", layout.contains("scaleX") || layout.contains("scaleY"));
+    }
+
+    /** 包列表整行已有可聚焦边界，只保留一层局部焦点背景。 */
+    @Test
+    public void packageRowDoesNotLayerFocusForegroundOverItsCard() throws Exception {
+        String layout = stripComments(read("src/main/res/layout/adapter_lab_package.xml"));
+        int rootStart = layout.indexOf("<RelativeLayout");
+        String root = layout.substring(rootStart, layout.indexOf('>', rootStart) + 1);
+        String selector = stripComments(read("src/main/res/drawable/selector_lab_package_row.xml"));
+
+        assertTrue("the package card remains one focusable/clickable row",
+                root.contains("android:focusable=\"true\"") && root.contains("android:clickable=\"true\""));
+        assertTrue("the row uses a local focused/pressed selector", root.contains("@drawable/selector_lab_package_row"));
+        assertFalse("the focused card must not draw a second foreground ripple", root.contains("android:foreground="));
+        assertTrue("the package row selector keeps bounded focus and press states",
+                selector.contains("android:state_focused=\"true\"") && selector.contains("android:state_pressed=\"true\""));
+    }
+
+    /** 命令面板受实际视口高度约束，横屏时展开后由内部滚动区承载长内容。 */
+    @Test
+    public void commandSheetExpandsWithinViewportAndKeepsFocusableContentScrollable() throws Exception {
+        String source = stripComments(read("src/main/java/com/fongmi/android/tv/lab/LabCommandSheet.java"));
+        String expand = methodBody(source, "private void expandSheetToViewport()");
+        String layout = stripComments(read(COMMAND_SHEET_LAYOUT));
+
+        assertTrue("the command sheet must apply its bounded viewport after show", source.contains("expandSheetToViewport();"));
+        assertTrue("the cap must be converted from the existing 640dp design limit", expand.contains("SHEET_MAX_HEIGHT_DP * density"));
+        assertTrue("the cap must not exceed the current display height", expand.contains("Math.min(maxHeight, displayHeight)"));
+        assertTrue("the behavior must receive a real pixel max height", expand.contains("behavior.setMaxHeight(maxHeight)"));
+        assertTrue("the secondary command sheet must open expanded", expand.contains("BottomSheetBehavior.STATE_EXPANDED"));
+        assertFalse("LinearLayout does not implement the former maxHeight XML attribute", layout.contains("android:maxHeight="));
+        assertTrue("long form content stays in a viewport-sized nested scroll area", layout.contains("android:id=\"@+id/sheetScroll\"")
+                && layout.contains("android:fillViewport=\"true\"")
+                && layout.contains("android:layout_height=\"0dp\"")
+                && layout.contains("android:layout_weight=\"1\""));
+    }
+
+    /** 动态点击参数也可由遥控器聚焦，且继续使用自己的 focused drawable。 */
+    @Test
+    public void dynamicCommandActionsRemainFocusableAndVisiblyFocused() throws Exception {
+        String sheet = stripComments(read("src/main/java/com/fongmi/android/tv/lab/LabCommandSheet.java"));
+        String clickShape = stripComments(read("src/main/res/drawable/shape_lab_click_btn.xml"));
+        assertTrue("generated command action buttons must be focusable", sheet.contains("button.setFocusable(true);"));
+        assertTrue("generated command action buttons keep their individual shape", sheet.contains("button.setBackgroundResource(R.drawable.shape_lab_click_btn);"));
+        assertTrue("the dynamic button drawable has an explicit focus state", clickShape.contains("android:state_focused=\"true\""));
+    }
+
+    /** 终端动态快捷键与历史 chip 可达且使用各自的紧凑焦点背景。 */
+    @Test
+    public void terminalShortcutsAndHistoryChipsAreFocusableWithoutScaling() throws Exception {
+        String terminal = stripComments(read("src/main/java/com/fongmi/android/tv/lab/LabTerminalActivity.java"));
+        String shortcut = stripComments(read("src/main/res/drawable/selector_lab_terminal_shortcut.xml"));
+        String history = stripComments(read("src/main/res/drawable/selector_lab_terminal_history.xml"));
+        String buildShortcuts = methodBody(terminal, "private void buildShortcuts()");
+        String renderHistory = methodBody(terminal, "private void renderHistory()");
+
+        assertTrue("generated terminal shortcuts must be focusable", buildShortcuts.contains("button.setFocusable(true);"));
+        assertTrue("shortcut focus stays within a small rounded chip", buildShortcuts.contains("selector_lab_terminal_shortcut")
+                && shortcut.contains("android:state_focused=\"true\""));
+        assertTrue("history chips must be focusable", renderHistory.contains("chip.setFocusable(true);"));
+        assertTrue("history chips keep their own visual identity and focus stroke", renderHistory.contains("selector_lab_terminal_history")
+                && history.contains("android:state_focused=\"true\""));
+        assertFalse("terminal dynamic controls do not apply view scaling", terminal.contains("setScaleX") || terminal.contains("setScaleY"));
+    }
+
     // ------------------------------------------------------------------ helpers
 
     /** 取出方法体，避免断言被同文件其它方法的文本意外满足。 */
@@ -286,6 +382,12 @@ public class LabTvFocusSourceTest {
                 .replaceAll("(?s)<!--.*?-->", "")
                 .replaceAll("(?sm)^\\s*/\\*.*?\\*/", "")
                 .replaceAll("(?m)^\\s*//.*$", "");
+    }
+
+    private static String elementForId(String xml, String id) {
+        Matcher matcher = Pattern.compile("<[^>]*android:id=\"@\\+id/" + Pattern.quote(id) + "\"[^>]*>").matcher(xml);
+        assertTrue("missing XML element @+id/" + id, matcher.find());
+        return matcher.group();
     }
 
     private static String read(String path) throws Exception {

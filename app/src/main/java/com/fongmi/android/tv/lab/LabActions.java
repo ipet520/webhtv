@@ -5,14 +5,23 @@ import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.Intent;
+import android.content.res.Configuration;
 import android.graphics.Color;
 import android.graphics.Bitmap;
+import android.graphics.Rect;
 import android.net.Uri;
+import android.net.http.SslError;
 import android.text.TextUtils;
+import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewTreeObserver;
 import android.view.WindowManager;
+import android.webkit.ConsoleMessage;
+import android.webkit.SslErrorHandler;
 import android.webkit.WebChromeClient;
+import android.webkit.WebResourceError;
+import android.webkit.WebResourceRequest;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.ImageView;
@@ -101,10 +110,11 @@ public final class LabActions {
         AlertDialog dialog = new WebHtvAlertDialogBuilder(activity, R.style.Theme_App_Lab_Dialog)
                 .setTitle("下载 " + item.name)
                 .setView(root)
-                .setCancelable(false)
+                .setCancelable(true)
                 .setNegativeButton("取消", null)
                 .setPositiveButton("关闭", null)
                 .create();
+        dialog.setCanceledOnTouchOutside(false);
         progress.setIndeterminate(true);
         dialog.setButton(AlertDialog.BUTTON_NEGATIVE, "取消", (d, w) -> d.dismiss());
         if (mirrors.size() > 1) {
@@ -198,16 +208,13 @@ public final class LabActions {
         });
     }
 
-    /**
-     * 进度弹窗刚弹出时先藏起"关闭"按钮：按钮必须在 show() 前注册，
-     * 因为 AlertDialog.setButton() 在 show() 之后调用不会生效。
-     */
+    /** 进度中隐藏按钮式关闭入口；BACK 仍可关闭弹窗，后台任务继续运行。 */
     static void hideCloseButton(AlertDialog dialog) {
         android.widget.Button close = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
         if (close != null) close.setVisibility(View.GONE);
     }
 
-    /** 失败态：放出"关闭"按钮并恢复返回键，避免进度弹窗无法关闭。 */
+    /** 失败态：放出显式关闭入口。 */
     static void showCloseButton(AlertDialog dialog) {
         dialog.setCancelable(true);
         android.widget.Button close = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
@@ -222,9 +229,10 @@ public final class LabActions {
         AlertDialog dialog = new WebHtvAlertDialogBuilder(activity, R.style.Theme_App_Lab_Dialog)
                 .setTitle("安装 " + item.name)
                 .setView(progress)
-                .setCancelable(false)
+                .setCancelable(true)
                 .setPositiveButton("关闭", null)
                 .create();
+        dialog.setCanceledOnTouchOutside(false);
         dialog.show();
         hideCloseButton(dialog);
         LabEnv.install(activity, item, new LabEnv.InstallCallback() {
@@ -371,9 +379,10 @@ public final class LabActions {
             AlertDialog dialog = new WebHtvAlertDialogBuilder(activity, R.style.Theme_App_Lab_Dialog)
                     .setTitle("下载依赖" + (command.download.title == null ? "" : " · " + command.download.title))
                     .setView(progress)
-                    .setCancelable(false)
+                    .setCancelable(true)
                     .setPositiveButton("关闭", null)
                     .create();
+            dialog.setCanceledOnTouchOutside(false);
             dialog.show();
             hideCloseButton(dialog);
             new Thread(() -> {
@@ -553,11 +562,15 @@ public final class LabActions {
     private static void openWebView(Activity activity, LabModels.Click click, String url) {
         boolean fullscreen = "fullscreen".equals(click.style);
         int width = click.width > 0 ? click.width : 90;
-        int height = click.height > 0 ? click.height : 80;
+        int height = click.height > 0 ? click.height
+                : activity.getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE ? 92 : 80;
         View root = activity.getLayoutInflater().inflate(R.layout.dialog_lab_webview, null, false);
         ProgressBar progress = root.findViewById(R.id.progress);
         WebView webView = root.findViewById(R.id.webView);
+        TextView webStatus = root.findViewById(R.id.webStatus);
         TextView content = root.findViewById(R.id.content);
+        webStatus.setText("正在准备网页区域…");
+        webStatus.setVisibility(View.VISIBLE);
         webView.getSettings().setJavaScriptEnabled(true);
         webView.getSettings().setDomStorageEnabled(true);
         webView.getSettings().setUseWideViewPort(true);
@@ -568,8 +581,60 @@ public final class LabActions {
                 progress.setProgress(newProgress);
                 progress.setVisibility(newProgress >= 100 ? android.view.View.GONE : android.view.View.VISIBLE);
             }
+
+            @Override
+            public boolean onConsoleMessage(ConsoleMessage message) {
+                if (message.messageLevel() == ConsoleMessage.MessageLevel.ERROR) {
+                    Log.w("LabWebView", "console error at " + safeWebUrlForLog(message.sourceId()) + ":" + message.lineNumber());
+                }
+                return super.onConsoleMessage(message);
+            }
         });
-        webView.setWebViewClient(new WebViewClient());
+        boolean[] pageFailed = {false};
+        webView.setWebViewClient(new WebViewClient() {
+            @Override
+            public void onPageStarted(WebView view, String pageUrl, android.graphics.Bitmap favicon) {
+                pageFailed[0] = false;
+                webStatus.setText("正在加载网页…");
+                webStatus.setVisibility(View.VISIBLE);
+                Log.i("LabWebView", "onPageStarted " + safeWebUrlForLog(pageUrl));
+            }
+
+            @Override
+            public void onPageFinished(WebView view, String pageUrl) {
+                Log.i("LabWebView", "onPageFinished " + safeWebUrlForLog(pageUrl) + " " + describeWebView(view));
+                if (!pageFailed[0]) webStatus.setVisibility(View.GONE);
+            }
+
+            @Override
+            public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
+                if (request == null || request.isForMainFrame()) {
+                    String description = error == null ? "未知网络错误" : String.valueOf(error.getDescription());
+                    int code = error == null ? 0 : error.getErrorCode();
+                    showWebViewError(webStatus, pageFailed, "网页加载失败：" + description + "（" + code + "）");
+                    Log.e("LabWebView", "onReceivedError " + safeWebUrlForLog(request == null ? view.getUrl() : request.getUrl().toString())
+                            + " code=" + code + " description=" + description);
+                }
+            }
+
+            @Override
+            public void onReceivedHttpError(WebView view, WebResourceRequest request, android.webkit.WebResourceResponse response) {
+                if (request != null && request.isForMainFrame() && response != null && response.getStatusCode() >= 400) {
+                    showWebViewError(webStatus, pageFailed, "网页返回 HTTP " + response.getStatusCode());
+                    Log.e("LabWebView", "onReceivedHttpError " + safeWebUrlForLog(request.getUrl().toString())
+                            + " status=" + response.getStatusCode());
+                }
+            }
+
+            @Override
+            public void onReceivedSslError(WebView view, SslErrorHandler handler, SslError error) {
+                handler.cancel();
+                if (error != null && sameWebHost(view.getUrl(), error.getUrl())) {
+                    showWebViewError(webStatus, pageFailed, "网页 TLS 证书校验失败，连接已阻止");
+                    Log.e("LabWebView", "onReceivedSslError " + safeWebUrlForLog(error.getUrl()));
+                }
+            }
+        });
         if (click.content != null && !click.content.isEmpty()) {
             content.setText(click.content);
             content.setVisibility(View.VISIBLE);
@@ -578,7 +643,6 @@ public final class LabActions {
                 .setTitle(click.title == null ? "WebView" : click.title)
                 .setView(root)
                 .setNegativeButton("关闭", (d, w) -> {
-                    webView.destroy();
                     d.dismiss();
                 })
                 .setPositiveButton("浏览器打开", (d, w) -> {
@@ -586,10 +650,68 @@ public final class LabActions {
                         activity.startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
                     } catch (Exception ignored) {
                     }
-                    webView.destroy();
                     d.dismiss();
                 })
                 .create();
+        View.OnLayoutChangeListener[] viewportListener = new View.OnLayoutChangeListener[1];
+        boolean[] loadStarted = {false};
+        Runnable updateViewport = () -> {
+            if (!dialog.isShowing()) return;
+            View decor = dialog.getWindow() == null ? null : dialog.getWindow().getDecorView();
+            View parentPanel = dialog.findViewById(androidx.appcompat.R.id.parentPanel);
+            if (decor != null && parentPanel != null) {
+                int panelHeight = Math.max(0, Math.max(decor.getHeight(), decor.getMeasuredHeight())
+                        - decor.getPaddingTop() - decor.getPaddingBottom());
+                ViewGroup.LayoutParams parentParams = parentPanel.getLayoutParams();
+                if (parentParams != null && panelHeight > 0 && parentParams.height != panelHeight) {
+                    parentParams.height = panelHeight;
+                    parentPanel.setLayoutParams(parentParams);
+                }
+            }
+            int availableHeight = availableWebViewHeight(dialog, root);
+            View customPanel = dialog.findViewById(androidx.appcompat.R.id.customPanel);
+            ViewGroup.LayoutParams panelParams = customPanel == null ? null : customPanel.getLayoutParams();
+            int panelHeight = availableHeight;
+            if (availableHeight > 0 && customPanel != null && panelParams != null) {
+                panelHeight = availableHeight + customPanel.getPaddingTop() + customPanel.getPaddingBottom();
+                if (panelParams instanceof ViewGroup.MarginLayoutParams) {
+                    ViewGroup.MarginLayoutParams margins = (ViewGroup.MarginLayoutParams) panelParams;
+                    panelHeight += margins.topMargin + margins.bottomMargin;
+                }
+                if (panelParams.height != panelHeight) {
+                    panelParams.height = panelHeight;
+                    customPanel.setLayoutParams(panelParams);
+                }
+            }
+            ViewGroup.LayoutParams rootParams = root.getLayoutParams();
+            if (availableHeight > 0 && rootParams != null && rootParams.height != availableHeight) {
+                rootParams.height = availableHeight;
+                root.setLayoutParams(rootParams);
+                Log.i("LabWebView", "content viewport requested " + root.getMeasuredWidth() + "x" + availableHeight
+                        + " customPanel=" + (customPanel == null ? "null" : customPanel.getMeasuredWidth() + "x" + panelHeight));
+            }
+            if (!loadStarted[0] && webView.getMeasuredWidth() > 0 && webView.getMeasuredHeight() > 0
+                    && webView.getVisibility() == View.VISIBLE) {
+                loadStarted[0] = true;
+                Log.i("LabWebView", "loadUrl " + safeWebUrlForLog(url) + " " + describeWebView(webView));
+                if (TextUtils.isEmpty(url)) showWebViewError(webStatus, pageFailed, "网页地址为空");
+                else {
+                    try {
+                        webView.loadUrl(url);
+                    } catch (Exception e) {
+                        showWebViewError(webStatus, pageFailed, "无法开始加载网页：" + e.getMessage());
+                        Log.e("LabWebView", "loadUrl failed " + safeWebUrlForLog(url), e);
+                    }
+                }
+            }
+        };
+        viewportListener[0] = (view, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> updateViewport.run();
+        dialog.setOnDismissListener(d -> {
+            root.removeOnLayoutChangeListener(viewportListener[0]);
+            if (dialog.getWindow() != null) dialog.getWindow().getDecorView().removeOnLayoutChangeListener(viewportListener[0]);
+            webView.stopLoading();
+            webView.destroy();
+        });
         dialog.show();
         if (dialog.getWindow() != null) {
             WindowManager.LayoutParams params = dialog.getWindow().getAttributes();
@@ -598,8 +720,78 @@ public final class LabActions {
             params.width = fullscreen ? WindowManager.LayoutParams.MATCH_PARENT : (int) (w * width / 100f);
             params.height = fullscreen ? WindowManager.LayoutParams.MATCH_PARENT : (int) (h * height / 100f);
             dialog.getWindow().setAttributes(params);
+            View decor = dialog.getWindow().getDecorView();
+            decor.addOnLayoutChangeListener(viewportListener[0]);
+            decor.requestLayout();
         }
-        webView.loadUrl(url);
+        root.addOnLayoutChangeListener(viewportListener[0]);
+        root.requestLayout();
+        root.postDelayed(() -> {
+            if (!dialog.isShowing() || loadStarted[0]) return;
+            Log.e("LabWebView", "viewport did not become measurable " + describeWebView(webView));
+            showWebViewError(webStatus, pageFailed, "网页区域尺寸无效，无法显示页面");
+        }, 1500);
+    }
+
+    private static int availableWebViewHeight(AlertDialog dialog, View root) {
+        View decor = dialog.getWindow() == null ? null : dialog.getWindow().getDecorView();
+        if (decor == null) return 0;
+        int height = Math.max(decor.getHeight(), decor.getMeasuredHeight());
+        if (height <= 0) return 0;
+        int available = height - decor.getPaddingTop() - decor.getPaddingBottom();
+        int[] fixedPanels = {androidx.appcompat.R.id.topPanel, androidx.appcompat.R.id.contentPanel,
+                androidx.appcompat.R.id.buttonPanel};
+        for (int id : fixedPanels) {
+            View panel = dialog.findViewById(id);
+            if (panel != null && panel.getVisibility() != View.GONE) {
+                available -= Math.max(panel.getHeight(), panel.getMeasuredHeight());
+            }
+        }
+        View parent = root.getParent() instanceof View ? (View) root.getParent() : null;
+        if (parent != null) available -= parent.getPaddingTop() + parent.getPaddingBottom();
+        View parentPanel = dialog.findViewById(androidx.appcompat.R.id.parentPanel);
+        if (parentPanel != null) available -= parentPanel.getPaddingTop() + parentPanel.getPaddingBottom();
+        ViewGroup.LayoutParams params = root.getLayoutParams();
+        if (params instanceof ViewGroup.MarginLayoutParams) {
+            ViewGroup.MarginLayoutParams margins = (ViewGroup.MarginLayoutParams) params;
+            available -= margins.topMargin + margins.bottomMargin;
+        }
+        return Math.max(0, available);
+    }
+
+    private static void showWebViewError(TextView status, boolean[] pageFailed, String message) {
+        pageFailed[0] = true;
+        status.setText(message);
+        status.setVisibility(View.VISIBLE);
+    }
+
+    private static String safeWebUrlForLog(String value) {
+        if (TextUtils.isEmpty(value)) return "<empty-url>";
+        try {
+            Uri uri = Uri.parse(value);
+            String scheme = uri.getScheme() == null ? "unknown" : uri.getScheme();
+            String host = uri.getHost();
+            return host == null ? scheme + ":<local>" : scheme + "://" + host + (uri.getPort() > 0 ? ":" + uri.getPort() : "");
+        } catch (Exception e) {
+            return "<invalid-url>";
+        }
+    }
+
+    private static boolean sameWebHost(String first, String second) {
+        if (TextUtils.isEmpty(first) || TextUtils.isEmpty(second)) return false;
+        return TextUtils.equals(Uri.parse(first).getHost(), Uri.parse(second).getHost());
+    }
+
+    private static String describeWebView(WebView webView) {
+        int[] location = new int[2];
+        webView.getLocationOnScreen(location);
+        Rect visible = new Rect();
+        boolean visibleOnScreen = webView.getGlobalVisibleRect(visible);
+        return "measured=" + webView.getMeasuredWidth() + "x" + webView.getMeasuredHeight()
+                + " bounds=" + location[0] + "," + location[1] + "-"
+                + (location[0] + webView.getWidth()) + "," + (location[1] + webView.getHeight())
+                + " globalVisible=" + visibleOnScreen + ":" + visible
+                + " visibility=" + webView.getVisibility() + " alpha=" + webView.getAlpha();
     }
 
     private static void showQrCode(Activity activity, LabModels.Click click, String value) {

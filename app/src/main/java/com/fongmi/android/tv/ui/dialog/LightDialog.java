@@ -159,8 +159,11 @@ public final class LightDialog {
         dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
         dialog.setContentView(root(context, title, content, positive, listener(dialog, onPositive), negative, listener(dialog, onNegative), neutral, listener(dialog, onNeutral), heightPx > 0));
         dialog.setCanceledOnTouchOutside(true);
+        // Dialog.show adds the window before its OnShow callback: give Leanback its final
+        // width before that first traversal. Keep the existing Mobile lifecycle unchanged.
+        if (Util.isLeanback()) applyWindow(dialog, context, landFactor, portFactor, maxDp, heightPx);
         dialog.setOnShowListener(d -> {
-            applyWindow(dialog, context, landFactor, portFactor, maxDp, heightPx);
+            if (!Util.isLeanback()) applyWindow(dialog, context, landFactor, portFactor, maxDp, heightPx);
             TouchOptimizationHelper.sync(dialog);
             ThemeController.bindDialog(dialog);
             if (dialog.getWindow() != null) ThemeDialogSemantics.bindLegacyDialog(dialog.getWindow().getDecorView());

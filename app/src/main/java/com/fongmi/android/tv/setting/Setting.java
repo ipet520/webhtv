@@ -48,6 +48,28 @@ import java.util.Locale;
 
 public class Setting {
 
+    public enum LeanbackHomeMode { CLASSIC, IMMERSIVE }
+
+    private static final String LEANBACK_HOME_MODE = "leanback_native_home_mode";
+
+    public static boolean isLeanbackHomeStyleAvailable() {
+        return "leanback".equals(BuildConfig.FLAVOR_mode);
+    }
+
+    public static LeanbackHomeMode resolveLeanbackHomeMode(boolean debug, String flavor, String stored) {
+        return "leanback".equals(flavor) && LeanbackHomeMode.IMMERSIVE.name().equals(stored)
+                ? LeanbackHomeMode.IMMERSIVE : LeanbackHomeMode.CLASSIC;
+    }
+
+    public static LeanbackHomeMode getLeanbackHomeMode() {
+        return resolveLeanbackHomeMode(BuildConfig.DEBUG, BuildConfig.FLAVOR_mode,
+                Prefers.getString(LEANBACK_HOME_MODE, LeanbackHomeMode.CLASSIC.name()));
+    }
+
+    public static void putLeanbackHomeMode(LeanbackHomeMode mode) {
+        if (isLeanbackHomeStyleAvailable() && mode != null) Prefers.put(LEANBACK_HOME_MODE, mode.name());
+    }
+
     public static final String REALTIME_SUBTITLE_MODEL_ZH = "zh";
     public static final String REALTIME_SUBTITLE_MODEL_YUE = "yue";
     public static final String REALTIME_SUBTITLE_MODEL_EN = "en";

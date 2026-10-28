@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
+    <application>
+        <activity android:name="com.fongmi.android.tv.ui.activity.HomeActivity" android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation|uiMode" tools:replace="android:configChanges" />
+        <!-- Explicit adb entry only. No launcher filter and no production route. -->
+        <activity
+            android:name="com.fongmi.android.tv.ui.homepreview.NativeHomePreviewActivity"
+            android:exported="true"
+            android:enableOnBackInvokedCallback="false"
+            android:screenOrientation="sensorLandscape"
+            android:theme="@style/Theme.App" />
+    </application>
+</manifest>
+

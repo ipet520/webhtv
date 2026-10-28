@@ -1,0 +1,5 @@
+<resources>
+    <string name="fusion_float_move">移动</string>
+    <string name="fusion_float_move_hint">确定移动，方向键调整位置，确定保存，返回取消</string>
+    <string name="fusion_float_moving">移动中</string>
+</resources>

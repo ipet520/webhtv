@@ -323,6 +323,7 @@ private String mLyricsSelectedResultKey;
 private String mDetailLyrics;
 private String mInlineLyrics;
 private String mPlaybackEpisodeKey;
+private String mPlaybackFlagKey = "";
 private String mArtworkRequestOwner;
 private String mAudioArtworkColorKey;
 private ObjectAnimator mAudioCoverAnimator;
@@ -2278,6 +2279,7 @@ private boolean runtimeSourceOnly;
         prepareFastTmdbPlaybackHistory(item, flag, episode);
         SpiderDebug.log("video-flow", "fast tmdb playback start cost=%dms key=%s flag=%s episode=%s url=%s", System.currentTimeMillis() - start, getKey(), flag.getFlag(), episode.getName(), episode.getUrl());
         beginPlayerContentRequest(getKey(), flag.getFlag(), episode.getUrl());
+        mPlaybackFlagKey = playbackFlagKey(flag);
         mViewModel.playerContent(getKey(), flag.getFlag(), episode.getUrl(), applyHistoryPlayerKernel());
         mBinding.getRoot().post(() -> hydrateFastTmdbPlaybackDetail(item));
         applyFastTmdbPlaybackFullDetailNextFrame(item);
@@ -3078,6 +3080,7 @@ private boolean runtimeSourceOnly;
         clearKaraokeState();
         if (shouldUseImmersiveAudio()) setAudioStageVisible(true);
         beginPlayerContentRequest(getKey(), playFlag, episode.getUrl());
+        mPlaybackFlagKey = playbackFlagKey(flag);
         mViewModel.playerContent(getKey(), playFlag, episode.getUrl(), applyHistoryPlayerKernel());
         mBinding.widget.title.setSelected(true);
         updateHistory(episode);
@@ -3493,6 +3496,7 @@ private boolean runtimeSourceOnly;
         playerContentKey = "";
         playerContentFlag = "";
         playerContentEpisode = "";
+        mPlaybackFlagKey = "";
         playerKernelSwitchRefreshing = false;
     }
 
@@ -3504,6 +3508,23 @@ private boolean runtimeSourceOnly;
                 && TextUtils.equals(flag, currentFlag.getFlag())
                 && currentEpisode != null
                 && TextUtils.equals(episode, currentEpisode.getUrl());
+    }
+
+    private String playbackFlagKey(Flag flag) {
+        if (flag == null) return "";
+        int index = mVod == null ? -1 : com.fongmi.android.tv.ui.helper.TmdbUIAdapter.flagIndex(mVod.getFlags(), flag);
+        if (index < 0 && mFlagAdapter != null) index = mFlagAdapter.indexOf(flag);
+        if (index < 0) return "";
+        return com.fongmi.android.tv.ui.helper.TmdbUIAdapter.flagKey(flag, index);
+    }
+
+    private boolean isPlaybackFlag(Flag flag) {
+        String key = playbackFlagKey(flag);
+        return !TextUtils.isEmpty(key) && TextUtils.equals(mPlaybackFlagKey, key);
+    }
+
+    private boolean isPlayingContent(Episode episode) {
+        return episode != null && episode.isSelected() && isPlaybackFlag(getFlag());
     }
 
     private boolean isCurrentPlayerContentRequest(int requestId, int generation,
@@ -3561,7 +3582,7 @@ private boolean runtimeSourceOnly;
         int position = mFlagAdapter.indexOf(item);
         Flag resolved = mFlagAdapter.get(position < 0 ? 0 : position);
         boolean initialBinding = mEpisodeAdapter.getItemCount() == 0;
-        if (resolved.isSelected() && !initialBinding) return;
+        if (resolved.isSelected() && isPlaybackFlag(resolved) && !initialBinding) return;
         Flag previous = getFlag();
         SpiderDebug.log("playback-action", "flag switch ui=leanback site=%s from=%s to=%s fullscreen=%s", getKey(), previous == null ? "" : previous.getFlag(), resolved.getFlag(), isFullscreen());
         int oldPosition = mFlagAdapter.getSelectedPosition();
@@ -3730,7 +3751,7 @@ private boolean runtimeSourceOnly;
     private boolean seamless(Flag flag) {
         Episode episode = getMark().isEmpty() ? flag.find(mHistory.getEpisode(), true) : flag.find(mHistory.getVodRemarks(), false);
         setQualityVisible(episode != null && episode.isSelected() && mQualityAdapter.getItemCount() > 1);
-        if (episode == null || episode.isSelected()) return false;
+        if (episode == null || (isPlaybackFlag(flag) && episode.isSelected())) return false;
         selectEpisode(episode, false);
         return true;
     }
@@ -4385,7 +4406,7 @@ private boolean runtimeSourceOnly;
     }
 
     private boolean shouldEnterFullscreen(Episode item) {
-        boolean enter = !isFullscreen() && item.isSelected();
+        boolean enter = !isFullscreen() && isPlayingContent(item);
         if (enter) enterFullscreen();
         return enter;
     }
@@ -4511,7 +4532,28 @@ private boolean runtimeSourceOnly;
     }
 
     private void onChange() {
-        checkSearch(true);
+        if (mQuickSearchDialog != null) return;
+        // A user request must consume the same candidates as manual resource selection,
+        // never the automatic failover state (which suppresses the resource panel).
+        setAutoMode(false);
+        setInitAuto(false);
+        quickSearchDialogClosed = false;
+        traceSourceSearch("manual-open candidates=" + mQuickAdapter.getItemCount());
+        List<Vod> candidates=getQuickSearchItems();
+        if (candidates.isEmpty()) initSearch(mBinding.name.getText().toString(), false);
+        else showQuickSearchDialog(candidates);
+    }
+
+    private List<Vod> getQuickSearchItems() {
+        List<Vod> items = new ArrayList<>();
+        for (int i=0;i<mQuickAdapter.getItemCount();i++) items.add(mQuickAdapter.get(i));
+        items.removeIf(this::mismatch);
+        return items;
+    }
+
+    private static void traceSourceSearch(String event) {
+        if (com.fongmi.android.tv.BuildConfig.DEBUG && android.util.Log.isLoggable("NativeSourceSearch", android.util.Log.DEBUG))
+            android.util.Log.d("NativeSourceSearch", event);
     }
 
     private void onFullscreen() {
@@ -7983,12 +8025,15 @@ private boolean runtimeSourceOnly;
         List<Site> sites = new ArrayList<>();
         for (Site site : VodConfig.get().getSites()) if (isPass(site)) sites.add(site);
         SiteHealthStore.sortSites(sites);
+        traceSourceSearch("request sites="+sites.size()+" auto="+isInitAuto());
         mViewModel.searchContent(sites, keyword, true);
     }
 
     private void setSearch(Result result) {
         List<Vod> items = result.getList();
+        int returned = items.size();
         items.removeIf(this::mismatch);
+        traceSourceSearch("results returned="+returned+" accepted="+items.size()+" auto="+isInitAuto());
         mQuickAdapter.addAll(items);
         mBinding.quick.setVisibility(View.GONE);
         updateFocus();
@@ -10445,6 +10490,7 @@ private void prepareImmersiveAudioPlayback(AudioPlaybackResolver.Resolved resolv
         playerStartTime = detailStartTime;
         beginPlayHealth();
         mPlaybackEpisodeKey = audioQueueEpisodeKey(episode);
+        mPlaybackFlagKey = playbackFlagKey(resolved.getFlag());
         clearLyrics();
         clearKaraokeState();
         setAudioOnly(true);
@@ -10455,6 +10501,7 @@ private void applyImmersiveAudioSelection(AudioPlaybackResolver.Resolved resolve
         Episode episode = resolved.getEpisode();
         mFlagAdapter.setSelected(flag);
         mFlagAdapter.toggle(episode);
+        mPlaybackFlagKey = playbackFlagKey(flag);
         int position = mFlagAdapter.indexOf(flag);
         if (position != RecyclerView.NO_POSITION) mBinding.flag.setSelectedPosition(position);
         notifyItemChanged(mBinding.flag, mFlagAdapter);

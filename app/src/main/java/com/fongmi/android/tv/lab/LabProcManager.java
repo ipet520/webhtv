@@ -75,6 +75,7 @@ public final class LabProcManager {
                         } else if (entryState.has("pkg")) {
                             LOGS.put(entry.getKey(), logFile(pid, entryState.get("pkg").getAsString()));
                         }
+                        LabMihomoProxy.recover(entry.getKey(), entryState);
                     } else {
                         dead.add(entry.getKey());
                     }
@@ -88,7 +89,7 @@ public final class LabProcManager {
         }
     }
 
-    public static synchronized void track(String key, int pid, String pkg, String cmd) {
+    public static synchronized void track(String key, int pid, String pkg, String cmd, String command, File cwd) {
         // LabRunner 始终用 setsid 启动，wrapper 进程 pid 就是新进程组 id；
         // wrapper 可能很快退出，不能依赖读取时的瞬时 pgrp 值。
         int pgid = pid;
@@ -109,6 +110,7 @@ public final class LabProcManager {
             entry.addProperty("pkg", pkg);
             entry.addProperty("cmd", cmd);
             entry.addProperty("log", log.getAbsolutePath());
+            if (LabMihomoProxy.isMihomo(pkg)) LabMihomoProxy.saveLaunch(entry, command, cwd);
             Map<String, JsonObject> state = loadState();
             state.put(key, entry);
             saveState(state);
@@ -139,6 +141,12 @@ public final class LabProcManager {
         LOGS.remove(key);
     }
 
+    public static synchronized void untrack(String key, int expectedPid) {
+        JsonObject entry = loadState().get(key);
+        // A replaced shell's exit must not delete a newer core's recovery metadata.
+        if (entry != null && entry.has("pid") && entry.get("pid").getAsInt() == expectedPid) untrack(key);
+    }
+
     public static File logFor(String key) {
         return LOGS.get(key);
     }
@@ -151,6 +159,7 @@ public final class LabProcManager {
         Map<String, JsonObject> state = loadState();
         JsonObject entry = state.get(key);
         if (entry == null) return false;
+        if (!entry.has("pgid") || entry.get("pgid").getAsInt() != pgid) return false;
 
         Map<Integer, Long> members = new LinkedHashMap<>();
         for (int pid : pids) members.put(pid, LabProcessIdentity.startTime(new File("/proc"), pid));
@@ -223,6 +232,7 @@ public final class LabProcManager {
     }
 
     public static synchronized void stop(String key) {
+        LabMihomoProxy.stop(key);
         Integer pid = RECOVERED.remove(key);
         Integer pgid = GROUPS.remove(key);
         if (pid != null && pid > 0) killTree(pid);

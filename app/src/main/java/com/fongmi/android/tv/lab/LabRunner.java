@@ -73,6 +73,7 @@ public final class LabRunner {
 
     public static void stop(String key) {
         Process process = RUNNING.remove(key);
+        LabMihomoProxy.stop(key);
         java.io.OutputStream stdin = STDIN.remove(key);
         if (stdin != null) {
             try {
@@ -104,6 +105,7 @@ public final class LabRunner {
     }
 
     public static void stopAll() {
+        LabMihomoProxy.stopAll();
         for (String key : new java.util.ArrayList<>(RUNNING.keySet())) stop(key);
         LabProcManager.stopAll();
         LabProcManager.updateService();
@@ -172,7 +174,8 @@ public final class LabRunner {
             } catch (Throwable ignored) {
             }
             String cmdId = key.contains("/") ? key.substring(key.indexOf('/') + 1) : key;
-            LabProcManager.track(key, pidOf(process), item.name, cmdId);
+            LabProcManager.track(key, pidOf(process), item.name, cmdId, command, cwd);
+            if (LabMihomoProxy.isMihomo(item.name)) LabMihomoProxy.start(key, command, cwd, process);
             LabProcManager.updateService();
             pump(process, key, command, listener);
             return process;
@@ -395,12 +398,13 @@ public final class LabRunner {
         new Thread(() -> {
             try {
                 int code = process.waitFor();
+                LabMihomoProxy.processExited(key, process);
                 try {
                     out.join(500);
                 } catch (InterruptedException ignored) {
                 }
                 RUNNING.remove(key, process);
-                STDIN.remove(key);
+                STDIN.remove(key, process.getOutputStream());
                 try {
                     if (writer != null) writer.close();
                 } catch (Exception ignored) {
@@ -423,7 +427,7 @@ public final class LabRunner {
                     if (listener != null) listener.onOutput("\n[命令已转入后台运行]\n");
                     LabProcManager.updateService();
                 } else {
-                    LabProcManager.untrack(key);
+                    LabProcManager.untrack(key, pid);
                     LabProcManager.updateService();
                     if (listener != null) listener.onExit(code);
                 }

@@ -65,6 +65,10 @@ import com.fongmi.android.tv.ui.adapter.BaseDiffCallback;
 import com.fongmi.android.tv.ui.adapter.TypeAdapter;
 import com.fongmi.android.tv.ui.base.BaseActivity;
 import com.fongmi.android.tv.ui.helper.TouchOptimizationHelper;
+import com.fongmi.android.tv.ui.home.NativeHomeModeHost;
+import com.fongmi.android.tv.ui.home.HomeCategorySwitchScheduler;
+import com.fongmi.android.tv.theme.ThemeController;
+import android.content.res.Configuration;
 import com.fongmi.android.tv.ui.custom.CustomRowPresenter;
 import com.fongmi.android.tv.ui.custom.CustomSelector;
 import com.fongmi.android.tv.ui.custom.CustomTitleView;
@@ -112,7 +116,8 @@ public class HomeActivity extends BaseActivity implements ExitConfirmDialog.List
     private static final String TV_TOOLBAR_HIDDEN = "tv-toolbar-hidden";
     private static final String TV_OVERLAY = "tv-overlay";
     private static final String TV_FULL = "tv-full";
-    private static final long TYPE_SWITCH_DELAY_MS = 100;
+    private static final long TYPE_SWITCH_DELAY_MS = HomeCategorySwitchScheduler.DELAY_MS;
+    private int mHomeNightMode;
     private static final long CONFIRM_LONG_PRESS_MS = 550;
 
     private ActivityHomeBinding mBinding;
@@ -124,6 +129,14 @@ public class HomeActivity extends BaseActivity implements ExitConfirmDialog.List
     private TypeAdapter mTypeAdapter;
     private FolderFragment mFolder;
     private HomeWebController mWeb;
+    private NativeHomeModeHost mNativeHomeModeHost;
+    private com.fongmi.android.tv.ui.home.NativeHomeBrowseController mNativeBrowse;
+    private String mNativeHomeResultSite="";
+    private boolean mNativeHomeRefresh;
+    private Bundle mNativeHomeSavedState;
+    private Setting.LeanbackHomeMode mAppliedNativeHomeMode = Setting.LeanbackHomeMode.CLASSIC;
+    private boolean mNativeHomeModeReady;
+    private boolean mLastHomeForceNative;
     private WebView mHomeWeb;
     private Result mResult;
     private Result mHomeResult;
@@ -185,6 +198,9 @@ public class HomeActivity extends BaseActivity implements ExitConfirmDialog.List
 
     @Override
     protected void initView(Bundle savedInstanceState) {
+        mAppliedNativeHomeMode = Setting.getLeanbackHomeMode();
+        mHomeNightMode = getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK;
+        mNativeHomeSavedState = savedInstanceState == null ? null : savedInstanceState.getBundle("native-home-presentation");
         SpiderDebug.log("startup", "home initView start cost=%sms", System.currentTimeMillis() - App.time());
         mResult = Result.empty();
         mHomeResult = Result.empty();
@@ -261,7 +277,7 @@ public class HomeActivity extends BaseActivity implements ExitConfirmDialog.List
     private void scheduleTypeSwitch(int position) {
         mPendingTypePosition = position;
         mBinding.typeRecycler.removeCallbacks(mTypeSwitch);
-        mBinding.typeRecycler.postDelayed(mTypeSwitch, TYPE_SWITCH_DELAY_MS);
+        if (!isImmersiveHomeVisible()) HomeCategorySwitchScheduler.replace(mBinding.typeRecycler, mTypeSwitch);
     }
 
     private void resumeTypeSwitch() {
@@ -271,6 +287,7 @@ public class HomeActivity extends BaseActivity implements ExitConfirmDialog.List
     }
 
     private void switchType() {
+        if (isImmersiveHomeVisible()) return;
         int position = mPendingTypePosition;
         if (isFinishing() || isDestroyed() || getSupportFragmentManager().isStateSaved()) return;
         if (!Setting.isHomeVodAutoLoad() || position < 0 || position >= mTypeAdapter.getItemCount()) return;
@@ -386,6 +403,7 @@ public class HomeActivity extends BaseActivity implements ExitConfirmDialog.List
         Fragment existing = getSupportFragmentManager().findFragmentByTag(tag);
         FolderFragment target = existing instanceof FolderFragment ? (FolderFragment) existing : FolderFragment.newInstance(getHome().getKey(), item);
         if (target == mFolder && target.isAdded() && !target.isHidden()) {
+            setClassicRequestsActive(target,true);
             mCurrentType = item;
             if (toggleFilter) updateFilter(item);
             return;
@@ -402,6 +420,7 @@ public class HomeActivity extends BaseActivity implements ExitConfirmDialog.List
         target.setUserVisibleHint(true);
         transaction.runOnCommit(() -> {
             if (generation != focusGeneration || target != mFolder || !isCurrentCategory(item)) return;
+            setClassicRequestsActive(target,true);
             target.scrollContentToTop(generation);
             restoreTypeFocus(keepTypeFocus, item);
             if (toggleFilter && target == mFolder && isCurrentCategory(item)) updateFilter(item);
@@ -471,7 +490,7 @@ public class HomeActivity extends BaseActivity implements ExitConfirmDialog.List
     }
 
     private void updateToolbarVisibility(boolean visible) {
-        mBinding.toolbar.setVisibility(visible && webToolbarVisible ? View.VISIBLE : View.GONE);
+        mBinding.toolbar.setVisibility(visible && webToolbarVisible && !isImmersiveHomeVisible() ? View.VISIBLE : View.GONE);
         syncNativeContentInset();
         syncWebOverlayLayout();
     }
@@ -585,11 +604,15 @@ public class HomeActivity extends BaseActivity implements ExitConfirmDialog.List
     private void setViewModel() {
         mViewModel = new ViewModelProvider(this).get(SiteViewModel.class);
         mViewModel.getResult().observe(this, result -> {
+            if (isImmersiveHomeVisible()) return;
             boolean categoryResult = isHomeCategoryResult(result);
             mAdapter.remove("progress");
             if (!categoryResult) {
                 Cache.clear().put(result);
                 setTypes(mHomeResult = result);
+                mNativeHomeResultSite=getHome().getKey();
+                mNativeHomeRefresh=false;
+                if(mNativeBrowse!=null)mNativeBrowse.seed(getHome().getKey(),result);
             }
             mResult = result;
             addVideo(result);
@@ -660,6 +683,12 @@ public class HomeActivity extends BaseActivity implements ExitConfirmDialog.List
     }
 
     private void showNoConfig() {
+        mNativeHomeModeReady = true;
+        mAppliedNativeHomeMode = Setting.getLeanbackHomeMode();
+        if (mAppliedNativeHomeMode == Setting.LeanbackHomeMode.IMMERSIVE) {
+            getVideo();
+            return;
+        }
         noConfigVisible = true;
         mBinding.progressLayout.showEmptyContent(
                 R.string.home_no_config_title,
@@ -718,6 +747,7 @@ public class HomeActivity extends BaseActivity implements ExitConfirmDialog.List
     }
 
     private void setFocus() {
+        if (isImmersiveHomeVisible()) return;
         mBinding.title.setSelected(true);
         mBinding.title.setFocusable(true);
         if (!mBinding.title.hasFocus()) mBinding.recycler.requestFocus();
@@ -736,10 +766,15 @@ public class HomeActivity extends BaseActivity implements ExitConfirmDialog.List
             }
             return;
         }
+        mNativeHomeModeReady = true;
+        mLastHomeForceNative = forceNative;
+        mAppliedNativeHomeMode = Setting.getLeanbackHomeMode();
         if (!forceNative && WebHomeTarget.canLoad(getHome())) {
+            hideImmersiveHome();
             ensureWebView();
         }
         if (!forceNative && mWeb != null && mWeb.load(getHome())) {
+            hideImmersiveHome();
             mBinding.typeRecycler.setVisibility(View.GONE);
             mBinding.recycler.setVisibility(View.GONE);
             if (mWeb.isReady()) {
@@ -754,7 +789,15 @@ public class HomeActivity extends BaseActivity implements ExitConfirmDialog.List
         if (mWeb != null) mWeb.hide();
         hideWebOverlay();
         applyTvChrome(TV_NORMAL);
+        if (showImmersiveNativeHome()) return;
+        boolean reuseImmersiveHome=isImmersiveHomeVisible()&&!mNativeHomeRefresh&&mNativeBrowse!=null
+                &&mNativeBrowse.siteKey().equals(getHome().getKey())&&mNativeBrowse.homeResult()!=null&&!mNativeBrowse.homeResult().getList().isEmpty();
+        hideImmersiveHome();
         mBinding.recycler.setVisibility(View.VISIBLE);
+        if(reuseImmersiveHome) {
+            Cache.clear().put(mHomeResult=mNativeBrowse.homeResult());setTypes(mHomeResult);
+            mResult=mHomeResult;loadingHomeCategory=false;clearRecommendRows();addVideo(mResult);return;
+        }
         mResult = Result.empty();
         mHomeResult = Result.empty();
         loadingHomeCategory = false;
@@ -762,6 +805,89 @@ public class HomeActivity extends BaseActivity implements ExitConfirmDialog.List
         clearRecommendRows();
         mAdapter.add("progress");
         mViewModel.homeContent();
+    }
+
+    private boolean isImmersiveHomeVisible() {
+        return mNativeHomeModeHost != null && mNativeHomeModeHost.isVisible();
+    }
+    public boolean isNativeBrowsePresentationVisible() { return isImmersiveHomeVisible(); }
+    private void setClassicRequestsActive(Fragment fragment,boolean active) {
+        if(!fragment.isAdded())return;
+        if(active&&fragment.isHidden())return;
+        if(fragment instanceof com.fongmi.android.tv.ui.fragment.TypeFragment type)type.setHomePresentationActive(active);
+        for(Fragment child:fragment.getChildFragmentManager().getFragments())setClassicRequestsActive(child,active);
+    }
+
+    private boolean showImmersiveNativeHome() {
+        if (Setting.getLeanbackHomeMode() != Setting.LeanbackHomeMode.IMMERSIVE) return false;
+        invalidatePendingFocusRequests();
+        if (mFolder != null) mFolder.clearContentFocusRequest();
+        if (mNativeHomeModeHost == null) {
+            mNativeHomeModeHost = new NativeHomeModeHost(this, (FrameLayout) mBinding.getRoot(),
+                    mBinding.nativeContent, mBinding.toolbar, this::exitHome,
+                    new FuncPresenter.OnClickListener() {
+                        @Override public void onItemClick(Func item) {
+                            if (item.getResId() == R.string.home_vod) mNativeBrowse.openFirstCategory();
+                            else HomeActivity.this.onItemClick(item);
+                        }
+                        @Override public boolean onLongClick(Func item) { return HomeActivity.this.onLongClick(item); }
+                    }, mNativeHomeSavedState);
+            mNativeBrowse=new com.fongmi.android.tv.ui.home.NativeHomeBrowseController(
+                com.fongmi.android.tv.ui.home.NativeHomeBrowseController.gateway(mViewModel),result->{
+                    Cache.clear().put(result);mHomeResult=result;mNativeHomeResultSite=getHome().getKey();
+                });
+            if(mHomeResult!=null&&!mHomeResult.getList().isEmpty()&&mNativeHomeResultSite.equals(getHome().getKey()))mNativeBrowse.seed(getHome().getKey(),mHomeResult);
+            mNativeHomeModeHost.setBusiness(mNativeBrowse,this::getHome,this::immersiveSites,this::setSite,this::onImmersiveVodClick,this::onImmersiveVodLongClick);
+        }
+        mBinding.typeRecycler.removeCallbacks(mTypeSwitch);
+        if(!mNativeHomeModeHost.isVisible())for(Fragment fragment:getSupportFragmentManager().getFragments())if(fragment instanceof FolderFragment)setClassicRequestsActive(fragment,false);
+        mNativeHomeModeHost.show(mNativeHomeRefresh);
+        mNativeHomeRefresh=false;
+        return true;
+    }
+
+    private java.util.List<Site> immersiveSites() {
+        // Consume the same visibility/health ordering authority as the existing manual site dialog.
+        return new com.fongmi.android.tv.ui.adapter.SiteAdapter(new com.fongmi.android.tv.ui.adapter.SiteAdapter.OnClickListener() {
+            public void onItemClick(Site site) { setSite(site); }
+            public boolean onItemKeyUp(int position) { return false; }
+            public boolean onItemKeyHorizontal(int position,boolean left) { return false; }
+        }).getItems();
+    }
+    private void onImmersiveVodClick(Vod item) {
+        if(item.isAction())onItemClick(item);
+        else if(item.isFolder())mNativeBrowse.openFolder(item);
+        else if(getHome().isIndex())onItemClick(item);
+        else VideoActivity.start(this,getHome().getKey(),item.getId(),item.getName(),item.getPic(),
+                mNativeBrowse.state()!=null&&mNativeBrowse.state().folder?item.getName():null);
+    }
+    private boolean onImmersiveVodLongClick(Vod item) { return !item.isFolder()&&onLongClick(item); }
+
+    private void hideImmersiveHome() {
+        if (mNativeHomeModeHost != null && mNativeHomeModeHost.isVisible()) {
+            mNativeHomeModeHost.hide();
+            // The hidden classic tree may predate an in-place immersive theme change.
+            ThemeController.applyFromPreferences(this);
+            ThemeController.bindTheme(mBinding.nativeContent);
+            ThemeController.bindTheme(mBinding.toolbar);
+        }
+    }
+
+    private void applyNativeHomeModeOnResume() {
+        Setting.LeanbackHomeMode requested = Setting.getLeanbackHomeMode();
+        if (!mNativeHomeModeReady || requested == mAppliedNativeHomeMode) return;
+        if (mWeb != null && mWeb.isVisible()) {
+            // A preference change never replaces or reloads a live WebHome session.
+            mAppliedNativeHomeMode = requested;
+            return;
+        }
+        if (requested == Setting.LeanbackHomeMode.CLASSIC && VodConfig.get().getSites().isEmpty()) {
+            hideImmersiveHome();
+            showNoConfig();
+            return;
+        }
+        // Preserve an explicit native request or a WebHome error fallback when returning from settings.
+        getVideo(mLastHomeForceNative);
     }
 
     private void showWebOverlay() {
@@ -853,6 +979,7 @@ public class HomeActivity extends BaseActivity implements ExitConfirmDialog.List
             items.add(Func.create(button.getResId()));
         }
         mFuncAdapter.setItems(items, new BaseDiffCallback<Func>());
+        if (mNativeHomeModeHost != null) mNativeHomeModeHost.refreshFunctions();
     }
 
     private void refreshFollowingCount() {
@@ -960,6 +1087,7 @@ public class HomeActivity extends BaseActivity implements ExitConfirmDialog.List
             case HOME:
                 dismissNoConfigIfConfigured();
                 setTitle();
+                mNativeHomeRefresh=true;
                 SpiderDebug.log("site-dialog", "home refresh start key=%s homePage=%s", getHome().getKey(), getHome().hasHomePage());
                 if (mWeb != null && mWeb.isVisible()) {
                     if (!mWeb.load(getHome(), true)) getVideo(true);
@@ -1241,6 +1369,13 @@ public class HomeActivity extends BaseActivity implements ExitConfirmDialog.List
 
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
+        if (isImmersiveHomeVisible()) {
+            if (KeyUtil.isMenuKey(event)) {
+                onHomeMenuKey();
+                return true;
+            }
+            return super.dispatchKeyEvent(event);
+        }
         if (KeyUtil.isMenuKey(event)) {
             if (isCategoryVisible()) updateFilter(mCurrentType);
             else onHomeMenuKey();
@@ -1338,11 +1473,42 @@ public class HomeActivity extends BaseActivity implements ExitConfirmDialog.List
         FollowingScheduler.enqueueDueNow(this);
         setFunc();
         refreshFollowingCount();
-        syncTypeItems();
-        resumeTypeSwitch();
+        applyNativeHomeModeOnResume();
+        refreshImmersiveTheme();
+        if(isImmersiveHomeVisible())mNativeHomeModeHost.resumeVisuals();
+        if (!isImmersiveHomeVisible()) {
+            syncTypeItems();
+            resumeTypeSwitch();
+        }
         resumeDeferredFragmentWork();
     }
 
+    private void refreshImmersiveTheme() {
+        if (!isImmersiveHomeVisible()) return;
+        ThemeController.applyFromPreferences(this);
+        mNativeHomeModeHost.refreshTheme();
+    }
+
+    @Override
+    @Subscribe(threadMode = ThreadMode.MAIN)
+    public void onSubscribe(Object event) {
+        if (event instanceof RefreshEvent refresh && refresh.getType() == RefreshEvent.Type.THEME && isImmersiveHomeVisible()) {
+            refreshImmersiveTheme();
+            return;
+        }
+        super.onSubscribe(event);
+    }
+
+    @Override public void onConfigurationChanged(@NonNull Configuration config) {
+        int night = config.uiMode & Configuration.UI_MODE_NIGHT_MASK;
+        boolean changed = night != mHomeNightMode;
+        mHomeNightMode = night;
+        super.onConfigurationChanged(config);
+        if (changed) {
+            if (isImmersiveHomeVisible()) refreshImmersiveTheme();
+            else if (com.fongmi.android.tv.BuildConfig.DEBUG) recreate();
+        }
+    }
     private void resumeDeferredFragmentWork() {
         if (!canCommitFragmentTransaction()) return;
         if (mPendingCategoryCleanup) {
@@ -1358,6 +1524,7 @@ public class HomeActivity extends BaseActivity implements ExitConfirmDialog.List
 
     @Override
     protected void onPause() {
+        if(mNativeHomeModeHost!=null)mNativeHomeModeHost.pauseVisuals();
         invalidatePendingFocusRequests();
         if (mFolder != null) mFolder.clearContentFocusRequest();
         mBinding.typeRecycler.removeCallbacks(mTypeSwitch);
@@ -1369,7 +1536,11 @@ public class HomeActivity extends BaseActivity implements ExitConfirmDialog.List
 
     @Override
     protected void onBackInvoked() {
-        if (mWeb != null && mWeb.isVisible() && mWeb.handleBack()) {
+        if (isImmersiveHomeVisible()) {
+            if (mNativeHomeModeHost.handleBack()) return;
+            exitHome();
+            return;
+        } else if (mWeb != null && mWeb.isVisible() && mWeb.handleBack()) {
             return;
         } else if (mWeb != null && mWeb.isVisible() && consumeTvFullscreenBack()) {
             return;
@@ -1426,7 +1597,14 @@ public class HomeActivity extends BaseActivity implements ExitConfirmDialog.List
     }
 
     @Override
+    protected void onSaveInstanceState(@NonNull Bundle outState) {
+        if (mNativeHomeModeHost != null) outState.putBundle("native-home-presentation", mNativeHomeModeHost.saveState());
+        super.onSaveInstanceState(outState);
+    }
+
+    @Override
     protected void onDestroy() {
+        if (mNativeHomeModeHost != null) mNativeHomeModeHost.release();
         invalidatePendingFocusRequests();
         if (mFolder != null) mFolder.clearContentFocusRequest();
         mBinding.typeRecycler.removeCallbacks(mTypeSwitch);
@@ -1460,6 +1638,7 @@ public class HomeActivity extends BaseActivity implements ExitConfirmDialog.List
 
     @Override
     public void onWebLoading() {
+        hideImmersiveHome();
         cancelWebConfirmKey();
         hideWebOverlay();
         mBinding.progressLayout.showProgress();
@@ -1467,6 +1646,7 @@ public class HomeActivity extends BaseActivity implements ExitConfirmDialog.List
 
     @Override
     public void onWebReady() {
+        hideImmersiveHome();
         showWebOverlay();
         mBinding.progressLayout.showContent();
         mBinding.typeRecycler.setVisibility(View.GONE);

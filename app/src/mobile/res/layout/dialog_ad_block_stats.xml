@@ -336,7 +336,7 @@
         <androidx.appcompat.widget.LinearLayoutCompat
             android:layout_width="wrap_content"
             android:layout_height="88dp"
-            android:background="@color/webhtv_color_scrim"
+            android:background="?attr/colorSurfaceContainerHigh"
             android:gravity="center_vertical"
             android:orientation="horizontal">
             <androidx.appcompat.widget.LinearLayoutCompat

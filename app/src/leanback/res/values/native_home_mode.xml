@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="setting_native_home_style" translatable="false">主页样式</string>
+    <string name="native_home_classic" translatable="false">经典模式</string>
+    <string name="native_home_immersive" translatable="false">沉浸模式</string>
+</resources>

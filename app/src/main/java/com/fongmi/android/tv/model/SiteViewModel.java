@@ -140,6 +140,22 @@ public class SiteViewModel extends ViewModel {
         execute(TaskType.RESULT, result, () -> SiteApi.homeContent(VodConfig.get().getHome()));
     }
 
+    /** Same RESULT slot, exclusive presentation consumer; callbacks run on the worker. */
+    public void homeContent(Consumer<Result> success, Consumer<Throwable> failure) {
+        execute(TaskType.RESULT, null, () -> SiteApi.homeContent(VodConfig.get().getHome()), success, failure);
+    }
+
+    public void categoryContent(String key, String tid, String page, boolean filter, HashMap<String, String> extend,
+                                Consumer<Result> success, Consumer<Throwable> failure) {
+        execute(TaskType.RESULT, null, () -> SiteApi.categoryContent(key, tid, page, filter, extend), success, failure);
+    }
+
+    public void cancelHomeContent() {
+        Objects.requireNonNull(taskIds.get(TaskType.RESULT)).incrementAndGet();
+        ListenableFuture<?> old = futures.get(TaskType.RESULT);
+        if (old != null) old.cancel(true);
+    }
+
     public void categoryContent(String key, String tid, String page, boolean filter, HashMap<String, String> extend) {
         execute(TaskType.RESULT, result, () -> SiteApi.categoryContent(key, tid, page, filter, extend));
     }
@@ -343,7 +359,9 @@ public class SiteViewModel extends ViewModel {
                     });
                     else {
                         if (onSuccess != null) onSuccess.accept(result);
-                        liveData.postValue(result);
+                        if (liveData != null) App.post(() -> {
+                            if (taskId.get() == currentId) liveData.setValue(result);
+                        });
                     }
                 },
                 error -> {
@@ -357,7 +375,9 @@ public class SiteViewModel extends ViewModel {
                     });
                     else {
                         if (onError != null) onError.accept(error);
-                        liveData.postValue(failure);
+                        if (liveData != null) App.post(() -> {
+                            if (taskId.get() == currentId) liveData.setValue(failure);
+                        });
                     }
                     error.printStackTrace();
                 }

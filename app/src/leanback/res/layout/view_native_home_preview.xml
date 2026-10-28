@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<merge xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto">
+    <ImageView android:id="@+id/nhp_fallback_poster" android:layout_width="180dp" android:layout_height="270dp" android:scaleType="centerCrop" android:visibility="invisible" android:focusable="false" android:importantForAccessibility="no" />
+    <View android:id="@+id/nhp_shade_left" android:layout_width="match_parent" android:layout_height="match_parent" android:focusable="false" />
+    <View android:id="@+id/nhp_shade_bottom" android:layout_width="match_parent" android:layout_height="match_parent" android:focusable="false" />
+
+    <LinearLayout android:id="@+id/nhp_top" android:layout_width="match_parent" android:layout_height="48dp" android:orientation="horizontal" android:gravity="center_vertical" android:clipChildren="false" android:clipToPadding="false">
+        <ImageButton android:id="@+id/nhp_home" android:layout_width="32dp" android:layout_height="match_parent" android:layout_marginEnd="20dp" android:src="@drawable/nhp_home_icon" android:scaleType="center" android:padding="0dp" android:contentDescription="@string/nhp_source" />
+        <androidx.leanback.widget.HorizontalGridView android:id="@+id/nhp_functions" android:layout_width="0dp" android:layout_weight="1" android:layout_height="match_parent" android:clipChildren="false" android:clipToPadding="false" app:focusOutFront="false" app:focusOutEnd="false" />
+    </LinearLayout>
+
+    <!-- Filter is a home state, not a modal Window or a second poster host. -->
+    <LinearLayout android:id="@+id/nhp_filters" android:layout_width="match_parent" android:layout_height="120dp" android:orientation="vertical" android:visibility="gone" android:clipChildren="false" android:clipToPadding="false">
+        <androidx.leanback.widget.HorizontalGridView android:id="@+id/nhp_filter_genre" android:layout_width="match_parent" android:layout_height="28dp" android:layout_marginBottom="6dp" android:clipChildren="false" android:clipToPadding="false" app:focusOutFront="false" app:focusOutEnd="false" />
+        <androidx.leanback.widget.HorizontalGridView android:id="@+id/nhp_filter_year" android:layout_width="match_parent" android:layout_height="28dp" android:layout_marginBottom="6dp" android:clipChildren="false" android:clipToPadding="false" app:focusOutFront="false" app:focusOutEnd="false" />
+        <androidx.leanback.widget.HorizontalGridView android:id="@+id/nhp_filter_order" android:layout_width="match_parent" android:layout_height="28dp" android:clipChildren="false" android:clipToPadding="false" app:focusOutFront="false" app:focusOutEnd="false" />
+    </LinearLayout>
+
+    <LinearLayout android:id="@+id/nhp_hero" android:layout_width="400dp" android:layout_height="180dp" android:orientation="vertical" android:descendantFocusability="blocksDescendants" android:focusable="false">
+        <FrameLayout android:id="@+id/nhp_title_slot" android:layout_width="match_parent" android:layout_height="70dp">
+            <com.fongmi.android.tv.ui.homepreview.HomeHeroTitleView android:id="@+id/nhp_title" android:layout_width="match_parent" android:layout_height="match_parent" android:gravity="center_vertical" android:singleLine="true" android:maxLines="1" android:scrollHorizontally="true" android:ellipsize="marquee" android:marqueeRepeatLimit="marquee_forever" android:includeFontPadding="false" android:textColor="?attr/colorOnSurface" android:textStyle="bold" android:textSize="36sp" />
+            <ImageView android:id="@+id/nhp_logo" android:layout_width="match_parent" android:layout_height="match_parent" android:scaleType="fitStart" android:visibility="invisible" android:focusable="false" />
+        </FrameLayout>
+        <TextView android:id="@+id/nhp_meta" android:layout_width="match_parent" android:layout_height="28dp" android:gravity="center_vertical" android:maxLines="1" android:ellipsize="end" android:textColor="?attr/colorOnSurfaceVariant" android:textSize="14sp" />
+        <TextView android:id="@+id/nhp_overview" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:maxLines="2" android:ellipsize="end" android:lineSpacingMultiplier="1.15" android:textColor="?attr/colorOnSurface" android:textSize="16sp" />
+    </LinearLayout>
+
+    <LinearLayout android:id="@+id/nhp_category_row" android:layout_width="match_parent" android:layout_height="44dp" android:orientation="horizontal" android:gravity="center_vertical" android:clipChildren="false" android:clipToPadding="false">
+        <androidx.leanback.widget.HorizontalGridView android:id="@+id/nhp_categories" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:clipChildren="false" android:clipToPadding="false" app:focusOutFront="false" app:focusOutEnd="false" />
+    </LinearLayout>
+    <!-- The sole poster scroller. Scaling never changes item layout dimensions. -->
+    <androidx.leanback.widget.HorizontalGridView android:id="@+id/nhp_posters" android:layout_width="match_parent" android:layout_height="240dp" android:clipChildren="false" android:clipToPadding="false" app:focusOutFront="false" app:focusOutEnd="false" />
+</merge>
+

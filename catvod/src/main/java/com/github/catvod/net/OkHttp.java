@@ -245,6 +245,8 @@ public class OkHttp {
         builder.proxyAuthenticator(authenticator());
         //builder.addNetworkInterceptor(logging);
         builder.proxySelector(selector());
+        builder.addInterceptor(selector().runtimeCleanupInterceptor());
+        builder.connectionPool(selector().registerRuntimePool(new okhttp3.ConnectionPool()));
         return builder;
     }
 

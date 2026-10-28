@@ -2,17 +2,32 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:orientation="vertical"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content">
+    android:layout_height="match_parent">
     <ProgressBar
         android:id="@+id/progress"
         android:layout_width="match_parent"
         android:layout_height="3dp"
         android:max="100"
         style="?android:attr/progressBarStyleHorizontal"/>
-    <WebView
-        android:id="@+id/webView"
+    <FrameLayout
+        android:id="@+id/webViewContainer"
         android:layout_width="match_parent"
-        android:layout_height="400dp"/>
+        android:layout_height="0dp"
+        android:layout_weight="1">
+        <WebView
+            android:id="@+id/webView"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+        <com.google.android.material.textview.MaterialTextView
+            android:id="@+id/webStatus"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@color/lab_surface"
+            android:gravity="center"
+            android:padding="16dp"
+            android:textColor="@color/lab_text_secondary"
+            android:visibility="gone" />
+    </FrameLayout>
     <com.google.android.material.textview.MaterialTextView
         android:textSize="12sp"
         android:id="@+id/content"

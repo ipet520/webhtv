@@ -1,13 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:background="@drawable/shape_lab_card"
+    android:background="@drawable/selector_lab_package_row"
     android:focusable="true"
     android:clickable="true"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_marginTop="6dp"
     android:layout_marginBottom="6dp"
-    android:foreground="?attr/selectableItemBackground"
     android:layout_marginStart="12dp"
     android:layout_marginEnd="12dp">
     <FrameLayout

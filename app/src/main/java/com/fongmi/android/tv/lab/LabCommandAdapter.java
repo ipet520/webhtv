@@ -2,8 +2,10 @@ package com.fongmi.android.tv.lab;
 
 import android.content.Context;
 import android.view.LayoutInflater;
+import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewParent;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
@@ -109,6 +111,77 @@ public final class LabCommandAdapter extends RecyclerView.Adapter<LabCommandAdap
             if (listener != null) listener.onLongPress(item, command);
             return true;
         });
+        bindFocusNavigation(holder);
+    }
+
+    /**
+     * Keep the command body as the list's focus stop. The action controls are a second focus level
+     * entered with RIGHT, while vertical navigation always returns to command bodies.
+     */
+    private void bindFocusNavigation(Holder holder) {
+        View row = holder.itemView;
+        row.setFocusable(true);
+        ((ViewGroup) row).setDescendantFocusability(ViewGroup.FOCUS_BEFORE_DESCENDANTS);
+        row.setOnKeyListener((view, keyCode, event) -> {
+            if (event.getAction() != KeyEvent.ACTION_DOWN) return false;
+            if (keyCode == KeyEvent.KEYCODE_DPAD_RIGHT) return focusInlineAction(holder, null, 1);
+            if (keyCode == KeyEvent.KEYCODE_DPAD_UP) return focusAdjacentRow(holder, -1);
+            if (keyCode == KeyEvent.KEYCODE_DPAD_DOWN) return focusAdjacentRow(holder, 1);
+            return false;
+        });
+        List<View> actions = new ArrayList<>();
+        collectActionViews(row, row, actions);
+        for (View action : actions) {
+            action.setFocusable(true);
+            action.setOnKeyListener((view, keyCode, event) -> {
+                if (event.getAction() != KeyEvent.ACTION_DOWN) return false;
+                if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT) return focusInlineAction(holder, view, -1);
+                if (keyCode == KeyEvent.KEYCODE_DPAD_RIGHT) return focusInlineAction(holder, view, 1);
+                if (keyCode == KeyEvent.KEYCODE_DPAD_UP) return focusAdjacentRow(holder, -1);
+                if (keyCode == KeyEvent.KEYCODE_DPAD_DOWN) return focusAdjacentRow(holder, 1);
+                return false;
+            });
+        }
+    }
+
+    private boolean focusInlineAction(Holder holder, View current, int direction) {
+        List<View> actions = new ArrayList<>();
+        collectActionViews(holder.itemView, holder.itemView, actions);
+        if (actions.isEmpty()) return false;
+        if (current == null) return direction > 0 && actions.get(0).requestFocus();
+        int index = actions.indexOf(current);
+        int next = index + direction;
+        if (index >= 0 && next >= 0 && next < actions.size()) return actions.get(next).requestFocus();
+        return direction < 0 && holder.itemView.requestFocus();
+    }
+
+    private void collectActionViews(View view, View row, List<View> actions) {
+        if (view != row && view.getVisibility() == View.VISIBLE && view.isEnabled()
+                && view.isClickable()) {
+            actions.add(view);
+        }
+        if (view instanceof ViewGroup) {
+            ViewGroup group = (ViewGroup) view;
+            for (int i = 0; i < group.getChildCount(); i++) collectActionViews(group.getChildAt(i), row, actions);
+        }
+    }
+
+    private boolean focusAdjacentRow(Holder holder, int direction) {
+        int position = holder.getBindingAdapterPosition();
+        int targetPosition = position + direction;
+        if (position == RecyclerView.NO_POSITION || targetPosition < 0 || targetPosition >= getItemCount()) return false;
+        ViewParent parent = holder.itemView.getParent();
+        while (parent != null && !(parent instanceof RecyclerView)) parent = parent.getParent();
+        if (!(parent instanceof RecyclerView)) return false;
+        RecyclerView recycler = (RecyclerView) parent;
+        RecyclerView.ViewHolder target = recycler.findViewHolderForAdapterPosition(targetPosition);
+        if (target != null) return target.itemView.requestFocus();
+        recycler.scrollToPosition(targetPosition);
+        recycler.post(() -> {
+            RecyclerView.ViewHolder attached = recycler.findViewHolderForAdapterPosition(targetPosition);
+            if (attached != null) attached.itemView.requestFocus();
+        });
+        return true;
     }
 
     @Override

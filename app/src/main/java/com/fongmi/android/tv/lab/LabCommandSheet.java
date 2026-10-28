@@ -6,6 +6,7 @@ import android.graphics.drawable.ColorDrawable;
 import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.widget.ImageButton;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -16,11 +17,13 @@ import androidx.appcompat.app.AlertDialog;
 import com.fongmi.android.tv.App;
 import com.fongmi.android.tv.R;
 import com.fongmi.android.tv.theme.WebHtvAlertDialogBuilder;
+import com.google.android.material.bottomsheet.BottomSheetBehavior;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.android.material.materialswitch.MaterialSwitch;
 import com.google.android.material.textfield.MaterialAutoCompleteTextView;
 import com.google.android.material.textfield.TextInputLayout;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Arrays;
 import java.util.List;
@@ -42,6 +45,7 @@ public final class LabCommandSheet implements LabRunner.OutputListener {
     private BottomSheetDialog dialog;
     private TextView sheetTitle;
     private TextView sheetRunningTag;
+    private ImageButton sheetBtnClose;
     private TextView sheetDesc;
     private TextView sheetBtnEdit;
     private TextView sheetBtnStop;
@@ -52,8 +56,10 @@ public final class LabCommandSheet implements LabRunner.OutputListener {
     private LinearLayout sheetVariables;
     private LinearLayout sheetClicksContainer;
     private View sheetDownloadContainer;
+    private final List<View> sheetParameterFocusTargets = new ArrayList<>();
     private boolean running;
     private boolean loaded;
+    private static final int SHEET_MAX_HEIGHT_DP = 640;
     private final android.os.Handler mStateHandler = new android.os.Handler(android.os.Looper.getMainLooper());
     private final Runnable mStateRunnable = new Runnable() {
         @Override
@@ -82,6 +88,7 @@ public final class LabCommandSheet implements LabRunner.OutputListener {
         root.setBackgroundResource(R.drawable.shape_lab_sheet_bg);
         sheetTitle = root.findViewById(R.id.sheetTitle);
         sheetRunningTag = root.findViewById(R.id.sheetRunningTag);
+        sheetBtnClose = root.findViewById(R.id.sheetBtnClose);
         sheetDesc = root.findViewById(R.id.sheetDesc);
         sheetBtnEdit = root.findViewById(R.id.sheetBtnEdit);
         sheetBtnStop = root.findViewById(R.id.sheetBtnStop);
@@ -105,6 +112,7 @@ public final class LabCommandSheet implements LabRunner.OutputListener {
             TextView label = root.findViewById(R.id.sheetDownloadLabel);
             label.setText(command.download.title == null ? "下载地址" : command.download.title);
         }
+        wireParameterFocus();
         updatePreview();
         renderClicks();
 
@@ -113,9 +121,15 @@ public final class LabCommandSheet implements LabRunner.OutputListener {
             dialog.dismiss();
             new LabCommandSheet(activity, item, command, callback).show();
         }));
+        sheetBtnClose.setOnClickListener(v -> dialog.dismiss());
         sheetBtnRun.setOnClickListener(v -> run());
         sheetBtnStop.setOnClickListener(v -> stop());
         sheetBtnOutput.setOnClickListener(v -> LabOutputActivity.start(activity, item.name, command.id, new HashMap<>(vars)));
+        sheetBtnEdit.setFocusable(true);
+        sheetBtnClose.setFocusable(true);
+        sheetBtnRun.setFocusable(true);
+        sheetBtnStop.setFocusable(true);
+        sheetBtnOutput.setFocusable(true);
         sheetDownloadUrl.addTextChangedListener(new android.text.TextWatcher() {
             @Override
             public void beforeTextChanged(CharSequence s, int start, int count, int after) {
@@ -130,6 +144,8 @@ public final class LabCommandSheet implements LabRunner.OutputListener {
                 if (command.download != null) command.download.url = s.toString();
             }
         });
+        wireSingleLineParameterNavigation(sheetDownloadUrl, "download");
+        wireSingleLineParameterNavigation(sheetCommandPreview, "preview");
 
         dialog = new BottomSheetDialog(activity, R.style.Theme_App_Lab_Dialog);
         dialog.setContentView(root);
@@ -143,11 +159,22 @@ public final class LabCommandSheet implements LabRunner.OutputListener {
             if (callback != null) callback.onChanged();
         });
         dialog.show();
+        expandSheetToViewport();
         mStateHandler.post(mStateRunnable);
         loaded = true;
         running = LabRunner.isRunning(key());
         syncRunning();
         requestSheetFocus();
+    }
+
+    private void expandSheetToViewport() {
+        float density = activity.getResources().getDisplayMetrics().density;
+        int displayHeight = activity.getResources().getDisplayMetrics().heightPixels;
+        int maxHeight = Math.round(SHEET_MAX_HEIGHT_DP * density);
+        if (displayHeight > 0) maxHeight = Math.min(maxHeight, displayHeight);
+        BottomSheetBehavior<?> behavior = dialog.getBehavior();
+        behavior.setMaxHeight(maxHeight);
+        behavior.setState(BottomSheetBehavior.STATE_EXPANDED);
     }
 
     /**
@@ -167,11 +194,17 @@ public final class LabCommandSheet implements LabRunner.OutputListener {
 
     private void renderVariables() {
         sheetVariables.removeAllViews();
+        sheetParameterFocusTargets.clear();
         if (!command.hasVariables()) return;
         if (vars.isEmpty() && command.cachedVariableValues != null) vars.putAll(command.cachedVariableValues);
         for (LabModels.Variable variable : command.getVariables()) {
             View row = inflateVariable(activity, variable);
-            if (row != null) sheetVariables.addView(row);
+            if (row == null) continue;
+            sheetVariables.addView(row);
+            View target = row.findViewById(R.id.input);
+            if (target == null) target = row.findViewById(R.id.dropdown);
+            if (target == null) target = row.findViewById(R.id.switchView);
+            if (target != null) sheetParameterFocusTargets.add(target);
         }
     }
 
@@ -280,6 +313,52 @@ public final class LabCommandSheet implements LabRunner.OutputListener {
         return row;
     }
 
+    private void wireParameterFocus() {
+        if (sheetParameterFocusTargets.isEmpty()) return;
+        View first = sheetParameterFocusTargets.get(0);
+        sheetBtnClose.setNextFocusDownId(first.getId());
+        first.setNextFocusUpId(sheetBtnClose.getId());
+        for (int i = 0; i < sheetParameterFocusTargets.size(); i++) {
+            View target = sheetParameterFocusTargets.get(i);
+            if (target instanceof EditText && ((EditText) target).getMaxLines() > 1
+                    && !(target instanceof MaterialAutoCompleteTextView)) continue;
+            final int index = i;
+            target.setOnKeyListener((view, keyCode, event) -> {
+                if (event.getAction() != android.view.KeyEvent.ACTION_DOWN) return false;
+                int direction = keyCode == android.view.KeyEvent.KEYCODE_DPAD_UP ? View.FOCUS_UP
+                        : keyCode == android.view.KeyEvent.KEYCODE_DPAD_DOWN ? View.FOCUS_DOWN : 0;
+                if (direction == 0) return false;
+                if (view instanceof MaterialAutoCompleteTextView
+                        && ((MaterialAutoCompleteTextView) view).isPopupShowing()) return false;
+                int adjacent = direction == View.FOCUS_UP ? index - 1 : index + 1;
+                View next = adjacent >= 0 && adjacent < sheetParameterFocusTargets.size()
+                        ? sheetParameterFocusTargets.get(adjacent) : null;
+                if (direction == View.FOCUS_UP && next == null) next = sheetBtnClose;
+                if (direction == View.FOCUS_DOWN && next == null) next = nextFocusAfterParameters(view);
+                return next != null && next != view && next.requestFocus();
+            });
+        }
+    }
+
+    private void wireSingleLineParameterNavigation(EditText edit, String type) {
+        if ("select".equals(type) || "text_multiline".equals(type) || edit.getMaxLines() > 1) return;
+        edit.setOnKeyListener((view, keyCode, event) -> {
+            if (event.getAction() != android.view.KeyEvent.ACTION_DOWN) return false;
+            int direction = keyCode == android.view.KeyEvent.KEYCODE_DPAD_UP ? View.FOCUS_UP
+                    : keyCode == android.view.KeyEvent.KEYCODE_DPAD_DOWN ? View.FOCUS_DOWN : 0;
+            if (direction == 0) return false;
+            View next = view.focusSearch(direction);
+            return next != null && next != view && next.requestFocus();
+        });
+    }
+
+    private View nextFocusAfterParameters(View from) {
+        if (sheetDownloadContainer.getVisibility() == View.VISIBLE) return sheetDownloadUrl;
+        View next = from.focusSearch(View.FOCUS_DOWN);
+        if (next != null && next != from && !sheetParameterFocusTargets.contains(next)) return next;
+        return sheetCommandPreview;
+    }
+
     private void renderClicks() {
         sheetClicksContainer.removeAllViews();
         List<LabModels.Click> clicks = command.getClicks();
@@ -298,6 +377,7 @@ public final class LabCommandSheet implements LabRunner.OutputListener {
             button.setTextColor(Color.WHITE);
             button.setTextSize(13);
             button.setBackgroundResource(R.drawable.shape_lab_click_btn);
+            button.setFocusable(true);
             button.setOnClickListener(v -> LabActions.performClick(activity, command, click, vars));
             sheetClicksContainer.addView(button);
         }
@@ -381,9 +461,10 @@ public final class LabCommandSheet implements LabRunner.OutputListener {
         AlertDialog dialog = new WebHtvAlertDialogBuilder(activity, R.style.Theme_App_Lab_Dialog)
                 .setTitle("下载依赖" + (command.download.title == null ? "" : " · " + command.download.title))
                 .setView(progress)
-                .setCancelable(false)
+                .setCancelable(true)
                 .setPositiveButton("关闭", null)
                 .create();
+        dialog.setCanceledOnTouchOutside(false);
         dialog.show();
         LabActions.hideCloseButton(dialog);
         new Thread(() -> {
@@ -434,6 +515,13 @@ public final class LabCommandSheet implements LabRunner.OutputListener {
         boolean supported = command.isSupported(LabEnv.appVersionCode(activity));
         sheetBtnRun.setEnabled(installed && supported);
         sheetBtnRun.setAlpha(installed && supported ? 1.0f : 0.5f);
+        sheetBtnClose.setOnKeyListener((view, keyCode, event) -> {
+            if (event.getAction() != android.view.KeyEvent.ACTION_DOWN) return false;
+            if (keyCode == android.view.KeyEvent.KEYCODE_DPAD_CENTER || keyCode == android.view.KeyEvent.KEYCODE_ENTER) {
+                return view.performClick();
+            }
+            return false;
+        });
     }
 
     private void saveCached() {

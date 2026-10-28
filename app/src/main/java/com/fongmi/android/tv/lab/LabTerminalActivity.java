@@ -129,7 +129,8 @@ public class LabTerminalActivity extends AppCompatActivity {
             button.setTextColor(Color.parseColor("#CCCCCC"));
             button.setTextSize(11);
             button.setMaxLines(1);
-            button.setBackground(null);
+            button.setBackgroundResource(R.drawable.selector_lab_terminal_shortcut);
+            button.setFocusable(true);
             button.setOnClickListener(v -> shortcut(key));
             mBinding.shortcutContainer.addView(button);
         }
@@ -251,7 +252,8 @@ public class LabTerminalActivity extends AppCompatActivity {
             chip.setText(text.length() > 30 ? text.substring(0, 30) + "…" : text);
             chip.setTextColor(Color.parseColor("#FF8A65"));
             chip.setTextSize(11);
-            chip.setBackgroundResource(R.drawable.shape_lab_output_bg);
+            chip.setBackgroundResource(R.drawable.selector_lab_terminal_history);
+            chip.setFocusable(true);
             chip.setOnClickListener(v -> {
                 mBinding.termInput.setText(text);
                 mBinding.termInput.setSelection(text.length());

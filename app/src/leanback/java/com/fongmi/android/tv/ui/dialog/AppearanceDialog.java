@@ -115,6 +115,9 @@ public final class AppearanceDialog extends DialogFragment {
         themeValue = addRow(content, R.string.setting_theme_color, getThemeText(), view -> ThemeDialog.show(this));
         imageSizeValue = addRow(content, R.string.setting_size, imageSizes[PlayerSetting.getSize()], this::chooseImageSize);
         languageValue = addRow(content, R.string.setting_language, languages[Setting.getLanguageIndex()], this::chooseLanguage);
+        if (Setting.isLeanbackHomeStyleAvailable()) {
+            addRow(content, R.string.setting_native_home_style, "", this::chooseHomeStyle).setVisibility(View.GONE);
+        }
         return content;
     }
 
@@ -219,6 +222,14 @@ public final class AppearanceDialog extends DialogFragment {
             dismissAllowingStateLoss();
             RefreshEvent.language();
         });
+    }
+
+    private void chooseHomeStyle(View view) {
+        String[] modes = {getString(R.string.native_home_classic), getString(R.string.native_home_immersive)};
+        ChoiceDialog.showSingle(this, R.string.setting_native_home_style, modes,
+                Setting.getLeanbackHomeMode() == Setting.LeanbackHomeMode.IMMERSIVE ? 1 : 0,
+                which -> Setting.putLeanbackHomeMode(which == 1
+                        ? Setting.LeanbackHomeMode.IMMERSIVE : Setting.LeanbackHomeMode.CLASSIC));
     }
 
     void onThemeProfileApplied() {

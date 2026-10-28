@@ -78,6 +78,7 @@ public class QuickSearchDialog extends BaseAlertDialog implements QuickAdapter.O
 
     public void addAll(List<Vod> items) {
         if (items.isEmpty() || dismissed) return;
+        trace("receive="+items.size()+" pending="+pending.size());
         pending.addAll(items);
         updateLoading();
         drainPending();
@@ -144,6 +145,7 @@ public class QuickSearchDialog extends BaseAlertDialog implements QuickAdapter.O
             binding.recycler.setVisibility(View.VISIBLE);
         }
         adapter.addAll(items);
+        trace("render="+items.size()+" total="+adapter.getItemCount());
         if (start == 0 && !firstItemFocused) {
             firstItemFocused = true;
             binding.recycler.post(focusFirstItemTask);
@@ -209,6 +211,11 @@ public class QuickSearchDialog extends BaseAlertDialog implements QuickAdapter.O
         if (binding == null) return;
         binding.recycler.removeCallbacks(drainNextBatchTask);
         binding.recycler.removeCallbacks(focusFirstItemTask);
+    }
+
+    private static void trace(String event){
+        if(com.fongmi.android.tv.BuildConfig.DEBUG&&android.util.Log.isLoggable("NativeSourceSearch",android.util.Log.DEBUG))
+            android.util.Log.d("NativeSourceSearch",event);
     }
 
     @NonNull

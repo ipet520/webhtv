@@ -55,6 +55,16 @@ public class TypeFragment extends BaseFragment implements CustomScroller.Callbac
     private ArrayObjectAdapter mAdapter;
     private ArrayObjectAdapter mLast;
     private CustomScroller mScroller;
+    private String presentationPendingPage;
+    private boolean presentationPaused;
+
+    public void setHomePresentationActive(boolean active) {
+        boolean wasPaused=presentationPaused;
+        presentationPaused=!active;
+        if(mViewModel==null)return;
+        if(!active)mViewModel.cancelHomeContent();
+        else if(wasPaused&&presentationPendingPage!=null)getVideo(getTypeId(),presentationPendingPage);
+    }
     private SiteViewModel mViewModel;
     private List<Filter> mFilters;
     private Integer pendingContentRow;
@@ -194,10 +204,14 @@ public class TypeFragment extends BaseFragment implements CustomScroller.Callbac
     }
 
     private void getVideo(String typeId, String page) {
+        presentationPendingPage=page;
+        if(getActivity() instanceof com.fongmi.android.tv.ui.activity.HomeActivity home && home.isNativeBrowsePresentationVisible())presentationPaused=true;
+        if(presentationPaused)return;
         mViewModel.categoryContent(getKey(), typeId, page, true, mExtends);
     }
 
     private void setAdapter(Result result) {
+        presentationPendingPage=null;
         boolean first = mScroller.first();
         boolean flag = mExtends.isEmpty();
         int size = result.getList().size();
@@ -218,6 +232,7 @@ public class TypeFragment extends BaseFragment implements CustomScroller.Callbac
     }
 
     private void checkMore() {
+        if (mBinding == null || !mBinding.getRoot().isShown()) return;
         if (mScroller.isDisable() || mAdapter.size() >= 5) return;
         mScroller.checkMore();
     }
@@ -311,6 +326,7 @@ public class TypeFragment extends BaseFragment implements CustomScroller.Callbac
 
     @Override
     public boolean onLoadMore(String page) {
+        if (mBinding == null || !mBinding.getRoot().isShown()) return false;
         getVideo(getTypeId(), page);
         return true;
     }
@@ -324,6 +340,7 @@ public class TypeFragment extends BaseFragment implements CustomScroller.Callbac
             pendingContentRow = null;
             mBinding.recycler.showHeader();
         } else {
+            if(!(getActivity() instanceof com.fongmi.android.tv.ui.activity.HomeActivity home)||!home.isNativeBrowsePresentationVisible())setHomePresentationActive(true);
             if (headerVisible) mBinding.recycler.showHeader();
             else mBinding.recycler.hideHeader();
             mBinding.recycler.requestFocus();

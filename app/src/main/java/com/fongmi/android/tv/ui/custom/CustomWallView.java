@@ -11,6 +11,8 @@ import android.util.AttributeSet;
 import android.util.DisplayMetrics;
 import android.view.LayoutInflater;
 import android.widget.FrameLayout;
+import android.widget.ImageView;
+import android.graphics.Canvas;
 
 import androidx.activity.ComponentActivity;
 import androidx.annotation.NonNull;
@@ -56,6 +58,105 @@ public class CustomWallView extends FrameLayout implements DefaultLifecycleObser
     private boolean motionEnabled = true;
     private boolean videoRestorePending;
     private boolean started;
+    // Temporary content art uses the SAME native image host, without changing wallpaper prefs.
+    private Object contentOwner, originalImageTag;
+    private Drawable originalWallpaper, pendingContent;
+    private Runnable contentDrawn;
+    private Drawable contentImage;
+    private android.graphics.drawable.TransitionDrawable contentTransition;
+    private long transitionStarted;
+    private Runnable transitionFinished;
+    private static final int CONTENT_FADE_MS = 160;
+
+    public boolean ownsContentBackground(@NonNull Object owner) { return contentOwner == owner && binding != null; }
+
+    public ImageView acquireContentBackground(@NonNull Object owner) {
+        if (contentOwner == owner) return binding.image;
+        if (contentOwner != null) throw new IllegalStateException("Native wall already has a content owner");
+        if (binding == null) {
+            binding = ViewWallBinding.inflate(LayoutInflater.from(getContext()), this, true);
+            loadPlaceholder();
+        }
+        originalWallpaper = binding.image.getDrawable();
+        if (originalWallpaper == null || originalWallpaper instanceof GifDrawable)
+            originalWallpaper = new ColorDrawable(ThemeController.current().colorSurface());
+        originalImageTag = binding.image.getTag();
+        contentOwner = owner;
+        removeCallbacks(refreshRunnable);
+        stop();
+        releasePlayer();
+        binding.image.setTag("webhtv:ignore");
+        clearContentBackground(owner);
+        return binding.image;
+    }
+
+    public void clearContentBackground(@NonNull Object owner) {
+        if (contentOwner != owner || binding == null) return;
+        pendingContent = null;
+        contentDrawn = null;
+        contentImage = null;
+        contentTransition = null;
+        finishContentTransition();
+        binding.image.setAlpha(1f);
+        binding.image.setImageAlpha(255);
+        binding.image.setVisibility(VISIBLE);
+        binding.image.setImageDrawable(originalWallpaper);
+    }
+
+    public void showContentBackground(@NonNull Object owner, @NonNull Drawable image, @NonNull Runnable drawn) {
+        showContentBackground(owner,image,drawn,()->{});
+    }
+
+    public void showContentBackground(@NonNull Object owner, @NonNull Drawable image, @NonNull Runnable drawn, @NonNull Runnable finished) {
+        if (contentOwner != owner || binding == null) return;
+        // Collapse a superseded fade to its newest image; never nest transition drawables.
+        Drawable previous = contentImage;
+        if(contentTransition!=null)binding.image.setImageDrawable(previous);
+        contentTransition = null;
+        finishContentTransition();
+        contentImage = image;
+        contentDrawn = drawn;
+        binding.image.setAlpha(1f);
+        binding.image.setImageAlpha(255);
+        binding.image.setVisibility(VISIBLE);
+        if(previous!=null&&previous!=image) {
+            contentTransition=new android.graphics.drawable.TransitionDrawable(new Drawable[]{previous,image});
+            contentTransition.setCrossFadeEnabled(true);
+            pendingContent=contentTransition;transitionStarted=android.os.SystemClock.uptimeMillis();transitionFinished=finished;
+            binding.image.setImageDrawable(contentTransition);contentTransition.startTransition(CONTENT_FADE_MS);
+        } else {pendingContent=image;binding.image.setImageDrawable(image);finished.run();}
+        invalidate();
+    }
+
+    private void finishContentTransition(){Runnable done=transitionFinished;transitionFinished=null;if(done!=null)done.run();}
+
+    public void releaseContentBackground(@NonNull Object owner) {
+        if (contentOwner != owner) return;
+        clearContentBackground(owner);
+        if (binding != null) binding.image.setTag(originalImageTag);
+        contentOwner = null;
+        originalWallpaper = null;
+        originalImageTag = null;
+        // Restore the latest user wallpaper, including a config change while content was active.
+        if (isReady()) refresh();
+    }
+
+    @Override protected void dispatchDraw(Canvas canvas) {
+        super.dispatchDraw(canvas);
+        if(contentTransition!=null&&android.os.SystemClock.uptimeMillis()-transitionStarted>=CONTENT_FADE_MS) {
+            binding.image.setImageDrawable(contentImage);contentTransition=null;
+            pendingContent=contentImage;finishContentTransition();
+        }
+        if (contentDrawn == null || binding == null || !isAttachedToWindow() || !isShown()
+                || getWindowVisibility() != VISIBLE || getAlpha() <= 0 || !binding.image.isShown()
+                || binding.image.getAlpha() < 1 || binding.image.getImageAlpha() != 255 || binding.image.getWidth() <= 0 || binding.image.getHeight() <= 0
+                || binding.image.getDrawable() != pendingContent
+                || contentTransition!=null&&android.os.SystemClock.uptimeMillis()<=transitionStarted) return;
+        Runnable drawn = contentDrawn;
+        contentDrawn = null;
+        pendingContent = null;
+        drawn.run();
+    }
 
     public CustomWallView(@NonNull Context context, @Nullable AttributeSet attrs) {
         super(context, attrs);
@@ -80,6 +181,7 @@ public class CustomWallView extends FrameLayout implements DefaultLifecycleObser
             ((ComponentActivity) getContext()).getLifecycle().addObserver(this);
             observerAdded = true;
         }
+        if (contentOwner != null) return;
         removeCallbacks(refreshRunnable);
         if (loadedPlaceholder && isStaticBuiltInWall()) theme();
         else post(refreshRunnable);
@@ -97,7 +199,7 @@ public class CustomWallView extends FrameLayout implements DefaultLifecycleObser
     }
 
     private void refresh() {
-        if (!isReady()) return;
+        if (!isReady() || contentOwner != null) return;
         long start = System.currentTimeMillis();
         stop();
         load();
@@ -372,6 +474,7 @@ public class CustomWallView extends FrameLayout implements DefaultLifecycleObser
 
     @Override
     public void onResume(@NonNull LifecycleOwner owner) {
+        if (contentOwner != null) return;
         if (drawable != null) drawable.start();
         if (videoRestorePending) {
             restoreVideo();
@@ -419,6 +522,9 @@ public class CustomWallView extends FrameLayout implements DefaultLifecycleObser
 
     @Override
     public void onDestroy(@NonNull LifecycleOwner owner) {
+        contentOwner = null;
+        originalWallpaper = pendingContent = null;
+        contentDrawn = null;
         removeCallbacks(refreshRunnable);
         EventBus.getDefault().unregister(this);
         if (drawable != null) drawable.recycle();

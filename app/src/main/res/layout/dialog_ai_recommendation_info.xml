@@ -191,7 +191,8 @@
                         android:minWidth="58dp"
                         android:paddingStart="7dp"
                         android:paddingEnd="7dp"
-                        android:textColor="@color/webhtv_color_success"
+                        android:textColor="@color/fixed_light_success"
+                        android:tag="webhtv:ignore"
                         android:textSize="10sp"
                         android:textStyle="bold"
                         tools:text="豆瓣 9.3" />

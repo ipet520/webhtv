@@ -295,9 +295,10 @@ public class LabDetailActivity extends AppCompatActivity implements LabCommandAd
         androidx.appcompat.app.AlertDialog dialog = new WebHtvAlertDialogBuilder(this, R.style.Theme_App_Lab_Dialog)
                 .setTitle("打包导出")
                 .setView(progress)
-                .setCancelable(false)
+                .setCancelable(true)
                 .setPositiveButton("关闭", null)
                 .create();
+        dialog.setCanceledOnTouchOutside(false);
         dialog.show();
         LabActions.hideCloseButton(dialog);
         new Thread(() -> {
