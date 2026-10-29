@@ -90,6 +90,8 @@ public final class NativeHomeBrowseView extends FrameLayout {
     private final HomePreviewTiming timing = new HomePreviewTiming();
     private final String[] categoryLabels;
     private HomePreviewMenuDialog menu;
+    private int sourceClosingKey=KeyEvent.KEYCODE_UNKNOWN;
+    private long sourceClosingDownTime;
     private HomePreviewGeometry geometry;
     private boolean filterOpen, userNavigated;
     private int backdropResource, viewportWidth, viewportHeight, heroIndex;
@@ -418,8 +420,8 @@ public final class NativeHomeBrowseView extends FrameLayout {
             String key=com.fongmi.android.tv.api.config.VodConfig.get().getHome().getKey();
             int selected=0;for(int i=0;i<sites.size();i++)if(sites.get(i).getKey().equals(key))selected=i;
             final int current=selected;
-            menu=new HomePreviewMenuDialog(getContext(),sites.stream().map(com.fongmi.android.tv.bean.Site::getName).toArray(String[]::new),()->current,
-                index->sourceApply.accept(sites.get(index)),home);
+            menu=new HomePreviewMenuDialog(getContext(),sites,()->current,sourceApply,home);
+            menu.setShortcutCloseListener(event->{sourceClosingKey=event.getKeyCode();sourceClosingDownTime=event.getDownTime();});
             menu.show();return;
         }
         menu = new HomePreviewMenuDialog(getContext(), HomePreviewData.SOURCES, selection::source, index -> {
@@ -480,6 +482,8 @@ public final class NativeHomeBrowseView extends FrameLayout {
         return true;
     }
 
+    private java.util.function.Function<com.fongmi.android.tv.bean.Vod,String> preparedLogo=vod->null;
+    public void setPreparedLogoLookup(java.util.function.Function<com.fongmi.android.tv.bean.Vod,String> lookup){preparedLogo=lookup;}
     public void bindHero(HomePreviewData.Card card) {
         bindHero(card,Math.max(0,cards.indexOf(card)));
     }
@@ -492,12 +496,12 @@ public final class NativeHomeBrowseView extends FrameLayout {
         ((HomeHeroTitleView)title).bindTitle(card.id(),card.title());
         if (!TextUtils.equals(meta.getText(), card.metadata())) meta.setText(card.metadata());
         if (!TextUtils.equals(overview.getText(), card.overview())) overview.setText(card.overview());
-        title.setVisibility(card.logo() == 0 ? VISIBLE : INVISIBLE);
-        logo.setVisibility(card.logo() == 0 ? INVISIBLE : VISIBLE);
-        if (card.logo() != 0) logo.setImageResource(card.logo());
-        else logo.setImageDrawable(null);
-        if(card.vod()==null)setBackdropResource(card.backdrop());
-        else if(images!=null)images.focusSource(card.image());
+        if(card.vod()!=null&&images!=null){images.focusSource(card.image());images.prepareTitle(preparedLogo.apply(card.vod()));}
+        else {
+            title.setVisibility(card.logo() == 0 ? VISIBLE : INVISIBLE);logo.setVisibility(card.logo() == 0 ? INVISIBLE : VISIBLE);
+            if(card.logo()!=0)logo.setImageResource(card.logo());else logo.setImageDrawable(null);
+            setBackdropResource(card.backdrop());
+        }
     }
 
     public void setBackdropResource(int resource) {
@@ -517,6 +521,13 @@ public final class NativeHomeBrowseView extends FrameLayout {
     }
 
     @Override public boolean dispatchKeyEvent(KeyEvent event) {
+        if(sourceClosingKey!=KeyEvent.KEYCODE_UNKNOWN){
+            if(event.getAction()==KeyEvent.ACTION_DOWN&&event.getRepeatCount()==0)sourceClosingKey=KeyEvent.KEYCODE_UNKNOWN;
+            else if(event.getKeyCode()==sourceClosingKey&&event.getDownTime()==sourceClosingDownTime){
+                if(event.getAction()==KeyEvent.ACTION_UP)sourceClosingKey=KeyEvent.KEYCODE_UNKNOWN;
+                return true;
+            }
+        }
         long started = System.nanoTime();
         if(event.getAction()==KeyEvent.ACTION_DOWN&&event.getKeyCode()!=KeyEvent.KEYCODE_DPAD_DOWN)pendingRailFocus=null;
         if (event.getAction() == KeyEvent.ACTION_DOWN && event.getKeyCode() == KeyEvent.KEYCODE_DPAD_DOWN
@@ -637,6 +648,7 @@ public final class NativeHomeBrowseView extends FrameLayout {
         focus.setActiveCategory(()->activeCategoryIndex(controller));
         businessFilters=null;
         images=new com.fongmi.android.tv.ui.home.NativeHomeBrowseImages(nativeWall,this,logo,title,findViewById(R.id.nhp_fallback_poster));
+        images.manageTitle();
         if(geometry!=null)images.setPosterDecodeSize(geometry.posterWidth(),geometry.posterHeight());
         posterAdapter.click=c->{if(c.vod()!=null)click.accept(c.vod());};
         posterAdapter.longClick=c->c.vod()!=null&&longClick.test(c.vod());
@@ -745,10 +757,13 @@ public final class NativeHomeBrowseView extends FrameLayout {
         return next>=0&&next<cards.size()?cards.get(next):null;
     }
     public void prefetchArtwork(long id,String backdrop){if(boundHero!=null&&boundHero.id()==id&&images!=null)images.prefetch(backdrop);}
+    public void noFocusedLogo(long id){if(boundHero!=null&&boundHero.id()==id&&images!=null)images.noLogo();}
+    public void prefetchWindowLogo(String url,Consumer<Boolean> completed){if(images==null)completed.accept(false);else images.prefetchLogo(url,completed);}
     public void noFocusedBackdrop(long id){if(boundHero!=null&&boundHero.id()==id&&images!=null)images.noBackdrop();}
     public void setPreparationWindowListener(Consumer<PreparationWindow> listener){preparationWindow=listener;lastPreparationContext=null;lastPreparationCandidates=List.of();schedulePreparationWindow();}
     public void prefetchWindowArtwork(String url,Consumer<Boolean> completed){if(images==null)completed.accept(false);else images.prefetch(url,completed);}
     public void setVisualsActive(boolean active){
+        if(images!=null)images.titleActive(active);
         if(title instanceof HomeHeroTitleView marquee)marquee.setMarqueeActive(active);
         if(active){lastPreparationContext=null;schedulePreparationWindow();}
         else {removeCallbacks(publishPreparationWindow);preparationPosted=false;}

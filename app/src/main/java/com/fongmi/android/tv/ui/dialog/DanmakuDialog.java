@@ -34,6 +34,7 @@ public final class DanmakuDialog extends BaseBottomSheetDialog implements Danmak
     private String episodeName;
     private int tmdbId;
     private int tmdbSeasonNumber;
+    private long sourceGeneration;
 
     public interface Host {
 
@@ -99,10 +100,49 @@ public final class DanmakuDialog extends BaseBottomSheetDialog implements Danmak
     }
 
     private void onLoadChanged(boolean enabled) {
+        sourceGeneration++;
+        com.fongmi.android.tv.api.DanmakuApi.cancel();
         DanmakuSetting.putLoad(enabled);
         DanmakuSetting.putShow(enabled);
         player.setDanmakuEnabled(enabled);
         updateLoadUi(enabled);
+        if (enabled) restoreDanmakuSource();
+    }
+
+    private void restoreDanmakuSource() {
+        if (player == null || player.isReleased() || player.isEmpty()) return;
+        String expectedKey = player.getKey();
+        if (android.text.TextUtils.isEmpty(expectedKey)) return;
+        long generation = sourceGeneration;
+        String expectedTrace = player.getPlaybackTraceId();
+        java.util.List<Danmaku> sources = player.getDanmakus();
+        Danmaku source = preferredSource(sources);
+        // PlaySpec may have captured an empty list while load was off. Its original
+        // Result is still in this session; read the existing snapshot after enabling load.
+        if (source == null) source = preferredSource(player.getCurrentResult().getDanmaku());
+        if (source != null) {
+            if (!player.isReleased() && android.text.TextUtils.equals(expectedKey, player.getKey())
+                    && android.text.TextUtils.equals(expectedTrace, player.getPlaybackTraceId())) player.setDanmaku(source);
+            refresh();
+            return;
+        }
+        if (!com.fongmi.android.tv.api.DanmakuApi.canSearch()) return;
+        com.fongmi.android.tv.api.DanmakuApi.search(com.fongmi.android.tv.title.MediaTitleRequest.builder()
+                .siteKey(siteKey).vodId(vodId).rawTitle(rawTitle).episodeName(episodeName)
+                .tmdbId(tmdbId).tmdbSeasonNumber(tmdbSeasonNumber)
+                .source(com.fongmi.android.tv.title.MediaTitleLearningExample.SOURCE_DANMAKU_AUTO).allowAi(true).build(), item -> {
+                    if (generation != sourceGeneration || player.isReleased() || !android.text.TextUtils.equals(expectedKey, player.getKey())
+                            || !android.text.TextUtils.equals(expectedTrace, player.getPlaybackTraceId())
+                            || !DanmakuSetting.isLoad() || !DanmakuSetting.isShow() || player.haveDanmaku()) return;
+                    player.setDanmaku(item);
+                    if (isAdded()) refresh();
+                });
+    }
+
+    private Danmaku preferredSource(java.util.List<Danmaku> sources) {
+        if (sources == null) return null;
+        return sources.stream().filter(item -> item != null && !item.isEmpty() && item.isSelected()).findFirst()
+                .orElseGet(() -> sources.stream().filter(item -> item != null && !item.isEmpty()).findFirst().orElse(null));
     }
 
     private void updateLoadUi(boolean enabled) {

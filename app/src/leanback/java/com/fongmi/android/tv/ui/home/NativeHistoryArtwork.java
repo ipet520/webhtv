@@ -1,5 +1,8 @@
 package com.fongmi.android.tv.ui.home;
 
+
+import com.fongmi.android.tv.setting.Setting;
+
 import com.fongmi.android.tv.bean.*;
 import com.fongmi.android.tv.api.config.VodConfig;
 import com.fongmi.android.tv.utils.TmdbLanguagePolicy;
@@ -29,7 +32,7 @@ public final class NativeHistoryArtwork {
         Vod vod=Vod.objectFrom(data.toString());
         if(history.getTmdbId()>0&&Set.of("movie","tv").contains(history.getMediaType())){
             TmdbSourcePayload payload=new TmdbSourcePayload();payload.setSchema(1);payload.setTmdbId(history.getTmdbId());payload.setMediaType(history.getMediaType());
-            payload.setLanguage(TmdbLanguagePolicy.requestLanguage(TmdbConfig.effectiveCurrent()));
+            payload.setLanguage(TmdbLanguagePolicy.requestLanguage(TmdbConfig.effectiveCurrent(), Setting.getLanguage()));
             JsonObject detail=new JsonObject();detail.addProperty("id",history.getTmdbId());detail.addProperty("title",history.getVodName());detail.addProperty("name",history.getVodName());
             payload.setDetailJson(detail.toString());vod.setTmdb(payload);
         }

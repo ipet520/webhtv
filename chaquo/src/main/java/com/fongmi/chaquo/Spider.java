@@ -46,7 +46,7 @@ public class Spider extends com.github.catvod.crawler.Spider {
                 // Chaquopy's PyException, which is itself a RuntimeException.
                 try {
                     download(item + ".py");
-                } catch (Throwable e) {
+                } catch (Exception e) {
                     SpiderDebug.log(TAG, "depend download failed name=%s error=%s", item, e);
                     // SpiderDebug.log() is gated on DebugLogStore.acceptsTag(), which is
                     // false whenever 调试日志 is off (the default), so the structured line

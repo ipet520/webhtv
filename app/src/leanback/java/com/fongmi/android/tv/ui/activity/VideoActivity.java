@@ -1911,7 +1911,7 @@ private boolean runtimeSourceOnly;
     }
 
     private void setVideoView() {
-        mBinding.control.action.danmaku.setVisibility(DanmakuSetting.isLoad() ? View.VISIBLE : View.GONE);
+        mBinding.control.action.danmaku.setVisibility(PlayerButtonSetting.isVisible(PlayerButtonSetting.DANMAKU) ? View.VISIBLE : View.GONE);
         mBinding.control.action.adFeedback.setVisibility(isAdFeedbackEnabled() ? View.VISIBLE : View.GONE);
         applyDanmakuState();
         mBinding.control.action.reset.setText(ResUtil.getStringArray(R.array.select_reset)[Setting.getReset()]);
@@ -2413,7 +2413,7 @@ private boolean runtimeSourceOnly;
     }
 
     private String currentTmdbLanguage() {
-        return TmdbLanguagePolicy.requestLanguage(currentTmdbConfig());
+        return TmdbLanguagePolicy.requestLanguage(currentTmdbConfig(), Setting.getLanguage());
     }
 
     private String cachedTmdbImage(JsonObject detail, String key) {
@@ -5149,6 +5149,7 @@ private boolean runtimeSourceOnly;
     }
 
     private boolean onDanmakuToggle() {
+        if (!DanmakuSetting.isLoad()) { onDanmaku(); return true; }
         DanmakuSetting.putShow(!DanmakuSetting.isShow());
         applyDanmakuState();
         Notify.show(DanmakuSetting.isShow() ? R.string.danmaku_show_on : R.string.danmaku_show_off);

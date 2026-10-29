@@ -3,4 +3,6 @@
     <string name="setting_native_home_style" translatable="false">主页样式</string>
     <string name="native_home_classic" translatable="false">经典模式</string>
     <string name="native_home_immersive" translatable="false">沉浸模式</string>
+    <string name="native_home_classic_short" translatable="false">经典</string>
+    <string name="native_home_immersive_short" translatable="false">沉浸</string>
 </resources>

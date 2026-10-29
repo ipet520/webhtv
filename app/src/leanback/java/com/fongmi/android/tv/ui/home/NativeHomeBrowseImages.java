@@ -22,6 +22,8 @@ public final class NativeHomeBrowseImages {
     interface Loader {
         void load(ImageView target,String url,int width,int height,boolean crop,Consumer<Drawable> ready,Runnable failed);
         void clear(ImageView target);
+        default void logo(ImageView target,String url,int w,int h,java.util.function.BiConsumer<Drawable,String> ready,Runnable failed){load(target,url,w,h,false,r->ready.accept(r,"UNOBSERVED"),failed);}
+        default void prefetchLogo(ImageView target,String url,int w,int h,Consumer<Boolean> completed){completed.accept(false);}
         default void background(ImageView target,String url,int width,int height,Consumer<Drawable> ready,Runnable failed){load(target,url,width,height,true,ready,failed);}
         default Runnable releasePrevious(ImageView target){return ()->{};}
         default void prefetch(ImageView target,String url,int width,int height){}
@@ -50,7 +52,7 @@ public final class NativeHomeBrowseImages {
         public void clearBackground(ImageView target) {
             Slot slot=slots.remove(target);if(slot!=null){var manager=Glide.with(target);if(slot.current!=null)manager.clear(slot.current);if(slot.previous!=null)manager.clear(slot.previous);if(slot.pending!=null)manager.clear(slot.pending);}
         }
-        public void cancelPrefetch(ImageView view){if(warmOwner==view)cancelWarm(view);}
+        public void cancelPrefetch(ImageView view){if(warm!=null)cancelWarm(view);}
         public void cancelBackground(ImageView view){Slot slot=slots.get(view);if(slot!=null&&slot.pending!=null){Glide.with(view).clear(slot.pending);slot.pending=null;}}
         private com.bumptech.glide.RequestBuilder<Drawable> backdrop(ImageView view,String url,int w,int h){
             return Glide.with(view).load(ImgUtil.getUrl(url)).override(w,h).centerCrop().diskCacheStrategy(com.bumptech.glide.load.engine.DiskCacheStrategy.ALL);
@@ -82,14 +84,27 @@ public final class NativeHomeBrowseImages {
             prefetch(view,url,width,height,result->{});
         }
         public void prefetch(ImageView view,String url,int width,int height,Consumer<Boolean> completed){
+            warm(view,url,width,height,backdrop(view,url,width,height),"image",completed);
+        }
+        private com.bumptech.glide.RequestBuilder<Drawable> logoRequest(ImageView view,String url,int w,int h){
+            return Glide.with(view).load(ImgUtil.getUrl(url)).override(w,h).fitCenter().diskCacheStrategy(com.bumptech.glide.load.engine.DiskCacheStrategy.AUTOMATIC).dontAnimate();
+        }
+        public void prefetchLogo(ImageView view,String url,int w,int h,Consumer<Boolean> completed){warm(view,url,w,h,logoRequest(view,url,w,h),"logo",completed);}
+        private void warm(ImageView view,String url,int width,int height,com.bumptech.glide.RequestBuilder<Drawable> request,String kind,Consumer<Boolean> completed){
             cancelWarm(view);long token=warmGeneration;warmOwner=view;warmKey=url+"|"+width+"x"+height;
             warmCancel=()->completed.accept(false);
-            warm=backdrop(view,url,width,height).priority(com.bumptech.glide.Priority.LOW).listener(new RequestListener<Drawable>(){
+            warm=request.priority(com.bumptech.glide.Priority.LOW).listener(new RequestListener<Drawable>(){
                 private void finish(boolean success){if(token!=warmGeneration)return;warmCancel=null;main.post(()->completed.accept(success&&token==warmGeneration));}
                 public boolean onLoadFailed(@Nullable GlideException error,Object model,Target<Drawable> target,boolean first){finish(false);return false;}
-                public boolean onResourceReady(Drawable resource,Object model,Target<Drawable> target,DataSource source,boolean first){trace("window-image-ready source="+source,token);finish(true);return false;}
+                public boolean onResourceReady(Drawable resource,Object model,Target<Drawable> target,DataSource source,boolean first){trace("window-"+kind+"-ready source="+source+" image="+Integer.toHexString(url.hashCode()),token);finish(true);return false;}
             }).preload(width,height);
-            trace("image-prefetch",0);
+            trace(kind+"-prefetch",0);
+        }
+        public void logo(ImageView view,String url,int w,int h,java.util.function.BiConsumer<Drawable,String> ready,Runnable failed){
+            logoRequest(view,url,w,h).listener(new RequestListener<Drawable>(){
+                public boolean onLoadFailed(@Nullable GlideException error,Object model,Target<Drawable> target,boolean first){failed.run();return true;}
+                public boolean onResourceReady(Drawable resource,Object model,Target<Drawable> target,DataSource source,boolean first){ready.accept(resource,source.name());return true;}
+            }).into(view);
         }
         public void load(ImageView target,String url,int width,int height,boolean crop,Consumer<Drawable> ready,Runnable failed) {
             var request=Glide.with(target).load(ImgUtil.getUrl(url)).override(width,height).placeholder(target.getDrawable());
@@ -116,7 +131,64 @@ public final class NativeHomeBrowseImages {
     private String backdropUrl="";
     private boolean holdingBackground;
     private boolean hasVisibleBackdrop;
-    public void focusSource(String url) { reset(false);pendingSource=url; }
+    public static final long TITLE_WAIT_MS=NativeHomeHero.FOCUS_SETTLE_MS+NativeHomePreparationQueue.METADATA_INTERVAL_MS;
+    private enum TitleState { PENDING, LOGO, TEXT }
+    private boolean managedTitle,titleActive=true;
+    private TitleState titleState=TitleState.PENDING;
+    private String requestedLogo="";
+    private long titleEpoch;
+    private final android.os.Handler titleHandler=new android.os.Handler(android.os.Looper.getMainLooper());
+    private final Runnable titleTimeout=()->fallbackTitle("deadline");
+    private Runnable cancelLogoLayout;
+    public record LogoEvent(String phase,long at,long generation,String image,String source) {}
+    private Consumer<LogoEvent> logoEvents;
+    void observeLogos(Consumer<LogoEvent> events){logoEvents=events;}
+    private void logoEvent(String phase,long token,String url,String source){
+        String id=url==null?"":Integer.toHexString(url.hashCode());trace("title-"+phase+" image="+id+" source="+source,token);
+        if(logoEvents!=null)logoEvents.accept(new LogoEvent(phase,android.os.SystemClock.uptimeMillis(),token,id,source));
+    }
+    public void manageTitle(){managedTitle=true;}
+    public void titleActive(boolean active){
+        if(!managedTitle||titleActive==active)return;titleActive=active;
+        if(!active){titleEpoch++;titleHandler.removeCallbacks(titleTimeout);loader.clear(logo);logo.setVisibility(View.INVISIBLE);title.setVisibility(View.INVISIBLE);requestedLogo="";titleState=TitleState.PENDING;clearDrawProof();}
+        else waitForTitle();
+    }
+    private void waitForTitle(){if(managedTitle&&titleActive&&titleState==TitleState.PENDING){titleHandler.removeCallbacks(titleTimeout);titleHandler.postDelayed(titleTimeout,TITLE_WAIT_MS);}}
+    public void prepareTitle(String knownUrl){
+        if(!managedTitle||knownUrl==null)return;
+        if(knownUrl.isEmpty())fallbackTitle("absent");else loadManagedLogo(knownUrl);
+    }
+    public void noLogo(){if(managedTitle)fallbackTitle("unavailable");}
+    private void fallbackTitle(String reason){
+        if(!managedTitle||!titleActive||titleState==TitleState.TEXT)return;
+        titleState=TitleState.TEXT;titleHandler.removeCallbacks(titleTimeout);logo.setVisibility(View.INVISIBLE);clearDrawProof();title.setVisibility(View.VISIBLE);logoEvent("text",generation,requestedLogo,reason);
+    }
+    private void clearDrawProof(){if(logo instanceof com.fongmi.android.tv.ui.homepreview.HomeHeroLogoView view)view.expectDraw(null,null);}
+    private void loadManagedLogo(String url){
+        if(!titleActive||url.equals(requestedLogo))return;requestedLogo=url;long token=generation,epoch=titleEpoch;
+        measured(logo,()->{
+            logoEvent("T2",token,url,Math.min(1280,logo.getWidth())+"x"+Math.min(720,logo.getHeight()));
+            loader.logo(logo,url,Math.min(1280,logo.getWidth()),Math.min(720,logo.getHeight()),(resource,source)->{
+                logoEvent("T3",token,url,source);
+                if(token!=generation||epoch!=titleEpoch||!titleActive||!url.equals(requestedLogo)){trace("logo-stale",token);return;}
+                if(titleState==TitleState.TEXT){logoEvent("late-cached",token,url,source);return;}
+                titleHandler.removeCallbacks(titleTimeout);titleState=TitleState.LOGO;
+                logo.setImageDrawable(resource);logo.setVisibility(View.VISIBLE);title.setVisibility(View.INVISIBLE);
+                if(logo instanceof com.fongmi.android.tv.ui.homepreview.HomeHeroLogoView view)view.expectDraw(resource,()->{if(token==generation&&epoch==titleEpoch&&titleActive&&titleState==TitleState.LOGO)logoEvent("T4",token,url,source);});
+                logoEvent("bound",token,url,source);
+            },()->{if(token==generation&&epoch==titleEpoch&&url.equals(requestedLogo))fallbackTitle("failed");});
+        });
+    }
+    public void prefetchLogo(String url,Consumer<Boolean> completed){
+        if(url==null||url.isEmpty()){completed.accept(false);return;}
+        if(logo.getWidth()>0&&logo.getHeight()>0){loader.prefetchLogo(logo,url,Math.min(1280,logo.getWidth()),Math.min(720,logo.getHeight()),completed);return;}
+        if(cancelLogoLayout!=null)cancelLogoLayout.run();
+        View.OnLayoutChangeListener listener=new View.OnLayoutChangeListener(){public void onLayoutChange(View v,int l,int t,int r,int b,int ol,int ot,int or,int ob){
+            if(r<=l||b<=t)return;logo.removeOnLayoutChangeListener(this);cancelLogoLayout=null;prefetchLogo(url,completed);
+        }};
+        cancelLogoLayout=()->{logo.removeOnLayoutChangeListener(listener);cancelLogoLayout=null;completed.accept(false);};logo.addOnLayoutChangeListener(listener);
+    }
+    public void focusSource(String url) { reset(false);pendingSource=url;logoEvent("T1",generation,"","");waitForTitle(); }
     public void settleSource() { String url=pendingSource;pendingSource="";loadPoster(url); }
     public NativeHomeBrowseImages(CustomWallView wall,Object owner,ImageView logo,TextView title,ImageView poster) { this(wall,owner,logo,title,poster,new GlideLoader()); }
     NativeHomeBrowseImages(CustomWallView wall,Object owner,ImageView logo,TextView title,ImageView poster,Loader loader) {
@@ -129,7 +201,7 @@ public final class NativeHomeBrowseImages {
             android.util.Log.d("NativeHomeHero",event+" t="+android.os.SystemClock.uptimeMillis()+" generation="+token);
     }
     public void source(String url) {
-        clear();title.setVisibility(View.VISIBLE);logo.setVisibility(View.INVISIBLE);
+        clear();title.setVisibility(managedTitle?View.INVISIBLE:View.VISIBLE);logo.setVisibility(View.INVISIBLE);
         // A source poster is a portrait fallback, never an untrusted full-screen backdrop.
         loadPoster(url);
     }
@@ -138,6 +210,7 @@ public final class NativeHomeBrowseImages {
         if(backdrop==null||backdrop.isEmpty())noBackdrop();
         if(fallback!=null&&!fallback.isEmpty())loadPoster(fallback);
         if(backdrop!=null&&!backdrop.isEmpty())loadBackground(backdrop);
+        if(managedTitle){prepareTitle(logoUrl==null?"":logoUrl);return;}
         if(logoUrl==null||logoUrl.isEmpty())return;
         long token=generation;
         measured(logo,()->loader.load(logo,logoUrl,Math.min(1280,logo.getWidth()),Math.min(720,logo.getHeight()),false,resource->{
@@ -199,6 +272,8 @@ public final class NativeHomeBrowseImages {
         reset(true);
     }
     private void reset(boolean backgroundToo) {
+        titleHandler.removeCallbacks(titleTimeout);titleEpoch++;requestedLogo="";titleState=TitleState.PENDING;clearDrawProof();
+        if(backgroundToo&&cancelLogoLayout!=null)cancelLogoLayout.run();
         generation++;backgroundRequest++;holdingBackground=!backgroundToo&&hasVisibleBackdrop;landscape=false;posterUrl="";pendingSource="";
         for(var entry:awaiting.entrySet())entry.getKey().removeOnLayoutChangeListener(entry.getValue());awaiting.clear();
         if(background!=null&&wall.ownsContentBackground(wallOwner)){
@@ -206,7 +281,7 @@ public final class NativeHomeBrowseImages {
             if(backgroundToo)loader.cancelPrefetch(background);
             if(backgroundToo||!hasVisibleBackdrop){hasVisibleBackdrop=false;backdropUrl="";wall.clearContentBackground(wallOwner);loader.clearBackground(background);}
         }
-        loader.clear(logo);logo.setImageDrawable(null);logo.setVisibility(View.INVISIBLE);title.setVisibility(View.VISIBLE);
+        loader.clear(logo);logo.setImageDrawable(null);logo.setVisibility(View.INVISIBLE);title.setVisibility(managedTitle?View.INVISIBLE:View.VISIBLE);
         if(poster!=null){loader.clear(poster);poster.setImageDrawable(null);poster.setVisibility(View.INVISIBLE);}
     }
 }

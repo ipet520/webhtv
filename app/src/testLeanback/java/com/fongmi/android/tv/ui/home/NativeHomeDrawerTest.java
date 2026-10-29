@@ -48,10 +48,11 @@ public class NativeHomeDrawerTest {
         assertTrue(drawer.getWindow().getAttributes().dimAmount<=.28f);
         assertEquals((ThemeController.current().colorScrim()>>>24)/255f*.28f,drawer.getWindow().getAttributes().dimAmount,.001f);
         android.util.TypedValue value=new android.util.TypedValue();assertTrue(drawer.getContext().getTheme().resolveAttribute(android.R.attr.windowIsTranslucent,value,true));assertNotEquals(0,value.data);
-        View focused=drawer.getCurrentFocus();drawer.dispatchKeyEvent(new KeyEvent(KeyEvent.ACTION_DOWN,KeyEvent.KEYCODE_DPAD_LEFT));assertSame(focused,drawer.getCurrentFocus());
+        drawer.dispatchKeyEvent(new KeyEvent(KeyEvent.ACTION_DOWN,KeyEvent.KEYCODE_DPAD_LEFT));assertFalse(drawer.isShowing());assertTrue(house.hasFocus());
+        house.performClick();ShadowLooper.idleMainLooper();drawer=ShadowDialog.getLatestDialog();
         drawer.cancel();ShadowLooper.idleMainLooper();assertTrue(house.hasFocus());assertSame(adapter,rail.getAdapter());assertEquals(requests,gateway.calls.size());
         house.performClick();ShadowLooper.idleMainLooper();drawer=ShadowDialog.getLatestDialog();
-        ScrollView scroll=(ScrollView)((ViewGroup)drawer.findViewById(android.R.id.content)).getChildAt(0);LinearLayout options=(LinearLayout)scroll.getChildAt(0);
+        ScrollView scroll=org.robolectric.util.ReflectionHelpers.getField(drawer,"scroller");LinearLayout options=(LinearLayout)scroll.getChildAt(0);
         options.getChildAt(1).performClick();assertEquals("B",controller.siteKey());assertEquals(requests+1,gateway.calls.size());
     }
     @Test public void actualFiltersReuseRailAndBackRestoresCategoryWithoutRequest(){
@@ -94,4 +95,18 @@ public class NativeHomeDrawerTest {
         assertEquals(0,visibleLoaders());assertTrue(categories.isShown());assertFalse(controller.state().error.isEmpty());
     }
     int visibleLoaders(){int count=0;for(int i=0;i<view.getChildCount();i++){View child=view.getChildAt(i);if(child instanceof com.fongmi.android.tv.ui.homepreview.HomeBrowseLoadingView&&child.getVisibility()==View.VISIBLE){assertFalse(child.isFocusable());count++;}}return count;}
+    @Test public void sourceShortcutTailNeverNavigatesHomeAndFreshGestureIsReleased(){
+        View house=view.findViewById(R.id.nhp_home);house.requestFocus();house.performClick();ShadowLooper.idleMainLooper();Dialog drawer=ShadowDialog.getLatestDialog();
+        int requests=gateway.calls.size();long t=android.os.SystemClock.uptimeMillis();
+        assertTrue(drawer.dispatchKeyEvent(new KeyEvent(t,t,KeyEvent.ACTION_DOWN,KeyEvent.KEYCODE_DPAD_RIGHT,0)));assertFalse(drawer.isShowing());assertTrue(house.hasFocus());
+        assertTrue(view.dispatchKeyEvent(new KeyEvent(t,t+400,KeyEvent.ACTION_DOWN,KeyEvent.KEYCODE_DPAD_RIGHT,1)));assertTrue(house.hasFocus());
+        assertTrue(view.dispatchKeyEvent(new KeyEvent(t,t+500,KeyEvent.ACTION_UP,KeyEvent.KEYCODE_DPAD_RIGHT,0)));assertTrue(house.hasFocus());assertEquals(requests,gateway.calls.size());
+        assertEquals(KeyEvent.KEYCODE_UNKNOWN,(int)org.robolectric.util.ReflectionHelpers.getField(view,"sourceClosingKey"));
+        house.performClick();ShadowLooper.idleMainLooper();drawer=ShadowDialog.getLatestDialog();long next=t+1000;
+        drawer.dispatchKeyEvent(new KeyEvent(next,next,KeyEvent.ACTION_DOWN,KeyEvent.KEYCODE_DPAD_RIGHT,0));
+        // Fresh down wins even if an injected/driver event reuses the old downTime.
+        view.dispatchKeyEvent(new KeyEvent(next,next+100,KeyEvent.ACTION_DOWN,KeyEvent.KEYCODE_DPAD_RIGHT,0));
+        assertEquals(KeyEvent.KEYCODE_UNKNOWN,(int)org.robolectric.util.ReflectionHelpers.getField(view,"sourceClosingKey"));assertEquals(requests,gateway.calls.size());
+    }
+
 }

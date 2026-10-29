@@ -25,7 +25,7 @@ public class VodPlayerControlController {
     }
 
     public boolean hasDanmakuControl() {
-        return player() != null && (DanmakuSetting.isLoad() || player().haveDanmaku());
+        return hasPlayer();
     }
 
     public void applyDanmakuSetting() {
@@ -43,7 +43,7 @@ public class VodPlayerControlController {
 
     public void onDanmakuButton() {
         if (player() == null) return;
-        if (!player().haveDanmaku()) {
+        if (!DanmakuSetting.isLoad() || !player().haveDanmaku()) {
             host.showDanmakuDialog();
             return;
         }

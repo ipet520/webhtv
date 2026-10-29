@@ -47,7 +47,7 @@ public class NativeHomeRoutingContractTest {
     @Test public void titleOnlyAppearanceRowUsesExistingChoiceDialogWithTwoExactChoices() throws Exception {
         String text = Files.readString(src().resolve("leanback/java/com/fongmi/android/tv/ui/dialog/AppearanceDialog.java"));
         assertTrue(text.contains("if (Setting.isLeanbackHomeStyleAvailable())"));
-        assertTrue(text.contains("addRow(content, R.string.setting_native_home_style, \"\", this::chooseHomeStyle).setVisibility(View.GONE)"));
+        assertTrue(text.contains("homeStyleValue = addRow(content, R.string.setting_native_home_style, getHomeStyleText(), this::chooseHomeStyle)"));
         String choice = section(text, "private void chooseHomeStyle(View view)", "void onThemeProfileApplied()");
         assertTrue(choice.contains("ChoiceDialog.showSingle(this, R.string.setting_native_home_style"));
         assertTrue(choice.contains("String[] modes = {getString(R.string.native_home_classic), getString(R.string.native_home_immersive)}"));

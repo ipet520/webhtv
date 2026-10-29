@@ -33,7 +33,6 @@ import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.LoadControl;
 import androidx.media3.exoplayer.Renderer;
 import androidx.media3.exoplayer.RenderersFactory;
-import androidx.media3.exoplayer.audio.AudioCapabilities;
 import androidx.media3.exoplayer.audio.AudioSink;
 import androidx.media3.exoplayer.audio.AudioRendererEventListener;
 import androidx.media3.exoplayer.audio.AudioOutputProvider;
@@ -928,20 +927,11 @@ public class ExoUtil {
             @Nullable PlaybackMediaClock mediaClock) {
         boolean passthrough = PlayerSetting.isAudioPassThrough(PlayerSetting.EXO);
         if (SpiderDebug.isEnabled()) {
-            AudioCapabilities capabilities = AudioCapabilities.getCapabilities(
-                    context.getApplicationContext(), AudioAttributes.DEFAULT, null);
-            int speakerChannels = 0;
-            for (Integer channelMask : capabilities.getSpeakerLayoutChannelMasks()) {
-                if (channelMask != null) speakerChannels = Math.max(
-                        speakerChannels, Integer.bitCount(channelMask));
-            }
+            // Diagnostics must not create/release an AudioTrack just to print capabilities.
             SpiderDebug.log("exo-audio",
-                    "configured passthrough=%s maxChannels=%d speakerChannels=%d speakerMasks=%s ac3=%s",
-                    passthrough,
-                    capabilities.getMaxChannelCount(),
-                    speakerChannels,
-                    capabilities.getSpeakerLayoutChannelMasks(),
-                    capabilities.supportsEncoding(C.ENCODING_AC3));
+                    "configured passthrough=%s floatOutput=%s playbackParams=%s offloadPolicy=%s",
+                    passthrough, enableFloatOutput, enableAudioOutputPlaybackParams,
+                    compressedAudioDirectPolicy != null);
         }
         ExoCompressedAudioDirectPolicy directPolicy =
                 compressedAudioDirectPolicy == null

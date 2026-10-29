@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="native_source_reorder_description">%1$s, reordering: Up/Down move, OK save, Back cancel</string>
+</resources>

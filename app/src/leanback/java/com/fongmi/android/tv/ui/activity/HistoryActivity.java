@@ -240,7 +240,7 @@ public class HistoryActivity extends BaseActivity implements HistoryAdapter.OnCl
             mAdapter.setDelete(false);
             if (mImmersive != null) mImmersive.submit(mAdapter.getItems(), false);
         }
-        else super.onBackInvoked();
+        else if (mImmersive == null || !mImmersive.handleBack()) super.onBackInvoked();
     }
 
 }

@@ -41,6 +41,7 @@ public final class AppearanceDialog extends DialogFragment {
     private String[] imageSizes;
     private final List<Row> rows = new ArrayList<>();
     private MaterialTextView uiScaleValue;
+    private MaterialTextView homeStyleValue;
     private MaterialTextView themeModeValue;
     private MaterialTextView themeValue;
     private MaterialTextView imageSizeValue;
@@ -116,7 +117,7 @@ public final class AppearanceDialog extends DialogFragment {
         imageSizeValue = addRow(content, R.string.setting_size, imageSizes[PlayerSetting.getSize()], this::chooseImageSize);
         languageValue = addRow(content, R.string.setting_language, languages[Setting.getLanguageIndex()], this::chooseLanguage);
         if (Setting.isLeanbackHomeStyleAvailable()) {
-            addRow(content, R.string.setting_native_home_style, "", this::chooseHomeStyle).setVisibility(View.GONE);
+            homeStyleValue = addRow(content, R.string.setting_native_home_style, getHomeStyleText(), this::chooseHomeStyle);
         }
         return content;
     }
@@ -224,12 +225,19 @@ public final class AppearanceDialog extends DialogFragment {
         });
     }
 
+    private String getHomeStyleText() {
+        return getString(Setting.getLeanbackHomeMode() == Setting.LeanbackHomeMode.IMMERSIVE
+                ? R.string.native_home_immersive_short : R.string.native_home_classic_short);
+    }
+
     private void chooseHomeStyle(View view) {
         String[] modes = {getString(R.string.native_home_classic), getString(R.string.native_home_immersive)};
         ChoiceDialog.showSingle(this, R.string.setting_native_home_style, modes,
                 Setting.getLeanbackHomeMode() == Setting.LeanbackHomeMode.IMMERSIVE ? 1 : 0,
-                which -> Setting.putLeanbackHomeMode(which == 1
-                        ? Setting.LeanbackHomeMode.IMMERSIVE : Setting.LeanbackHomeMode.CLASSIC));
+                which -> {
+                    Setting.putLeanbackHomeMode(which == 1 ? Setting.LeanbackHomeMode.IMMERSIVE : Setting.LeanbackHomeMode.CLASSIC);
+                    homeStyleValue.setText(getHomeStyleText());
+                });
     }
 
     void onThemeProfileApplied() {

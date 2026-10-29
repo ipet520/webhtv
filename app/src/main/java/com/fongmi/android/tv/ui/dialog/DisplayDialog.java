@@ -19,6 +19,7 @@ public class DisplayDialog extends BaseAlertDialog {
 
     private DialogDisplayBinding binding;
     private Runnable callback;
+    private com.fongmi.android.tv.theme.ThemeTokens appliedTokens;
     private Mode mode = Mode.DISPLAY;
 
     public static void show(FragmentActivity activity, Runnable callback) {
@@ -43,7 +44,10 @@ public class DisplayDialog extends BaseAlertDialog {
 
     @Override
     protected ViewBinding getBinding() {
-        return binding = DialogDisplayBinding.inflate(getLayoutInflater());
+        binding = DialogDisplayBinding.inflate(getLayoutInflater());
+        // This panel owns paired fill/text state lists; avoid generic color-role guessing.
+        binding.getRoot().setTag("webhtv:ignore");appliedTokens=null;
+        return binding;
     }
 
     @Override
@@ -140,6 +144,31 @@ public class DisplayDialog extends BaseAlertDialog {
         super.onStart();
         if (getDialog() != null && getDialog().getWindow() != null) getDialog().getWindow().setBackgroundDrawableResource(android.R.color.transparent);
         setWidth(ResUtil.isLand(requireContext()) ? DIALOG_WIDTH_LANDSCAPE : DIALOG_WIDTH_PORTRAIT);
+        applyControlTheme();
+    }
+
+    @Override public void onResume(){super.onResume();applyControlTheme();}
+
+    private android.graphics.drawable.GradientDrawable optionShape(int fill,int border,int widthDp){
+        var shape=new android.graphics.drawable.GradientDrawable();shape.setColor(fill);shape.setCornerRadius(ResUtil.dp2px(8));shape.setStroke(ResUtil.dp2px(widthDp),border);return shape;
+    }
+
+    private void applyControlTheme(){
+        if(binding==null)return;
+        var t=com.fongmi.android.tv.theme.ThemeController.current();if(appliedTokens==t)return;appliedTokens=t;
+        var panel=optionShape(t.colorSurfaceContainer(),t.colorOutlineVariant(),1);panel.setCornerRadius(ResUtil.dp2px(22));binding.getRoot().setBackground(panel);
+        ((TextView)binding.getRoot().getChildAt(0)).setTextColor(t.colorOnSurface());
+        int[][] states={{-android.R.attr.state_enabled},{android.R.attr.state_selected,android.R.attr.state_focused},
+                {android.R.attr.state_focused},{android.R.attr.state_selected},{android.R.attr.state_pressed},{}};
+        int[] fills={t.colorSurfaceContainer(),t.colorPrimaryContainer(),t.colorSecondaryContainer(),t.colorPrimaryContainer(),t.colorSecondaryContainer(),t.colorSurfaceContainerHigh()};
+        int[] borders={t.colorOutlineVariant(),t.colorFocus(),t.colorFocus(),t.colorPrimary(),t.colorFocus(),t.colorOutlineVariant()};
+        int[] text={androidx.core.graphics.ColorUtils.setAlphaComponent(t.colorOnSurfaceVariant(),140),t.colorOnPrimaryContainer(),t.colorOnSecondaryContainer(),t.colorOnPrimaryContainer(),t.colorOnSecondaryContainer(),t.colorOnSurface()};
+        for(TextView view:new TextView[]{binding.displayTime,binding.displayTraffic,binding.displaySize,binding.displayProgress,binding.displayMini,binding.displayTitle,binding.displayParams,binding.displayMediaBadges}){
+            var background=new android.graphics.drawable.StateListDrawable();
+            for(int i=0;i<states.length;i++)background.addState(states[i],optionShape(fills[i],borders[i],i==1||i==2||i==4?3:1));
+            view.setBackgroundTintList(null);view.setBackground(background);view.setTextColor(new android.content.res.ColorStateList(states,text));
+            if(android.os.Build.VERSION.SDK_INT>=26)view.setDefaultFocusHighlightEnabled(false);
+        }
     }
 
     private enum Display {

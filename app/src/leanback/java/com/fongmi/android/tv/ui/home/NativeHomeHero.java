@@ -1,5 +1,6 @@
 package com.fongmi.android.tv.ui.home;
 
+
 import android.os.Handler;
 import android.os.Looper;
 import com.fongmi.android.tv.bean.*;
@@ -20,6 +21,7 @@ import java.util.function.Consumer;
 
 /** Optional focused-film enhancement using the existing TMDB service and persisted caches. */
 public final class NativeHomeHero {
+    public static final long FOCUS_SETTLE_MS=180;
     public record Info(String metadata,String overview,String backdrop,String logo,String poster) {
         public Info(String metadata,String overview,String backdrop,String logo) { this(metadata,overview,backdrop,logo,""); }
     }
@@ -76,14 +78,14 @@ public final class NativeHomeHero {
                 else {remember(key);NativeHomeBrowseImages.trace("metadata-ready backdrop="+!info.backdrop().isEmpty()+" logo="+!info.logo().isEmpty(),token);consumer.accept(info);}
             }));
         };
-        if(immediate||visited.contains(focusKey))dwell.run();else handler.postDelayed(dwell,180);
+        if(immediate||visited.contains(focusKey))dwell.run();else handler.postDelayed(dwell,FOCUS_SETTLE_MS);
     }
     private static String key(Site site,Vod vod,TmdbConfig config) {
         return scope(config)+"|"+site.getKey()+"|"+(vod==null?"":NativeHomeBrowseController.identity(vod)+"|"+vod.getName()+"|"+vod.getYear()+"|"+vod.getRemarks()+"|"+vod.getTmdb());
     }
     // Called off main, including manual-binding validation (AppCache is disk-backed).
     private Info loadPrepared(String key,Site site,Vod vod,TmdbConfig config,boolean knownOnly) throws Exception {
-        String language=TmdbLanguagePolicy.requestLanguage(config);
+        String language=TmdbLanguagePolicy.requestLanguage(config, Setting.getLanguage());
         TmdbItem manual=Setting.getTmdbMatchCache().findManual(site.getKey(),vod.getId(),vod.getName(),language);
         String binding=manual==null?"":manual.getMediaType()+":"+manual.getTmdbId();
         Prepared hit=prepared.get(key);long now=android.os.SystemClock.uptimeMillis();
@@ -147,7 +149,7 @@ public final class NativeHomeHero {
         }
         @Override public Info loadKnown(Site site,Vod vod,TmdbConfig config) throws Exception { return load(site,vod,config,false); }
         private Info load(Site site,Vod vod,TmdbConfig config,boolean allowSearch) throws Exception {
-            String language=TmdbLanguagePolicy.requestLanguage(config);
+            String language=TmdbLanguagePolicy.requestLanguage(config, Setting.getLanguage());
             TmdbMatchCache cache=Setting.getTmdbMatchCache();
             TmdbItem manual=cache.findManual(site.getKey(),vod.getId(),vod.getName(),language);
             TmdbSourcePayload payload=TmdbSourcePayloadParser.parse(vod.getTmdb());

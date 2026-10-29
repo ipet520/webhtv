@@ -56,10 +56,11 @@ public class NativeHomeAppearanceTest {
             assertTrue(row.requestFocus());
             assertTrue(row.hasFocus());
             // addRow returns the summary TextView, not the clickable row.
-            assertEquals(View.GONE, row.getChildAt(1).getVisibility());
+            assertEquals(View.VISIBLE, row.getChildAt(1).getVisibility());
+            assertEquals("经典", ((TextView)row.getChildAt(1)).getText().toString());
             List<String> visible = new ArrayList<>();
             collectText(row, visible);
-            assertEquals(List.of("主页样式"), visible);
+            assertEquals(List.of("主页样式", "经典"), visible);
             assertEquals(58 * activity.getResources().getDisplayMetrics().density, row.getLayoutParams().height, 1);
             assertEquals(15 * activity.getResources().getDisplayMetrics().scaledDensity, ((TextView) title).getTextSize(), 1);
             assertNotNull(row.getBackground());
@@ -73,6 +74,7 @@ public class NativeHomeAppearanceTest {
             assertNotNull(immersive);
             clickRow(immersive);
             assertEquals(Setting.LeanbackHomeMode.IMMERSIVE, Setting.getLeanbackHomeMode());
+            assertEquals("沉浸", ((TextView)row.getChildAt(1)).getText().toString());
             appearance.getChildFragmentManager().executePendingTransactions();
             row.performClick();
             appearance.getChildFragmentManager().executePendingTransactions();

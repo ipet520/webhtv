@@ -7,6 +7,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 /**
@@ -91,15 +92,16 @@ public class PythonSpiderDiagnosticsWiringTest {
     public void dependencyFailureKeepsTheBridgeCallGuarded() throws Exception {
         String source = source();
 
-        // 这条断言守的是「catch 住谁」：改回 catch (Exception) 会让 JVM 级 Error 重新逃逸成整站降级，
-        // 而 Spider 的其它 catch 都不是这个形状，所以直接在依赖循环里定位。
+        // Recover ordinary dependency errors, but let fatal JVM Errors propagate.
         int download = source.indexOf("download(item + \".py\");");
-        int caught = source.indexOf("catch (Throwable e)", download);
+        int caught = source.indexOf("catch (Exception e)", download);
 
         assertTrue("the dependency download call must still be present", download > 0);
-        assertTrue("a failed dependency download must not abort init(), including on JVM-level Error",
+        assertTrue("an ordinary dependency download exception must not abort init()",
                 caught > download);
         assertTrue("the catch must be adjacent to the download call", caught - download < 200);
+        assertFalse("dependency failures must not swallow fatal JVM Errors",
+                source.substring(download, caught + 19).contains("catch (Throwable"));
         assertEquals("only the dependency loop should log and rethrow nothing", 1, countOf(source, STRUCTURED));
     }
 

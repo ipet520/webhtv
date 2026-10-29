@@ -39,7 +39,7 @@ public final class NativeHistoryBrowseView extends FrameLayout {
     private Object prepareContext=new Object();
     private int selectedPosition,safeLeft,safeTop,safeRight,safeBottom,direction=1;
     private long revision;
-    private boolean initialized,active=true,released,entryPending;
+    private boolean initialized,active=true,released,entryPending,backFromCards;
     private ThemeTokens appliedTokens;
 
     public NativeHistoryBrowseView(Context context,Actions actions){
@@ -127,7 +127,20 @@ public final class NativeHistoryBrowseView extends FrameLayout {
     public void enter(){if(released)return;if(!active)artIdentity="";active=true;entryPending=true;title.setMarqueeActive(true);preparation.resume();}
     public void active(boolean active){if(this.active==active)return;this.active=active;title.setMarqueeActive(active);if(active){preparation.resume();artIdentity="";if(current!=null)select(current,selectedPosition);}else{artwork.pause();preparation.pause();if(images!=null)images.clear();}}
     public void release(){active(false);released=true;revision++;preparation.clearWindow();artwork.reset();models.clear();if(wall!=null)wall.releaseContentBackground(this);for(int i=0;i<rail.getChildCount();i++)if(rail.getChildViewHolder(rail.getChildAt(i)) instanceof NativeHistoryPosterAdapter.Holder h)adapter.onViewRecycled(h);}
+    public boolean handleBack(){
+        if(released||!active||adapter.deleting||!rail.hasFocus()||rail.getSelectedPosition()<=0||adapter.getItemCount()==0)return false;
+        long token=revision;
+        rail.setSelectedPosition(0,new ViewHolderTask(){@Override public void run(RecyclerView.ViewHolder holder){
+            if(token==revision&&active&&!released&&holder.getBindingAdapterPosition()==0)holder.itemView.requestFocus();
+        }});
+        return true;
+    }
     @Override public boolean dispatchKeyEvent(KeyEvent event){
+        if(event.getKeyCode()==KeyEvent.KEYCODE_BACK&&(backFromCards||(!adapter.deleting&&rail.hasFocus()&&rail.getSelectedPosition()>0))){
+            if(event.getAction()==KeyEvent.ACTION_DOWN)backFromCards=true;
+            if(event.getAction()==KeyEvent.ACTION_UP){backFromCards=false;if(!event.isCanceled())handleBack();}
+            return true;
+        }
         if(event.getAction()==KeyEvent.ACTION_DOWN){int key=event.getKeyCode();
             if(event.getRepeatCount()>0&&(key==KeyEvent.KEYCODE_DPAD_UP||key==KeyEvent.KEYCODE_DPAD_DOWN))return true;
             if(rail.hasFocus()&&((key==KeyEvent.KEYCODE_DPAD_LEFT&&selectedPosition==0)||(key==KeyEvent.KEYCODE_DPAD_RIGHT&&selectedPosition==adapter.getItemCount()-1)))return true;
@@ -137,7 +150,7 @@ public final class NativeHistoryBrowseView extends FrameLayout {
             if(key==KeyEvent.KEYCODE_DPAD_DOWN&&resume.hasFocus()){restore(selectedPosition);return true;}
             if(key==KeyEvent.KEYCODE_DPAD_RIGHT&&deleteButton.hasFocus()){reportButton.requestFocus();return true;}
             if(key==KeyEvent.KEYCODE_DPAD_LEFT&&reportButton.hasFocus()){deleteButton.requestFocus();return true;}
-        }return super.dispatchKeyEvent(event); // BACK intentionally belongs to HistoryActivity, including delete mode.
+        }return super.dispatchKeyEvent(event); // First-card and delete-mode BACK still belong to HistoryActivity.
     }
     @Override protected void onMeasure(int widthSpec,int heightSpec){
         int width=MeasureSpec.getSize(widthSpec),height=MeasureSpec.getSize(heightSpec);setMeasuredDimension(width,height);

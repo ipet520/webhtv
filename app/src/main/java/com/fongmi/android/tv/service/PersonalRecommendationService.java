@@ -1,5 +1,7 @@
 package com.fongmi.android.tv.service;
 
+import com.fongmi.android.tv.utils.TmdbLanguagePolicy;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
@@ -332,7 +334,7 @@ public class PersonalRecommendationService {
                 historySeedFingerprint(seeds),
                 RecommendationFeedbackStore.fingerprint(),
                 Objects.toString(tmdbConfig.getApiBase(), ""),
-                Objects.toString(tmdbConfig.getLanguage(), ""));
+                Objects.toString(TmdbLanguagePolicy.requestLanguage(tmdbConfig, Setting.getLanguage()), ""));
     }
 
     private String doubanCacheKey(@Nullable Vod currentVod) {
@@ -342,7 +344,7 @@ public class PersonalRecommendationService {
                 historySeedFingerprint(seeds),
                 RecommendationFeedbackStore.fingerprint(),
                 Objects.toString(tmdbConfig.getApiBase(), ""),
-                Objects.toString(tmdbConfig.getLanguage(), ""));
+                Objects.toString(TmdbLanguagePolicy.requestLanguage(tmdbConfig, Setting.getLanguage()), ""));
     }
 
     @Nullable
@@ -602,7 +604,7 @@ public class PersonalRecommendationService {
     }
 
     private String tmdbSeedCacheKey(String seed) {
-        return Objects.toString(tmdbConfig.getApiBase(), "") + "|" + Objects.toString(tmdbConfig.getLanguage(), "") + "|" + normalizeTitle(seed);
+        return Objects.toString(tmdbConfig.getApiBase(), "") + "|" + Objects.toString(TmdbLanguagePolicy.requestLanguage(tmdbConfig, Setting.getLanguage()), "") + "|" + normalizeTitle(seed);
     }
 
     private TmdbSeedData readTmdbSeedCache(String key) {

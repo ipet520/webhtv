@@ -52,7 +52,10 @@ public final class NativeHomeModeHost {
         this.functions = functions;
         viewState = savedState;
         preparation=new NativeHomePreparationQueue((vod,completed)->site!=null&&hero.prepareWindow(site.get(),vod,completed),
-            (url,completed)->{if(immersive==null||visualsPaused)completed.accept(false);else immersive.prefetchWindowArtwork(url,completed);});
+            new NativeHomePreparationQueue.Images(){
+                public void start(String url,java.util.function.Consumer<Boolean> completed){if(immersive==null||visualsPaused)completed.accept(false);else immersive.prefetchWindowArtwork(url,completed);}
+                public void logo(String url,java.util.function.Consumer<Boolean> completed){if(immersive==null||visualsPaused)completed.accept(false);else immersive.prefetchWindowLogo(url,completed);}
+            },true);
         hero.setAvailabilityListener(preparation::kick);
     }
 
@@ -87,8 +90,9 @@ public final class NativeHomeModeHost {
                 immersive.showHero(card.id(),info.metadata(),info.overview(),info.backdrop(),info.logo(),info.poster());
                 preparation.currentMetadata(card.vod(),info);
             },()->{if(immersive!=null)immersive.settleFocusedArtwork(card.id());},
-                ()->{if(immersive!=null)immersive.noFocusedBackdrop(card.id());},!immersive.isPosterRailFocused());
+                ()->{if(immersive!=null){immersive.noFocusedBackdrop(card.id());immersive.noFocusedLogo(card.id());}},!immersive.isPosterRailFocused());
         });
+        immersive.setPreparedLogoLookup(preparation::logo);
         if(business!=null)immersive.setPreparationWindowListener(window->preparation.window(window.context(),site.get().getKey()+"|"+NativeHomeHero.scope(com.fongmi.android.tv.bean.TmdbConfig.effectiveCurrent()),window.candidates()));
         preparation.resume();
         refreshFunctions();

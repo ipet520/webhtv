@@ -120,4 +120,19 @@ public class NativeHomePreparationQueueTest {
         assertEquals(2,images.size());assertEquals("wide-A-replacement",images.get(1).url());assertFalse(queue.focus(vod("A")));
         images.get(1).done().accept(true);assertTrue(queue.focus(vod("A")));
     }
+
+    @Test public void optInLogoSharesOneImageSlotAndNeedsNoExtraMetadata(){
+        List<Image> logos=new ArrayList<>();queue=new NativeHomePreparationQueue((vod,done)->{metadata.add(new Meta(vod,done));return true;},new NativeHomePreparationQueue.Images(){
+            public void start(String url,Consumer<Boolean> done){images.add(new Image(url,done));}
+            public void logo(String url,Consumer<Boolean> done){logos.add(new Image(url,done));}
+        },true);
+        queue.window(context,"site",List.of(candidate("A",0),candidate("B",1)));
+        assertNull(queue.logo(vod("A")));metadata.get(0).done().accept(new NativeHomeHero.Info("","","wide-A","logo-A"));
+        assertEquals("logo-A",queue.logo(vod("A")));assertEquals(1,images.size());assertTrue(logos.isEmpty());
+        images.get(0).done().accept(true);assertEquals(1,logos.size());assertEquals(1,metadata.size());
+        advance(750);metadata.get(1).done().accept(new NativeHomeHero.Info("","","","logo-B"));assertEquals(1,logos.size());
+        logos.get(0).done().accept(true);assertEquals("logo-B",logos.get(1).url());logos.get(1).done().accept(true);
+        assertEquals(2,metadata.size());assertEquals(1,images.size());assertEquals(2,logos.size());
+        queue.window(context,"site",List.of(candidate("A",0),candidate("B",1)));assertEquals(2,logos.size());
+    }
 }

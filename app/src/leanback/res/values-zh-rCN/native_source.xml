@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="native_source_reorder_description">%1$s，正在排序：上下移动，确定保存，返回取消</string>
+</resources>

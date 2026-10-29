@@ -11,6 +11,7 @@ import com.fongmi.android.tv.bean.TmdbEpisode;
 import com.fongmi.android.tv.bean.TmdbItem;
 import com.fongmi.android.tv.bean.TmdbPerson;
 import com.fongmi.android.tv.bean.TmdbVideo;
+import com.fongmi.android.tv.setting.Setting;
 import com.fongmi.android.tv.utils.TmdbImageSelector;
 import com.fongmi.android.tv.utils.TmdbLanguagePolicy;
 import com.fongmi.android.tv.utils.TmdbProxy;
@@ -513,7 +514,7 @@ public class TmdbService {
             if (seasonNumber >= 0) addVideos(values, () -> seasonVideos(item, seasonNumber, config), "season", item);
             addVideos(values, () -> seriesVideos(item, config), "series", item);
         }
-        return TmdbVideo.mergeAndRank(values, config.getLanguage(), 12);
+        return TmdbVideo.mergeAndRank(values, TmdbLanguagePolicy.requestLanguage(config, Setting.getLanguage()), 12);
     }
 
     private List<TmdbVideo> requestVideos(TmdbItem item, String path, TmdbVideo.Scope scope, int seasonNumber, int episodeNumber, TmdbConfig config) throws Exception {
@@ -644,8 +645,12 @@ public class TmdbService {
         return null;
     }
 
+    /**
+     * 请求语言与缓存分键共用同一个判定，两者必须同源：一旦不一致，
+     * 不同语言的响应用同一个键落盘，会把简体标题当成繁体的缓存命中。
+     */
     private String requestLanguage(TmdbConfig config) {
-        return TmdbLanguagePolicy.requestLanguage(config);
+        return TmdbLanguagePolicy.requestLanguage(config, Setting.getLanguage());
     }
 
     public List<TmdbItem> personWorks(JsonObject person, @NonNull TmdbConfig config) {
@@ -989,7 +994,7 @@ public class TmdbService {
     }
 
     private String cacheLanguage(TmdbConfig config) {
-        return TmdbLanguagePolicy.requestLanguage(config);
+        return requestLanguage(config);
     }
 
     private boolean isOnAir(JsonObject detail) {
@@ -1154,9 +1159,9 @@ public class TmdbService {
         String current = string(detail, "biography");
         if (!TextUtils.isEmpty(current)) return current;
         JsonArray translations = array(detail, "translations", "translations");
-        String preferred = biographyForLanguage(translations, config.getLanguage());
+        String preferred = biographyForLanguage(translations, TmdbLanguagePolicy.requestLanguage(config, Setting.getLanguage()));
         if (!TextUtils.isEmpty(preferred)) return preferred;
-        preferred = biographyForLanguage(translations, languageRoot(config.getLanguage()));
+        preferred = biographyForLanguage(translations, languageRoot(TmdbLanguagePolicy.requestLanguage(config, Setting.getLanguage())));
         if (!TextUtils.isEmpty(preferred)) return preferred;
         preferred = biographyForLanguage(translations, "zh-CN");
         if (!TextUtils.isEmpty(preferred)) return preferred;

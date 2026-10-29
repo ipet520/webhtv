@@ -53,6 +53,16 @@ public class SiteDialog extends BaseAlertDialog implements SiteAdapter.OnClickLi
 
     private static String selectedGroup = "";
 
+    /** One process-local selection shared by the two Leanback presentations. */
+    public static String rememberedGroup(List<String> available) {
+        if (available == null || !available.contains(selectedGroup)) selectedGroup = "";
+        return selectedGroup;
+    }
+
+    public static void rememberGroup(String group) {
+        selectedGroup = group == null ? "" : group.trim();
+    }
+
     private RecyclerView.ItemDecoration decoration;
     private DialogSiteBinding binding;
     private FragmentActivity activity;

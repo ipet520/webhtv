@@ -30,6 +30,7 @@ import okhttp3.Response;
 public class DanmakuApi {
 
     private static final String TAG = DanmakuApi.class.getSimpleName();
+    private static final java.util.concurrent.atomic.AtomicLong searchGeneration = new java.util.concurrent.atomic.AtomicLong();
 
     public static boolean canSearch() {
         return DanmakuSetting.isLoad() && DanmakuSetting.isAuto() && DanmakuSetting.hasValidApiUrl();
@@ -40,9 +41,13 @@ public class DanmakuApi {
     }
 
     public static Call newCall(String name, String episode) {
+        cancel();
+        return createCall(name, episode);
+    }
+
+    private static Call createCall(String name, String episode) {
         String url = DanmakuSetting.getValidApiUrl();
         if (TextUtils.isEmpty(url)) return null;
-        OkHttp.cancel(TAG);
         name = Trans.t2s(false, name);
         episode = Trans.t2s(false, episode);
         try {
@@ -87,13 +92,14 @@ public class DanmakuApi {
     }
 
     public static void search(String name, String episode, Consumer<Danmaku> found) {
-        Call call = newCall(name, episode);
+        long generation = beginSearch();
+        Call call = createCall(name, episode);
         if (call == null) return;
         call.enqueue(new Callback() {
             @Override
             public void onResponse(@NonNull Call call, @NonNull Response response) {
                 try {
-                    arrayFrom(response.body().string()).stream().findFirst().ifPresent(item -> App.post(() -> found.accept(item)));
+                    arrayFrom(response.body().string()).stream().findFirst().ifPresent(item -> App.post(() -> {if (generation == searchGeneration.get() && !call.isCanceled()) found.accept(item);}));
                 } catch (Exception ignored) {
                 }
             }
@@ -102,9 +108,11 @@ public class DanmakuApi {
 
     public static void search(MediaTitleRequest request, Consumer<Danmaku> found) {
         if (request == null || found == null) return;
+        long generation = beginSearch();
+        Consumer<Danmaku> current = item -> {if (generation == searchGeneration.get()) found.accept(item);};
         Danmaku cached = Setting.getDanmakuMatchCache().find(request.getSiteKey(), request.getVodId(), request.getEpisodeName());
         if (cached != null && !cached.isEmpty()) {
-            App.post(() -> found.accept(cached));
+            App.post(() -> current.accept(cached));
             return;
         }
         MediaTitleResolver resolver = new MediaTitleResolver();
@@ -113,17 +121,17 @@ public class DanmakuApi {
         List<String> titles = resolver.queryTitles(request, 3);
         titles.addAll(0, manualTitles);
         if (SpiderDebug.isEnabled()) SpiderDebug.log("danmaku", "resolved titles raw=%s episode=%s titles=%s", request.getRawTitle(), request.getEpisodeName(), titles);
-        searchFirst(titles, request.getEpisodeName(), 0, found, () -> {
+        searchFirst(titles, request.getEpisodeName(), 0, current, () -> {
             List<String> cleanedTitles = resolver.queryCleanedTitles(request, 3);
             cleanedTitles.removeIf(title -> containsTitle(titles, title));
             if (SpiderDebug.isEnabled()) SpiderDebug.log("danmaku", "cleaned fallback titles raw=%s episode=%s titles=%s", request.getRawTitle(), request.getEpisodeName(), cleanedTitles);
-            searchFirst(cleanedTitles, request.getEpisodeName(), 0, found, () -> {
+            searchFirst(cleanedTitles, request.getEpisodeName(), 0, current, () -> {
                 List<String> fallbackTitles = resolver.queryAiFallbackTitles(request, 3);
                 fallbackTitles.removeIf(title -> containsTitle(titles, title) || containsTitle(cleanedTitles, title));
                 if (SpiderDebug.isEnabled()) SpiderDebug.log("danmaku", "ai fallback titles raw=%s episode=%s titles=%s", request.getRawTitle(), request.getEpisodeName(), fallbackTitles);
-                searchFirst(fallbackTitles, request.getEpisodeName(), 0, found, null);
-            });
-        });
+                searchFirst(fallbackTitles, request.getEpisodeName(), 0, current, null, generation);
+            }, generation);
+        }, generation);
     }
 
     private static boolean containsTitle(List<String> titles, String title) {
@@ -141,14 +149,15 @@ public class DanmakuApi {
         return titles;
     }
 
-    private static void searchFirst(List<String> titles, String episode, int index, Consumer<Danmaku> found, Runnable exhausted) {
+    private static void searchFirst(List<String> titles, String episode, int index, Consumer<Danmaku> found, Runnable exhausted, long generation) {
+        if (generation != searchGeneration.get()) return;
         if (titles == null || index >= titles.size()) {
             if (exhausted != null) exhausted.run();
             return;
         }
-        Call call = newCall(titles.get(index), episode);
+        Call call = createCall(titles.get(index), episode);
         if (call == null) {
-            searchFirst(titles, episode, index + 1, found, exhausted);
+            searchFirst(titles, episode, index + 1, found, exhausted, generation);
             return;
         }
         call.enqueue(new Callback() {
@@ -159,21 +168,27 @@ public class DanmakuApi {
                     if (!items.isEmpty()) {
                         App.post(() -> found.accept(items.get(0)));
                     } else {
-                        searchFirst(titles, episode, index + 1, found, exhausted);
+                        searchFirst(titles, episode, index + 1, found, exhausted, generation);
                     }
                 } catch (Exception e) {
-                    searchFirst(titles, episode, index + 1, found, exhausted);
+                    searchFirst(titles, episode, index + 1, found, exhausted, generation);
                 }
             }
 
             @Override
             public void onFailure(@NonNull Call call, @NonNull IOException e) {
-                searchFirst(titles, episode, index + 1, found, exhausted);
+                searchFirst(titles, episode, index + 1, found, exhausted, generation);
             }
         });
     }
 
-    public static void cancel() {
+    private static long beginSearch() {
+        long generation = searchGeneration.incrementAndGet();
         OkHttp.cancel(TAG);
+        return generation;
+    }
+
+    public static void cancel() {
+        beginSearch();
     }
 }

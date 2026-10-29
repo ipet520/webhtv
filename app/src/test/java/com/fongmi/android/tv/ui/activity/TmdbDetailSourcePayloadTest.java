@@ -57,7 +57,7 @@ public class TmdbDetailSourcePayloadTest {
                 source.contains("if (hasCompleteSourceEpisode(detailSeasonNumber, detailEpisodeNumber))"));
         assertTrue("complete video groups must use the embedded resolver instead of the network service",
                 source.contains("boolean sourceComplete = hasCompleteSourceVideos(item, requestSeasonNumber, requestEpisodeNumber);")
-                        && source.contains("? TmdbSourceAdapter.videos(sourceDetail, item.getMediaType(), requestSeasonNumber, requestEpisodeNumber, tmdbConfig.getLanguage())")
+                        && source.contains("? TmdbSourceAdapter.videos(sourceDetail, item.getMediaType(), requestSeasonNumber, requestEpisodeNumber, TmdbLanguagePolicy.requestLanguage(tmdbConfig, Setting.getLanguage()))")
                         && source.contains(": tmdbService.relatedVideos(item, requestSeasonNumber, requestEpisodeNumber, tmdbConfig);"));
     }
 

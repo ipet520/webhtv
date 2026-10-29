@@ -38,7 +38,7 @@ public class NativeHistoryBrowseTest {
     }
     @Test public void topResumeRailNavigationAndHistoryBackRemainSeparate()throws Exception{
         view.submit(List.of(item("one"),item("two")),false);settle();key(KeyEvent.KEYCODE_DPAD_UP);assertTrue(view.resume.hasFocus());key(KeyEvent.KEYCODE_DPAD_UP);assertTrue(view.deleteButton.hasFocus());key(KeyEvent.KEYCODE_DPAD_RIGHT);assertTrue(view.reportButton.hasFocus());key(KeyEvent.KEYCODE_DPAD_LEFT);assertTrue(view.deleteButton.hasFocus());key(KeyEvent.KEYCODE_DPAD_DOWN);assertTrue(view.resume.hasFocus());key(KeyEvent.KEYCODE_DPAD_DOWN);assertTrue(view.rail.hasFocus());
-        view.rail.setSelectedPosition(1);layout();assertFalse(view.dispatchKeyEvent(new KeyEvent(KeyEvent.ACTION_DOWN,KeyEvent.KEYCODE_BACK)));assertEquals(1,view.rail.getSelectedPosition());
+        view.rail.setSelectedPosition(1);layout();assertTrue(view.dispatchKeyEvent(new KeyEvent(KeyEvent.ACTION_DOWN,KeyEvent.KEYCODE_BACK)));view.dispatchKeyEvent(new KeyEvent(KeyEvent.ACTION_UP,KeyEvent.KEYCODE_BACK));layout();assertEquals(0,view.rail.getSelectedPosition());
         view.deleteButton.performClick();view.reportButton.performClick();assertEquals(1,manages);assertEquals(1,reports);
     }
     @Test public void reorderDeleteAndEmptyRestoreByOriginalDisplayIdentity()throws Exception{
@@ -74,4 +74,20 @@ public class NativeHistoryBrowseTest {
             android.graphics.Bitmap bitmap=android.graphics.Bitmap.createBitmap(1920,1080,android.graphics.Bitmap.Config.ARGB_8888);parent.draw(new android.graphics.Canvas(bitmap));try(var out=new java.io.FileOutputStream(new java.io.File(folder,"native-history-layout.png"))){bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG,100,out);}bitmap.recycle();wall.releaseContentBackground(view);
         }
     }
+    void back(){view.dispatchKeyEvent(new KeyEvent(KeyEvent.ACTION_DOWN,KeyEvent.KEYCODE_BACK));view.dispatchKeyEvent(new KeyEvent(KeyEvent.ACTION_UP,KeyEvent.KEYCODE_BACK));layout();}
+    @Test public void backFromSecondTenthAndLongListEndReallyFocusesFirstWithoutRebuilding()throws Exception{
+        List<History> data=new ArrayList<>();for(int i=0;i<80;i++)data.add(item("long"+i));view.submit(data,false);settle();Object adapter=view.rail.getAdapter();
+        for(int index:new int[]{1,9,79}){view.restore(index);layout();assertTrue(view.rail.hasFocus());back();assertEquals(0,view.rail.getSelectedPosition());assertTrue(view.rail.findViewHolderForAdapterPosition(0).itemView.hasFocus());assertTrue(view.rail.findViewHolderForAdapterPosition(0).itemView.getLeft()>=0);assertSame(adapter,view.rail.getAdapter());assertEquals(80,view.adapter.getItemCount());}
+        assertFalse(view.handleBack());key(KeyEvent.KEYCODE_DPAD_UP);assertTrue(view.resume.hasFocus());key(KeyEvent.KEYCODE_DPAD_DOWN);assertTrue(view.rail.hasFocus());
+    }
+    @Test public void overlaysAndDeleteModeTakeBackBeforeFirstCardNavigation()throws Exception{
+        view.submit(List.of(item("a"),item("b")),false);settle();view.restore(1);layout();
+        for(String label:new String[]{"History management","Delete confirmation"}){var popup=new com.fongmi.android.tv.theme.WebHtvAlertDialogBuilder(activity).setMessage(label).setNegativeButton("Cancel",(d,w)->{}).create();popup.show();popup.onBackPressed();assertFalse(popup.isShowing());assertEquals(1,view.rail.getSelectedPosition());}
+        view.submit(List.of(item("a"),item("b")),true);settle();assertFalse(view.handleBack());assertFalse(view.dispatchKeyEvent(new KeyEvent(KeyEvent.ACTION_DOWN,KeyEvent.KEYCODE_BACK)));
+    }
+    @Test public void emptySingleAndUpdateDuringBackNeverUseInvalidHolder()throws Exception{
+        view.submit(List.of(),false);settle();assertFalse(view.handleBack());view.submit(List.of(item("a")),false);settle();assertFalse(view.handleBack());
+        view.submit(List.of(item("a"),item("b"),item("c")),false);settle();view.restore(2);layout();assertTrue(view.handleBack());view.submit(List.of(item("a")),false);settle();assertEquals(1,view.adapter.getItemCount());assertEquals(0,view.rail.getSelectedPosition());assertTrue(view.rail.hasFocus());
+    }
+
 }

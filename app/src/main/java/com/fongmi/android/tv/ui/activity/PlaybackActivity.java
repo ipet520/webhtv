@@ -250,20 +250,28 @@ public abstract class PlaybackActivity extends BaseActivity implements MediaCont
         syncKeepScreenOn();
     }
 
+    private int controllerPlaybackState() {
+        // Service binding precedes the asynchronous controller connection; release also clears it.
+        // Missing controller is not ready, rather than paused/ended or a completed buffer.
+        MediaController controller = mController;
+        return controller == null ? Player.STATE_IDLE : controller.getPlaybackState();
+    }
+
     protected boolean isIdle() {
-        return mController.getPlaybackState() == Player.STATE_IDLE;
+        return controllerPlaybackState() == Player.STATE_IDLE;
     }
 
     protected boolean isEnded() {
-        return mController.getPlaybackState() == Player.STATE_ENDED;
+        return controllerPlaybackState() == Player.STATE_ENDED;
     }
 
     protected boolean isBuffering() {
-        return mController.getPlaybackState() == Player.STATE_BUFFERING;
+        return controllerPlaybackState() == Player.STATE_BUFFERING;
     }
 
     protected boolean isPaused() {
-        return !isBuffering() && !isIdle();
+        int state = controllerPlaybackState();
+        return state != Player.STATE_BUFFERING && state != Player.STATE_IDLE;
     }
 
     @Override
